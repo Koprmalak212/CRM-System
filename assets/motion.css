@@ -138,7 +138,7 @@ tbody tr.row-exit { animation: row-exit .42s ease-in-out both; }
 }
 
 /* ---------- Living background: two soft navy lights drift slowly behind the page ---------- */
-body { background: transparent; }
+html body.bg-ground, html body { background-color: transparent; }
 body::before, body::after {
   content: ""; position: fixed; z-index: -1; pointer-events: none; width: 70vmax; height: 70vmax; border-radius: 50%;
   filter: blur(60px); will-change: transform;
