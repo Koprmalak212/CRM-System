@@ -99,15 +99,6 @@
   const hdr = $('header.sticky');
   if (hdr) { const f = () => hdr.classList.toggle('scrolled', scrollY > 6); f(); addEventListener('scroll', f, { passive: true }); }
 
-  /* 3c. A soft light follows the cursor over cards */
-  if (!reduce) {
-    $$('main .rounded-2xl, main .rounded-3xl').slice(0, 40).forEach(c => {
-      if (getComputedStyle(c).position !== 'static') return;
-      c.classList.add('glow');
-      c.addEventListener('pointermove', e => { const r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px'); }, { passive: true });
-    });
-  }
-
   /* 3d. Disclosures open with a spring instead of snapping */
   if (!reduce) $$('details').forEach(d => {
     const sum = d.querySelector(':scope > summary'); if (!sum) return;
