@@ -62,7 +62,9 @@ function demo_seed(PDO $pdo): array
         $first = ['Amara','Liam','Noor','Mateo','Priya','Jonas','Ines','Kofi','Elena','Tariq','Sofia','Hugo','Mei','Dario','Lena','Omar','Zoe','Felix','Aisha','Ravi','Clara','Nico','Yara','Ethan','Maja','Idris','Freya','Luca','Hana','Theo'];
         $last = ['Okafor','Visser','Haddad','Alvarez','Nair','Berg','Costa','Mensah','Petrov','Rahman','Rossi','Martin','Chen','Ferri','Weber','Khalil','Brooks','Hartman','Siddiqui','Patel','Dubois','Janssen','Farouk','Novak','Larsen','Bakker','Moreau','Silva','Sato','Dijkstra'];
         $countries = ['Netherlands','Germany','Belgium','France','Spain','Italy','Poland','Sweden','Portugal','Ireland'];
-        $ins = $pdo->prepare('INSERT IGNORE INTO users (name, email, role, status, country, logins, last_seen, created_at, is_demo) VALUES (?,?,?,?,?,?,?,?,1)');
+        $ins = $pdo->prepare('INSERT IGNORE INTO users (name, email, role, status, country, logins, last_seen, created_at, company, job_title, phone, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)');
+        $companies = ['Nova Accountants','Lijnbaan Logistics','Brouwer & Zonen','Rhine Valley Software','Atlas Verzekeringen','Polder Energie','Zuiderzee Foods','Delta Medical Group','Tulp Design Studio','Kade Bouw BV','Meridian Telecom Partners','Eurobridge Trading','Vonk Installatietechniek','Noordlicht Media'];
+        $titles = ['Office manager','IT manager','Finance lead','Operations director','Account manager','Network engineer','Customer success','Owner','Project coordinator','System administrator'];
         $used = [];
         for ($i = 0; $i < 72; $i++) {
             $f = demo_pick($first); $l = demo_pick($last);
@@ -74,7 +76,7 @@ function demo_seed(PDO $pdo): array
             $seen = $status === 'pending' ? $created : mt_rand(30, 20 * 86400);
             if ($status === 'active' && mt_rand(0, 100) < 55) { $seen = mt_rand(20, 6 * 3600); }
             $seen = min($seen, $created);
-            $ins->execute([$f . ' ' . $l, $email, demo_weighted(['viewer' => 40, 'editor' => 28, 'support' => 20, 'admin' => 12]), $status, demo_pick($countries), $status === 'pending' ? 0 : mt_rand(3, 900), demo_ts($seen), demo_ts($created)]);
+            $ins->execute([$f . ' ' . $l, $email, demo_weighted(['viewer' => 40, 'editor' => 28, 'support' => 20, 'admin' => 12]), $status, demo_pick($countries), $status === 'pending' ? 0 : mt_rand(3, 900), demo_ts($seen), demo_ts($created), demo_pick($companies), demo_pick($titles), '+31 6 ' . mt_rand(1000, 9999) . ' ' . mt_rand(1000, 9999)]);
         }
         $userIds = $pdo->query('SELECT id FROM users WHERE is_demo = 1')->fetchAll(PDO::FETCH_COLUMN);
 

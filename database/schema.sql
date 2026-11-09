@@ -247,3 +247,6 @@ CREATE TABLE kuma_heartbeats (
   KEY idx_key_at (monitor_key, at),
   KEY idx_important (important, at)
 ) ENGINE=InnoDB;
+
+-- Company details for each user (shown in the Users list and on the user's own page).
+ALTER TABLE users ADD COLUMN company VARCHAR(120) NOT NULL DEFAULT '', ADD COLUMN job_title VARCHAR(80) NOT NULL DEFAULT '', ADD COLUMN phone VARCHAR(40) NOT NULL DEFAULT '', ADD KEY idx_company (company);
