@@ -1,0 +1,18 @@
+Third-party material used by Telecomlijn Admin
+
+Tailwind CSS 3.4.17 (assets/vendor/tailwind-3.4.17.js)
+  MIT License. Copyright (c) Tailwind Labs, Inc.
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+Hanken Grotesk (assets/fonts/)
+  SIL Open Font License 1.1. See assets/fonts/OFL.txt.
+
+Icons (drawn as inline SVG in includes/bootstrap.php)
+  Shapes follow the Lucide icon set, ISC License. Copyright (c) for Lucide Contributors, and portions Copyright (c) 2013-2022 Cole Bemis (Feather), MIT.
+  Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+
+Telecomlijn logos (assets/telecomlijn-logo-*.png)
+  Owned by Telecomlijn. Used in this internal tool by the owner's own permission.
+
+Profile picture (assets/avatars/oia-cat.gif)
+  Animated GIF from Tenor (https://tenor.com/view/oia-uia-oia-cat-uia-cat-catcultclassics-gif-12805916815008299407), chosen by the account owner as a personal avatar. The rights belong to its original creator; replace it if this tool is shown outside the team.

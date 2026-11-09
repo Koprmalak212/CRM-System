@@ -1,0 +1,278 @@
+/*
+ * Motion system for Telecomlijn Admin, built on Disney's 12 principles.
+ *
+ * Easing tokens (the heart of the fluidity)
+ *   --ease-spring  a real damped spring (CSS linear() easing, about 8% overshoot, settles cleanly): follow-through
+ *   --ease-bounce  a livelier spring (about 16% overshoot) for small, playful things
+ *   --ease-out     slow in / slow out for confident arrivals
+ *   --ease-in      accelerate away: anticipation and exits (exits are shorter than entrances)
+ *   Older browsers without linear() fall back to a cubic-bezier with a similar feel.
+ *
+ * Where each principle lives
+ *   Squash & stretch ..... buttons on press, sidebar pill while it travels, ribbon bars and chart columns as they rise
+ *   Anticipation ......... button wind-up on press, table row pulls back before it leaves, details panel drops before it opens
+ *   Staging .............. panels arrive in reading order, children after their parent, one focal sequence per page
+ *   Straight-ahead /
+ *   pose-to-pose ......... keyframed bar rise, keyframed toast arc
+ *   Follow through &
+ *   overlapping action ... springs settle after they arrive, lists cascade, numbers overshoot, tooltip trails the cursor
+ *   Slow in & slow out ... every curve eases; the only linear motion is the toast countdown, which is a clock
+ *   Arcs ................. the toast travels along a curve, the pill leans into its move
+ *   Secondary action ..... icons nudge while their button lifts, status dots breathe, a light follows the cursor on cards
+ *   Timing ............... 90ms press, 150-350ms feedback, 450-700ms entrances, exits faster than entrances
+ *   Exaggeration ......... small and controlled: this is a working tool
+ *   Solid drawing ........ lift, shadow and a lit edge on hover so surfaces feel like objects
+ *   Appeal ............... one consistent personality across every state
+ */
+:root {
+  --ease-spring: linear(0, 0.0132, 0.049, 0.1023, 0.1685, 0.2433, 0.3234, 0.4056, 0.4875, 0.567, 0.6426, 0.713, 0.7775, 0.8356, 0.8869, 0.9314, 0.9693, 1.0008, 1.0264, 1.0465, 1.0616, 1.0723, 1.0792, 1.0827, 1.0835, 1.082, 1.0787, 1.074, 1.0683, 1.0619, 1.0552, 1.0483, 1.0415, 1.0349, 1.0287, 1.0229, 1.0176, 1.0129, 1.0087, 1.0051, 1.002, 0.9995, 0.9974, 0.9958, 1);
+  --ease-bounce: linear(0, 0.0203, 0.0753, 0.1563, 0.2552, 0.3647, 0.4785, 0.5913, 0.6989, 0.798, 0.8864, 0.9626, 1.0258, 1.0762, 1.114, 1.1402, 1.1559, 1.1626, 1.1616, 1.1544, 1.1426, 1.1273, 1.1099, 1.0915, 1.073, 1.0551, 1.0384, 1.0233, 1.0102, 0.9991, 0.9902, 0.9833, 0.9784, 0.9753, 0.9737, 0.9735, 0.9743, 0.976, 0.9783, 0.9811, 0.984, 0.987, 0.99, 0.9928, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in: cubic-bezier(.5, 0, .75, 0);
+  --ease-smooth: cubic-bezier(.45, 0, .2, 1);
+}
+@supports not (transition-timing-function: linear(0, 1)) {
+  :root { --ease-spring: cubic-bezier(.34, 1.3, .64, 1); --ease-bounce: cubic-bezier(.34, 1.56, .64, 1); }
+}
+
+/* ---------- Page transitions: header and sidebar stay, content swaps ---------- */
+@view-transition { navigation: auto; }
+#sidebar { view-transition-name: sidebar; }
+header.sticky { view-transition-name: topbar; }
+#main { view-transition-name: main; }
+::view-transition-group(sidebar), ::view-transition-group(topbar) { animation-duration: 0s; }
+::view-transition-old(main) { animation: vt-out 150ms var(--ease-in) both; }
+::view-transition-new(main) { animation: vt-in 520ms var(--ease-spring) both; }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-8px) scale(.995); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(14px); } }
+
+/* ---------- Staged entrance: panels cascade in reading order, then their children follow ---------- */
+.js .rise:not(.in) { opacity: 0; animation: none; }
+.reveal-all .rise { opacity: 1 !important; }
+.rise.in { animation: rise .75s var(--ease-spring) backwards; animation-delay: var(--d, 0ms); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(20px) scale(.985); }
+  35%  { opacity: 1; }
+  to   { opacity: 1; transform: none; }
+}
+/* children of a revealed panel (list rows, stat cells, chips) follow through one after another */
+.js .rise:not(.in) .stg { opacity: 0; }
+.rise.in .stg { animation: stg-in .6s var(--ease-spring) backwards; animation-delay: calc(var(--d, 0ms) + 140ms + var(--si, 0) * 42ms); }
+@keyframes stg-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* ---------- Bars: squash and stretch, pose to pose, overlapping stagger ---------- */
+.grow { transform-origin: 50% 100%; animation: grow .8s var(--ease-out) backwards; }
+@keyframes grow {
+  0%   { transform: scaleY(.04) scaleX(1.3); }   /* squashed on the ground */
+  55%  { transform: scaleY(1.14) scaleX(.92); }  /* stretched past the target */
+  78%  { transform: scaleY(.97) scaleX(1.02); }  /* settle back */
+  100% { transform: none; }
+}
+/* Hover wave: neighbours lift one after another */
+.ribbon-row .bar { transition: transform .6s var(--ease-spring), filter .2s; transition-delay: calc(var(--i, 0) * 9ms); }
+.ribbon-row:hover .bar { transform: translateY(-3px) scaleY(1.1); }
+.ribbon-row .bar:hover { filter: brightness(1.25); }
+/* Chart: focus one column, the rest step back */
+.chart .col { transition: transform .5s var(--ease-spring), opacity .3s var(--ease-out); transform-origin: 50% 100%; }
+.chart:hover .col { opacity: .5; }
+.chart .col:hover { opacity: 1; transform: translateY(-4px) scaleX(1.12); }
+
+/* ---------- Pressable controls: anticipation, squash on press, spring on release ---------- */
+button:not(:disabled), a.pressable {
+  transition: transform .55s var(--ease-spring), box-shadow .3s var(--ease-out), background-color .25s var(--ease-smooth), filter .2s, color .2s, border-color .25s;
+}
+button:not(:disabled):hover, a.pressable:hover { transform: translateY(-1.5px); }
+button:not(:disabled):active, a.pressable:active {
+  transform: translateY(1px) scale(.96, .92);           /* anticipation: wind down before the action fires */
+  transition-duration: .09s;
+  transition-timing-function: var(--ease-in);
+}
+a[class*="rounded-xl"][class*="px-"]:not(.nav-item), a[class*="rounded-full"][class*="px-"], a[class*="rounded-lg"][class*="px-"] { transition: transform .55s var(--ease-spring), background-color .25s var(--ease-smooth), color .2s; }
+a[class*="rounded-xl"][class*="px-"]:not(.nav-item):hover, a[class*="rounded-full"][class*="px-"]:hover, a[class*="rounded-lg"][class*="px-"]:hover { transform: translateY(-1.5px); }
+a[class*="rounded-xl"][class*="px-"]:not(.nav-item):active, a[class*="rounded-full"][class*="px-"]:active, a[class*="rounded-lg"][class*="px-"]:active {
+  transform: translateY(1px) scale(.96, .92); transition-duration: .09s; transition-timing-function: var(--ease-in);
+}
+button.bg-lime:hover { box-shadow: 0 10px 22px -8px rgba(199, 243, 107, .6); }
+/* a pressed submit button shows a spinner while the server works */
+button.is-busy { opacity: .85; pointer-events: none; position: relative; color: transparent !important; }
+button.is-busy::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 1.1rem; height: 1.1rem; margin: -.55rem 0 0 -.55rem;
+  border-radius: 50%; border: 2.5px solid currentColor; border-top-color: transparent; color: #111D36; animation: spin .7s linear infinite;
+}
+button.is-busy:not(.bg-lime)::after { color: #EEF2FA; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Secondary action: icons move with their button */
+svg[class*="icon-"] { transition: transform .55s var(--ease-spring); }
+a:hover > .icon-arrow, button:hover > .icon-arrow { transform: translateX(4px); }
+a:hover > .icon-plus, button:hover > .icon-plus { transform: rotate(90deg); }
+a:hover > .icon-x, button:hover > .icon-x { transform: rotate(90deg) scale(1.1); }
+a:hover > .icon-download, button:hover > .icon-download { transform: translateY(2px); }
+a:hover > .icon-logout, button:hover > .icon-logout, button:hover .icon-logout { transform: translateX(2px); }
+
+/* ---------- Sidebar pill: leans into its move (squash and stretch is done in script), then settles ---------- */
+.nav-ind {
+  position: absolute; left: 12px; top: 0; width: calc(100% - 24px); height: 44px; border-radius: 12px;
+  background: rgba(255, 255, 255, .1); opacity: 0; pointer-events: none; translate: 0 0; transition: opacity .25s var(--ease-smooth);
+}
+.nav-ind.on { opacity: 1; }
+.nav-item svg { transition: transform .55s var(--ease-spring); }
+.nav-item:hover svg { transform: scale(1.14) rotate(-5deg); }
+
+/* ---------- Surfaces: lift, lit edge, light that follows the cursor ---------- */
+.stat-grid > a { transition: background-color .3s var(--ease-smooth); }
+.stat-grid > a dd:nth-of-type(1) { transition: transform .6s var(--ease-spring); transform-origin: left bottom; }
+.stat-grid > a:hover dd:nth-of-type(1) { transform: scale(1.07); }
+.glow { position: relative; isolation: isolate; }
+.glow::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: 0; pointer-events: none;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(199, 243, 107, .10), transparent 70%); transition: opacity .35s var(--ease-smooth);
+}
+.glow:hover::before { opacity: 1; }
+.lift { transition: transform .6s var(--ease-spring), box-shadow .4s var(--ease-out), border-color .3s; }
+.lift:hover { transform: translateY(-3px); border-color: rgba(199, 243, 107, .35); box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 34px -14px rgba(0,0,0,.65); }
+tbody tr { transition: background-color .25s var(--ease-smooth); }
+tbody tr td:first-child { transition: padding-left .45s var(--ease-spring); }
+tbody tr:hover td:first-child { padding-left: 1.2rem; }
+tbody tr.row-in { animation: row-in .55s var(--ease-spring) backwards; animation-delay: calc(var(--i, 0) * 26ms); }
+@keyframes row-in { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+tbody tr.row-exit { animation: row-exit .42s ease-in-out both; }
+@keyframes row-exit {                      /* anticipation, then away */
+  0%   { transform: none; opacity: 1; }
+  28%  { transform: translateX(-14px); opacity: 1; }
+  100% { transform: translateX(80px); opacity: 0; }
+}
+
+/* ---------- Header: gains depth once the page scrolls under it ---------- */
+header.sticky { transition: box-shadow .35s var(--ease-smooth), background-color .35s var(--ease-smooth); }
+header.sticky.scrolled { box-shadow: 0 12px 28px -18px rgba(0, 0, 0, .8); background-color: rgba(10, 18, 38, .98); }
+
+/* ---------- Toast: arrives along an arc, counts down, leaves quickly ---------- */
+.toast { animation: toast-in .8s var(--ease-spring) backwards; overflow: hidden; }
+@keyframes toast-in {
+  0%   { opacity: 0; transform: translate(48px, -28px) rotate(3.5deg) scale(.94); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+.toast.toast-out { animation: toast-out .28s var(--ease-in) forwards; }
+@keyframes toast-out { to { opacity: 0; transform: translate(30px, -12px) rotate(2deg) scale(.97); } }
+.toast-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: currentColor; opacity: .35; transform-origin: left; animation: toast-count 4.8s linear forwards; }
+@keyframes toast-count { to { transform: scaleX(0); } }
+
+/* ---------- Status dots breathe when something needs you, and when everything is fine ---------- */
+.dot-pulse { animation: dot-pulse 2.2s ease-in-out infinite; }
+@keyframes dot-pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.dot-live { animation: dot-live 3.2s ease-in-out infinite; }
+@keyframes dot-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(199, 243, 107, .55); transform: scale(1); }
+  50% { box-shadow: 0 0 0 6px rgba(199, 243, 107, 0); transform: scale(1.12); }
+}
+
+/* ---------- Tooltip that trails the cursor ---------- */
+.tip { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; opacity: 0; transition: opacity .15s; }
+.tip.on { opacity: 1; }
+.tip > span {
+  display: block; transform: translate(14px, 16px) scale(.8); transform-origin: 0 0; transition: transform .5s var(--ease-spring);
+  background: #EEF2FA; color: #111D36; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, .6);
+}
+.tip.on > span { transform: translate(14px, 16px) scale(1); }
+
+/* ---------- Inputs: the focus ring grows in with a little spring ---------- */
+input, select, textarea { transition: box-shadow .4s var(--ease-spring), border-color .25s var(--ease-smooth), background-color .25s; }
+input:focus, select:focus, textarea:focus { background-color: rgba(255, 255, 255, .03); }
+
+/* ---------- Disclosures (details): the panel anticipates, then opens with a spring ---------- */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+
+/* ---------- Loading skeletons ---------- */
+.skel { position: relative; overflow: hidden; border-radius: .75rem; background: rgba(255, 255, 255, .06); }
+.skel::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .09), transparent); animation: shimmer 1.4s var(--ease-smooth) infinite; }
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* ---------- Banner: one light sweep after it arrives ---------- */
+.sheen { position: relative; overflow: hidden; }
+.sheen::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; pointer-events: none; transform: skewX(-18deg) translateX(-120%); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); }
+.sheen.in::after { animation: sheen 1.3s var(--ease-smooth) .7s 1 both; }
+@keyframes sheen { to { transform: skewX(-18deg) translateX(520%); } }
+
+/* ---------- Login: idle wave on the status bars, slow drifting light behind the headline ---------- */
+.wave { transform-origin: 50% 100%; animation: wave 2.8s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -110ms); }
+@keyframes wave { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.55); } }
+.orb { position: absolute; border-radius: 50%; filter: blur(70px); pointer-events: none; opacity: .5; animation: drift 22s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(70px, -50px, 0) scale(1.18); } }
+
+/* ---------- Pop-out sidebar (desktop): hides until the cursor reaches the left edge ---------- */
+#sbEdge { position: fixed; left: 0; top: 0; bottom: 0; width: 14px; z-index: 35; }
+/* Edge tab: a lime "Menu" handle that is hard to miss. New users get a few gentle nudges. */
+#sbTab {
+  position: fixed; left: 0; top: 50%; z-index: 36; width: 34px; height: 132px; margin-top: -66px;
+  place-items: center; align-content: center; gap: 8px; padding: 0;
+  border-radius: 0 14px 14px 0; background: #C7F36B; color: #111D36; cursor: pointer;
+  box-shadow: 4px 0 18px -4px rgba(199, 243, 107, .55), 2px 0 10px -2px rgba(0, 0, 0, .6);
+  transition: width .55s var(--ease-spring), transform .55s var(--ease-spring);
+}
+#sbTab svg { width: 18px; height: 18px; transition: transform .55s var(--ease-spring); }
+#sbTab .sb-label { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+#sbTab:hover, #sbEdge:hover ~ #sbTab, #sbTab:focus-visible { width: 46px; }
+#sbTab:hover svg, #sbEdge:hover ~ #sbTab svg { transform: translateX(3px); }
+html:not([data-sbseen]) #sbTab { animation: tab-nudge 2.8s var(--ease-out) 1.2s 4; }
+@keyframes tab-nudge {
+  0%, 60%, 100% { transform: translateX(0); }
+  18% { transform: translateX(12px) scaleY(.97); }   /* pull out toward the user */
+  34% { transform: translateX(-2px); }
+  46% { transform: translateX(5px); }
+}
+/* Labelled Menu button in the top bar (desktop, only while the sidebar is hidden) */
+#menuLg { display: none; }
+@media (min-width: 1024px) { html:not([data-sb="pinned"]) #menuLg { display: inline-flex; } }
+#menuLg svg { transition: transform .55s var(--ease-spring); }
+#menuLg:hover svg { transform: scaleX(1.15); }
+html[data-sb="pinned"] #sbEdge, html[data-sb="pinned"] #sbTab { display: none !important; }
+html.sb-open #sbTab { opacity: 0; pointer-events: none; }
+#sbPin svg { transition: transform .6s var(--ease-bounce), color .2s; transform: rotate(45deg); }
+#sbPin:hover svg { transform: rotate(45deg) scale(1.15); }
+#sbPin[aria-pressed="true"] { color: #C7F36B; background: rgba(199, 243, 107, .12); }
+#sbPin[aria-pressed="true"] svg { transform: rotate(0deg); }
+#sbPin[aria-pressed="true"]:active svg { transform: rotate(0deg) scale(.8); }
+
+@media (min-width: 1024px) {
+  #sidebar { transform: translateX(-104%); transition: transform .28s var(--ease-in); will-change: transform; }
+  #sidebar.open, #sidebar:focus-within, html[data-sb="pinned"] #sidebar {
+    transform: none; transition: transform .7s var(--ease-spring);
+  }
+  #sidebar.open:not(.pinned-now) { box-shadow: 28px 0 56px -16px rgba(0, 0, 0, .7); }
+  html[data-sb="pinned"] #sidebar { box-shadow: none; }
+  #shell { padding-left: 0; transition: padding-left .65s var(--ease-spring); }
+  html[data-sb="pinned"] #shell { padding-left: 16rem; }
+  /* nav items follow through one after another as the panel arrives */
+  #sidebar.popping .nav-item, #sidebar.popping > div:last-of-type { animation: item-in .6s var(--ease-spring) backwards; animation-delay: calc(var(--i, 0) * 40ms + 80ms); }
+}
+@keyframes item-in { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Easter egg: the creator button pops out of the search bar ---------- */
+.creator-pop { animation: creator-pop .7s var(--ease-bounce) backwards; transform-origin: 24px 0; }
+.creator-pop[hidden] { display: none; }
+.creator-pop svg { animation: creator-twinkle 1.8s ease-in-out infinite; }
+@keyframes creator-pop {
+  from { opacity: 0; transform: translateY(-12px) scale(.4) rotate(-6deg); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes creator-twinkle { 0%, 100% { transform: rotate(0) scale(1); } 50% { transform: rotate(18deg) scale(1.25); } }
+
+/* ---------- Reduced motion: no travel, loops or shimmer; colour and state feedback stay ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; scroll-behavior: auto !important; }
+  button:not(:disabled):hover, button:not(:disabled):active, a.pressable:hover, a.pressable:active { transform: none; }
+  .ribbon-row:hover .bar, .chart .col:hover, .stat-grid > a:hover dd:nth-of-type(1), .lift:hover { transform: none; }
+  tbody tr:hover td:first-child { padding-left: .75rem; }
+  .dot-pulse, .dot-live, .wave, .orb, .skel::after, .creator-pop svg, .toast-bar { animation: none; }
+  .glow::before { display: none; }
+  #sidebar, #shell, #sbTab { transition-duration: .01ms !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

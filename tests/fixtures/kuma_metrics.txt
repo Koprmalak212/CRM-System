@@ -1,0 +1,37 @@
+# HELP app_version The service version
+# TYPE app_version gauge
+app_version{version="1.23.16",major="1",minor="23",patch="16"} 1
+
+# HELP monitor_cert_days_remaining The number of days remaining until the certificate expires
+# TYPE monitor_cert_days_remaining gauge
+monitor_cert_days_remaining{monitor_name="Telecomlijn website",monitor_type="http",monitor_url="https://telecomlijn.nl/",monitor_hostname="null",monitor_port="null"} 63
+monitor_cert_days_remaining{monitor_name="Customer portal",monitor_type="http",monitor_url="https://portal.example.com/",monitor_hostname="null",monitor_port="null"} 9
+monitor_cert_days_remaining{monitor_name="Legacy site",monitor_type="http",monitor_url="https://legacy.example.com/",monitor_hostname="null",monitor_port="null"} -3
+
+# HELP monitor_cert_is_valid Is the certificate still valid? (1 = Yes, 0= No)
+# TYPE monitor_cert_is_valid gauge
+monitor_cert_is_valid{monitor_name="Telecomlijn website",monitor_type="http",monitor_url="https://telecomlijn.nl/",monitor_hostname="null",monitor_port="null"} 1
+monitor_cert_is_valid{monitor_name="Customer portal",monitor_type="http",monitor_url="https://portal.example.com/",monitor_hostname="null",monitor_port="null"} 1
+monitor_cert_is_valid{monitor_name="Legacy site",monitor_type="http",monitor_url="https://legacy.example.com/",monitor_hostname="null",monitor_port="null"} 0
+
+# HELP monitor_response_time Monitor Response Time (ms)
+# TYPE monitor_response_time gauge
+monitor_response_time{monitor_name="Telecomlijn website",monitor_type="http",monitor_url="https://telecomlijn.nl/",monitor_hostname="null",monitor_port="null"} 187
+monitor_response_time{monitor_name="Customer portal",monitor_type="http",monitor_url="https://portal.example.com/",monitor_hostname="null",monitor_port="null"} 412.6
+monitor_response_time{monitor_name="Legacy site",monitor_type="http",monitor_url="https://legacy.example.com/",monitor_hostname="null",monitor_port="null"} -1
+monitor_response_time{monitor_name="Core router",monitor_type="ping",monitor_url="null",monitor_hostname="10.0.0.1",monitor_port="null"} 2
+monitor_response_time{monitor_name="SIP \"trunk\" {primary}",monitor_type="port",monitor_url="null",monitor_hostname="sip.example.com",monitor_port="5060"} 31
+monitor_response_time{monitor_name="Backup NAS",monitor_type="port",monitor_url="null",monitor_hostname="nas.example.com",monitor_port="22"} NaN
+
+# HELP monitor_status Monitor Status (1 = UP, 0= DOWN, 2= PENDING, 3= MAINTENANCE)
+# TYPE monitor_status gauge
+monitor_status{monitor_name="Telecomlijn website",monitor_type="http",monitor_url="https://telecomlijn.nl/",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_name="Customer portal",monitor_type="http",monitor_url="https://portal.example.com/",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_name="Legacy site",monitor_type="http",monitor_url="https://legacy.example.com/",monitor_hostname="null",monitor_port="null"} 0
+monitor_status{monitor_name="Core router",monitor_type="ping",monitor_url="null",monitor_hostname="10.0.0.1",monitor_port="null"} 1
+monitor_status{monitor_name="SIP \"trunk\" {primary}",monitor_type="port",monitor_url="null",monitor_hostname="sip.example.com",monitor_port="5060"} 2
+monitor_status{monitor_name="Backup NAS",monitor_type="port",monitor_url="null",monitor_hostname="nas.example.com",monitor_port="22"} 3 1731153600000
+
+# HELP process_cpu_user_seconds_total Total user CPU time spent in seconds.
+# TYPE process_cpu_user_seconds_total counter
+process_cpu_user_seconds_total 12.34

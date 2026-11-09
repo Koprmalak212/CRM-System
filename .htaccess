@@ -1,0 +1,22 @@
+# Web server hardening
+Options -Indexes
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Production: send plain HTTP to HTTPS (localhost is left alone so local development keeps working)
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+ServerSignature Off
+<IfModule mod_setenvif.c>
+  # Let PHP see the Authorization header (needed for the health API)
+  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+LimitRequestBody 262144
+<IfModule mod_headers.c>
+  Header always unset X-Powered-By
+</IfModule>
+# Never serve docs, SQL, logs, config or the CLI setup script
+<FilesMatch "(^\.|\.(md|sql|log|json|lock|bak|inc|ini|env|yml|yaml)$|^setup\.php$|^config\.local\.php$)">
+  Require all denied
+</FilesMatch>
