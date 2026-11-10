@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/theme.php';
 require __DIR__ . '/includes/translate.php';
 require __DIR__ . '/includes/monitor.php';
 require __DIR__ . '/includes/twofactor.php';
@@ -45,23 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <script src="assets/vendor/tailwind-3.4.17.js"></script>
-<script nonce="<?= csp_nonce() ?>">
-tailwind.config = { theme: { extend: {
-  fontFamily: { sans: ['"Hanken Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-  colors: { navy: { DEFAULT: '#111D36', 800: '#18284A', 700: '#22355E' }, lime: '#C7F36B', butter: { DEFAULT: '#FFF1A8' }, ground: '#0A1226', panel: '#111D36', raised: '#1B2C50', line: '#233559', ink: '#EEF2FA', soft: '#A5B2CF'
-} } };
-</script>
+<?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
-  html { color-scheme: dark; background: #0A1226; }
-  :focus-visible { outline: 2px solid #C7F36B; outline-offset: 2px; border-radius: 6px; }
-  input { caret-color: #C7F36B; color: #EEF2FA; }
 </style>
 </head>
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <main class="grid min-h-full place-items-center p-6">
   <form method="post" class="w-full max-w-sm" novalidate>
     <?= csrf_field() ?>
-    <img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="mb-8 h-10 w-auto">
+    <img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="logo-on-dark mb-8 h-10 w-auto"><img src="assets/telecomlijn-logo-color.png" alt="" aria-hidden="true" width="274" height="79" class="logo-on-light mb-8 h-10 w-auto">
     <h1 class="text-3xl font-bold tracking-tight">Two-step sign-in</h1>
     <p class="mt-2 text-[15px] text-soft">Open your authenticator app and enter the 6-digit code for Telecomlijn Admin. Lost your phone? Enter one of your recovery codes instead.</p>
     <?php if ($error): ?><p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
@@ -72,5 +65,7 @@ tailwind.config = { theme: { extend: {
     <p class="mt-5 text-center text-sm"><a href="login.php" class="font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Back to the password step</a></p>
   </form>
 </main>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<?= theme_toggle_script() ?>
 </body>
 </html>

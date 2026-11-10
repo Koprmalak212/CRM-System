@@ -208,7 +208,7 @@ function tab_render(PDO $pdo, array $admin): void
       </tr></thead>
       <tbody class="divide-y divide-line">
       <?php foreach ($eps as $ep): $id = (int) $ep['id']; $u = $uptime[$id] ?? null; $bars = array_reverse(array_slice($ribbon[$id] ?? [], 0, 24)); ?>
-        <tr class="hover:bg-butter-50 <?= $ep['enabled'] ? '' : 'opacity-70' ?>">
+        <tr class="hover:bg-butter-50 <?= $ep['enabled'] ? '' : 'bg-ink/5' ?>">
           <td class="px-4 py-3"><p class="font-semibold"><?= e($ep['name']) ?><?= $ep['enabled'] ? '' : ' <span class="text-xs font-medium text-soft">(paused)</span>' ?></p><p class="max-w-xs truncate text-soft notranslate" title="<?= e($ep['url']) ?>"><?= e($ep['method']) ?> · <?= e($ep['url']) ?></p></td>
           <td class="px-4 py-3"><?= badge($ep['last_state']) ?><?php if ($ep['last_error'] !== ''): ?><p class="mt-1 max-w-[14rem] text-xs text-[#FF9C8C]"><?= e($ep['last_error']) ?></p><?php endif; ?></td>
           <td class="px-4 py-3 text-right tabular-nums notranslate"><?= $ep['last_latency_ms'] !== null ? e((string) $ep['last_latency_ms']) . ' ms' : '—' ?><?= $ep['last_status_code'] ? '<p class="text-xs text-soft">HTTP ' . (int) $ep['last_status_code'] . '</p>' : '' ?></td>
@@ -294,7 +294,7 @@ function tab_render(PDO $pdo, array $admin): void
     <thead class="bg-butter-50 text-xs text-soft"><tr><th scope="col" class="px-4 py-3 font-semibold">Name</th><th scope="col" class="px-4 py-3 font-semibold">Key</th><th scope="col" class="px-4 py-3 font-semibold">Created</th><th scope="col" class="px-4 py-3 font-semibold">Last used</th><th scope="col" class="px-4 py-3 font-semibold">Status</th><?php if ($manage): ?><th scope="col" class="px-4 py-3 text-right font-semibold">Action</th><?php endif; ?></tr></thead>
     <tbody class="divide-y divide-line">
     <?php foreach ($keys as $k): $rev = $k['revoked_at'] !== null; ?>
-      <tr class="<?= $rev ? 'opacity-60' : 'hover:bg-butter-50' ?>">
+      <tr class="<?= $rev ? 'bg-ink/5' : 'hover:bg-butter-50' ?>">
         <td class="px-4 py-3 font-semibold"><?= e($k['name']) ?></td>
         <td class="px-4 py-3 notranslate">
           <span class="tabular-nums text-soft"><?= e($k['key_prefix']) ?>…</span>

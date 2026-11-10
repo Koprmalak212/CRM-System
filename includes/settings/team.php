@@ -168,7 +168,7 @@ function tab_render(PDO $pdo, array $admin): void
     <thead class="bg-butter-50 text-xs text-soft"><tr><th scope="col" class="px-4 py-3 font-semibold">Person</th><th scope="col" class="px-4 py-3 font-semibold">Role</th><th scope="col" class="px-4 py-3 font-semibold">Integrations</th><th scope="col" class="px-4 py-3 font-semibold">Status</th><th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th></tr></thead>
     <tbody class="divide-y divide-line">
     <?php foreach ($members as $m): $id = (int) $m['id']; $self = $id === (int) $admin['id']; $active = (int) $m['is_active'] === 1; ?>
-      <tr class="<?= $active ? 'hover:bg-butter-50' : 'opacity-60' ?>">
+      <tr class="<?= $active ? 'hover:bg-butter-50' : 'bg-ink/5' ?>">
         <td class="px-4 py-3"><div class="flex items-center gap-3"><?= avatar_html($m['avatar'] ?? null, $m['name'], 'h-10 w-10') ?><div class="min-w-0"><p class="font-semibold"><?= e($m['name']) ?><?= $self ? ' <span class="text-xs font-medium text-soft">(you)</span>' : '' ?></p><p class="text-soft"><span class="notranslate"><?= e($m['username']) ?></span> · <?= e($m['email']) ?></p></div></div></td>
         <td colspan="2" class="px-4 py-3">
           <form method="post" class="flex flex-wrap items-center gap-2"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="update_user"><input type="hidden" name="id" value="<?= $id ?>">

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/translate.php';
+require_once __DIR__ . '/theme.php';
 require_once __DIR__ . '/notifications.php';
 
 function page_start(string $title, string $active, string $lede = '', bool $demoNote = true): void
@@ -32,37 +33,9 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <script src="assets/vendor/tailwind-3.4.17.js"></script>
-<script nonce="<?= csp_nonce() ?>">
-tailwind.config = {
-  theme: {
-    extend: {
-      fontFamily: { sans: ['"Hanken Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-      colors: {
-        navy: { DEFAULT: '#111D36', 800: '#18284A', 700: '#22355E', 600: '#334A7A' },
-        lime: { DEFAULT: '#C7F36B', 600: '#A8D84A' },
-        butter: { DEFAULT: '#FFF1A8', 50: 'rgba(255,241,168,.06)', 100: 'rgba(255,241,168,.12)' },
-        ground: '#0A1226',
-        panel: '#111D36',
-        raised: '#1B2C50',
-        deep: '#070E1F',
-        line: '#233559',
-        ink: '#EEF2FA',
-        soft: '#A5B2CF',
-        coral: '#F0654F',
-      },
-      boxShadow: { panel: '0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.55)' },
-    },
-  },
-};
-</script>
+<?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
-  html { font-feature-settings: "tnum" 1; color-scheme: dark; background: #0A1226; }
-  ::selection { background: #C7F36B; color: #111D36; }
-  :focus-visible { outline: 2px solid #C7F36B; outline-offset: 2px; border-radius: 6px; }
-  * { scrollbar-width: thin; scrollbar-color: #2C4272 transparent; }
-  input, select { caret-color: #C7F36B; color: #EEF2FA; }
-  input::placeholder { color: #8493B4; }
-  select option { background: #111D36; color: #EEF2FA; }
+  html { font-feature-settings: "tnum" 1; }
   /* Layout safety nets: grid children may shrink below their content, and scroll boxes contain their own hidden labels */
   main .grid > * { min-width: 0; }
   .overflow-x-auto { position: relative; }
@@ -123,7 +96,7 @@ tailwind.config = {
       <button id="menuLg" type="button" class="items-center gap-2 rounded-xl bg-lime px-4 text-sm font-bold text-navy hover:brightness-95 h-10" aria-label="Open the menu" aria-controls="sidebar">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>Menu
       </button>
-      <button id="menuBtn" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-white/10 lg:hidden" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><?= icon('menu', 'h-5 w-5') ?></button>
+      <button id="menuBtn" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-ink/10 lg:hidden" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><?= icon('menu', 'h-5 w-5') ?></button>
       <form action="search.php" method="get" role="search" class="relative max-w-md flex-1">
         <label for="gsearch" class="sr-only">Search everything</label>
         <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-soft"><?= icon('search', 'h-4 w-4') ?></span>
@@ -139,6 +112,7 @@ tailwind.config = {
       </form>
       <?= lang_widget('ml-auto') ?>
       <?= $bell ?>
+      <?= theme_toggle_button() ?>
       <div class="hidden items-center gap-2 text-sm text-soft xl:flex">
         <span class="h-2 w-2 rounded-full bg-lime ring-2 ring-navy/20"></span><span>Localhost · MariaDB connected</span>
       </div>
@@ -185,6 +159,7 @@ function page_end(): void
     btn.setAttribute('aria-expanded', String(open));
   });
 </script>
+<?= theme_toggle_script() ?>
 <script src="assets/motion.js" defer></script>
 </body>
 </html>

@@ -12,6 +12,12 @@ $admin = is_admin();
   /* Kuma's layout, in this dashboard's own colours: navy panels, lime for up, coral for down, butter for pending */
   .kuma { --k-card: #111D36; --k-line: #233559; --k-hover: rgba(255, 241, 168, .06); --k-active: #1B2C50; --k-text: #A5B2CF; --k-head: #EEF2FA;
           --k-up: #C7F36B; --k-down: #F0654F; --k-pend: #FFF1A8; --k-maint: #7FA6FF; --k-unk: #6B7A99; --k-ink: #111D36; color: var(--k-text); }
+  html[data-theme=light] .kuma { --k-card: #FFFFFF; --k-line: #D6DEEC; --k-hover: rgba(17, 29, 54, .045); --k-active: #E8EDF7; --k-text: #4D5B7A; --k-head: #111D36; --k-uptext: #3F6212; --k-downtext: #B42318; --k-unk: #5F6B88; }
+  .kuma { --k-uptext: var(--k-up); --k-downtext: var(--k-down); --k-pendtext: var(--k-pend); --k-mainttext: #9CC4FF; }
+  html[data-theme=light] .kuma { --k-uptext: #3F6212; --k-downtext: #B42318; --k-pendtext: #7A4F00; --k-mainttext: #1E4FA8; }
+  html[data-theme=light] .kuma .k-card { box-shadow: 0 1px 2px rgba(17,29,54,.07), 0 10px 24px -14px rgba(17,29,54,.24); }
+  html[data-theme=light] .kuma .pill.p-unknown { background: rgba(17,29,54,.1); }
+  html[data-theme=light] .kuma input[type=search]::placeholder { color: #5F6B88; }
   .kuma h2, .kuma h3, .kuma .k-head { color: var(--k-head); }
   .kuma .k-card { background: var(--k-card); border: 1px solid var(--k-line); border-radius: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.55); }
   .kuma .k-bar { display: flex; align-items: center; gap: 3px; height: 30px; }
@@ -42,7 +48,7 @@ $admin = is_admin();
   .kuma th { color: var(--k-text); }
   .kuma tbody tr { border-top: 1px solid var(--k-line); transition: background-color .2s; }
   .kuma tbody tr:hover { background: var(--k-hover); }
-  .kuma a.k-link { color: var(--k-up); text-decoration: underline; text-underline-offset: 3px; }
+  .kuma a.k-link { color: var(--k-uptext); text-decoration: underline; text-underline-offset: 3px; }
   @media (prefers-reduced-motion: reduce) { .kuma .k-bar i, .kuma .k-tab { transition: none; } }
 </style>
 
@@ -178,7 +184,7 @@ $admin = is_admin();
     var c = counts(), unknown = Math.max(0, c.all - c.up - c.down - c.pending - c.maintenance);
     var quick = h('div', 'k-card p-5 sm:p-6'); add(quick, h('h2', 'mb-4 text-lg font-bold', 'Quick Stats'));
     var g = h('div', 'grid grid-cols-2 gap-5 sm:grid-cols-5');
-    add(g, statCell('Up', String(c.up), 'var(--k-up)'), statCell('Down', String(c.down), 'var(--k-down)'), statCell('Maintenance', String(c.maintenance), '#9CC4FF'), statCell('Pending', String(c.pending), 'var(--k-pend)'), statCell('Unknown', String(unknown), '#A5B2CF'));
+    add(g, statCell('Up', String(c.up), 'var(--k-uptext)'), statCell('Down', String(c.down), 'var(--k-downtext)'), statCell('Maintenance', String(c.maintenance), 'var(--k-mainttext)'), statCell('Pending', String(c.pending), 'var(--k-pendtext)'), statCell('Unknown', String(unknown), 'var(--k-text)'));
     add(quick, g);
     var ev = h('div', 'k-card mt-6 overflow-hidden'); add(ev, add(h('div', 'p-5', null), h('h3', 'text-lg font-bold', 'Recent status changes')), eventsTable(S.events, true));
     add(pane, quick, ev);
@@ -188,7 +194,7 @@ $admin = is_admin();
   function certCell(m) {
     var d = m.certDaysRemaining;
     if (d == null) return statCell('Cert Exp.', '—');
-    var tone = d < 0 || m.certValid === false ? 'var(--k-down)' : (d < WARN ? 'var(--k-pend)' : null);
+    var tone = d < 0 || m.certValid === false ? 'var(--k-downtext)' : (d < WARN ? 'var(--k-pendtext)' : null);
     return statCell('Cert Exp.' + (d < 0 ? ' (expired)' : d < WARN ? ' (soon)' : ''), d < 0 ? 'Expired' : d + ' days', tone);
   }
   function chart(series) {
@@ -204,15 +210,15 @@ $admin = is_admin();
     function el(n, a) { var e = document.createElementNS(NS, n); for (var k in a) e.setAttribute(k, a[k]); return e; }
     [0, .5, 1].forEach(function (f) {
       var y = P.t + (1 - f) * (H - P.t - P.b);
-      svg.appendChild(el('line', { x1: P.l, x2: W - P.r, y1: y, y2: y, stroke: '#233559', 'stroke-width': 1 }));
-      var tx = el('text', { x: P.l - 6, y: y + 4, 'text-anchor': 'end', fill: '#A5B2CF', 'font-size': 11 }); tx.textContent = Math.round(max * f) + ' ms'; svg.appendChild(tx);
+      svg.appendChild(el('line', { x1: P.l, x2: W - P.r, y1: y, y2: y, style: 'stroke:var(--k-line)', 'stroke-width': 1 }));
+      var tx = el('text', { x: P.l - 6, y: y + 4, 'text-anchor': 'end', style: 'fill:var(--k-text)', 'font-size': 11 }); tx.textContent = Math.round(max * f) + ' ms'; svg.appendChild(tx);
     });
     series.forEach(function (p) { if (p[2] === 0) svg.appendChild(el('rect', { x: X(p[0]) - 2, y: P.t, width: 4, height: H - P.t - P.b, fill: '#F0654F', opacity: .45 })); });
     var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1); }).join(' ');
     svg.appendChild(el('path', { d: d + ' L' + X(pts[pts.length - 1][0]).toFixed(1) + ' ' + (H - P.b) + ' L' + X(pts[0][0]).toFixed(1) + ' ' + (H - P.b) + ' Z', fill: '#C7F36B', opacity: .16 }));
-    svg.appendChild(el('path', { d: d, fill: 'none', stroke: '#C7F36B', 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+    svg.appendChild(el('path', { d: d, fill: 'none', style: 'stroke:var(--k-uptext)', 'stroke-width': 2, 'stroke-linejoin': 'round' }));
     [[series[0][0], 'start'], [series[Math.floor(series.length / 2)][0], 'middle'], [series[series.length - 1][0], 'end']].forEach(function (a) {
-      var tx = el('text', { x: a[1] === 'start' ? P.l : a[1] === 'end' ? W - P.r : (P.l + W - P.r) / 2, y: H - 5, 'text-anchor': a[1], fill: '#A5B2CF', 'font-size': 11 }); tx.textContent = fmtTime(a[0]).slice(0, 5); svg.appendChild(tx);
+      var tx = el('text', { x: a[1] === 'start' ? P.l : a[1] === 'end' ? W - P.r : (P.l + W - P.r) / 2, y: H - 5, 'text-anchor': a[1], style: 'fill:var(--k-text)', 'font-size': 11 }); tx.textContent = fmtTime(a[0]).slice(0, 5); svg.appendChild(tx);
     });
     return add(card, svg);
   }

@@ -93,7 +93,7 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
       <thead class="bg-butter-50 text-xs text-soft"><tr><th scope="col" class="px-4 py-3 font-semibold">Company</th><th scope="col" class="px-4 py-3 font-semibold">Description</th><th scope="col" class="px-4 py-3 text-right font-semibold">Amount</th><th scope="col" class="px-4 py-3 font-semibold">Repeats</th><th scope="col" class="px-4 py-3 font-semibold">Next invoice</th><th scope="col" class="px-4 py-3 font-semibold">Status</th><th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th></tr></thead>
       <tbody class="divide-y divide-line">
         <?php foreach ($rows as $r): $on = (int) $r['active'] === 1; ?>
-          <tr class="<?= $on ? 'hover:bg-butter-50' : 'opacity-70' ?>">
+          <tr class="<?= $on ? 'hover:bg-butter-50' : 'bg-ink/5' ?>">
             <td class="px-4 py-3"><a href="company.php?id=<?= (int) $r['company_id'] ?>" class="font-semibold underline-offset-4 hover:underline"><?= e($r['co_name']) ?></a></td>
             <td class="px-4 py-3"><?= e($r['description']) ?><p class="text-xs text-soft"><?= (int) $r['made'] ?> created<?= $r['last_run'] ? ' · last ' . e(date('j M Y', strtotime($r['last_run']))) : '' ?></p></td>
             <td class="px-4 py-3 text-right tabular-nums notranslate"><?= e(money((int) $r['amount_cents'])) ?><p class="text-xs text-soft">+ <?= (int) $r['vat_rate'] ?>% BTW</p></td>

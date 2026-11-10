@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/theme.php';
 require __DIR__ . '/includes/translate.php';
 require __DIR__ . '/includes/twofactor.php';
 
@@ -79,18 +80,8 @@ try {
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <script src="assets/vendor/tailwind-3.4.17.js"></script>
-<script nonce="<?= csp_nonce() ?>">
-tailwind.config = { theme: { extend: {
-  fontFamily: { sans: ['"Hanken Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-  colors: { navy: { DEFAULT: '#111D36', 800: '#18284A', 700: '#22355E' }, lime: '#C7F36B', butter: { DEFAULT: '#FFF1A8' }, ground: '#0A1226', panel: '#111D36', raised: '#1B2C50', line: '#233559', ink: '#EEF2FA', soft: '#A5B2CF', coral: '#F0654F' }
-} } };
-</script>
+<?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
-  html { color-scheme: dark; background: #0A1226; }
-  ::selection { background: #C7F36B; color: #111D36; }
-  :focus-visible { outline: 2px solid #C7F36B; outline-offset: 2px; border-radius: 6px; }
-  input { caret-color: #C7F36B; color: #EEF2FA; }
-  input::placeholder { color: #8493B4; }
   @keyframes hop { 0% { transform: translateX(-10px); opacity: .6; } 55% { transform: translateX(3px); opacity: 1; } 100% { transform: none; } }
   .hop { animation: hop .45s cubic-bezier(.34,1.56,.64,1); }
 </style>
@@ -100,7 +91,7 @@ tailwind.config = { theme: { extend: {
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <?= lang_widget('absolute right-4 top-4 z-10 sm:right-8 sm:top-6') ?>
 <div class="grid min-h-full lg:grid-cols-[1.05fr_1fr]">
-  <section class="relative hidden flex-col justify-between overflow-hidden bg-navy p-12 text-white lg:flex">
+  <section class="on-navy relative hidden flex-col justify-between overflow-hidden bg-navy p-12 text-white lg:flex">
     <img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="h-11 w-auto self-start">
     <div class="max-w-md">
       <h1 class="text-5xl font-bold leading-[1.05] tracking-tight text-balance">Every line running, <span class="text-lime">at a glance.</span></h1>
@@ -116,7 +107,7 @@ tailwind.config = { theme: { extend: {
   <section class="relative flex items-center justify-center p-6 pb-20 sm:p-12 sm:pb-20">
     <form method="post" class="rise w-full max-w-sm" novalidate>
       <?= csrf_field() ?>
-      <img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="mb-8 h-10 w-auto lg:hidden">
+      <img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="logo-on-dark mb-8 h-10 w-auto lg:hidden"><img src="assets/telecomlijn-logo-color.png" alt="" aria-hidden="true" width="274" height="79" class="logo-on-light mb-8 h-10 w-auto lg:hidden">
       <h2 class="text-3xl font-bold tracking-tight">Sign in</h2>
       <p class="mt-2 text-[15px] text-soft">Use your admin account to continue.</p>
 
@@ -168,5 +159,7 @@ tailwind.config = { theme: { extend: {
   });
 })();
 </script>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<?= theme_toggle_script() ?>
 </body>
 </html>

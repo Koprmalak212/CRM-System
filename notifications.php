@@ -44,7 +44,7 @@ page_start('Notifications', 'notifications', 'Things that need attention: overdu
   <?php if ($rows): ?>
     <ul class="divide-y divide-line">
       <?php foreach ($rows as $r): $isNew = $r['read_at'] === null; ?>
-        <li class="flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5 <?= $isNew ? '' : 'opacity-70' ?>">
+        <li class="flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5 <?= $isNew ? '' : 'bg-ink/[.03]' ?>">
           <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg <?= $isNew ? 'bg-raised text-lime' : 'bg-raised text-soft' ?>"><?= icon(NOTIFY_ICONS[$r['kind']] ?? 'alert') ?></span>
           <div class="min-w-0 flex-1"><p class="font-semibold"><?= $isNew ? '<span class="sr-only">Unread: </span>' : '' ?><?= e($r['title']) ?></p><p class="text-sm text-soft"><?= e($r['body']) ?></p><p class="text-xs text-soft"><?= e(ago($r['created_at'])) ?></p></div>
           <div class="flex gap-2">

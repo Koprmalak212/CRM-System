@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/theme.php';
 $home = !empty($_SESSION['admin']) ? 'index.php' : 'login.php';
 $homeLabel = !empty($_SESSION['admin']) ? 'Terug naar het dashboard' : 'Terug naar inloggen';
 // Source: https://telecomlijn.nl/privacybeleid/ (copied with permission of Telecomlijn). Last updated by Telecomlijn: december 2025.
@@ -14,17 +15,8 @@ $homeLabel = !empty($_SESSION['admin']) ? 'Terug naar het dashboard' : 'Terug na
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <script src="assets/vendor/tailwind-3.4.17.js"></script>
-<script nonce="<?= csp_nonce() ?>">
-tailwind.config = { theme: { extend: {
-  fontFamily: { sans: ['"Hanken Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-  colors: { navy: { DEFAULT: '#111D36' }, lime: '#C7F36B', butter: { DEFAULT: '#FFF1A8', 50: 'rgba(255,241,168,.06)' }, ground: '#0A1226', panel: '#111D36', line: '#233559', ink: '#EEF2FA', soft: '#A5B2CF' },
-  boxShadow: { panel: '0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.55)' }
-} } };
-</script>
+<?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
-  html { color-scheme: dark; background: #0A1226; }
-  ::selection { background: #C7F36B; color: #111D36; }
-  :focus-visible { outline: 2px solid #C7F36B; outline-offset: 2px; border-radius: 6px; }
   main .grid > * { min-width: 0; }
   .overflow-x-auto { position: relative; }
 </style>
@@ -34,7 +26,7 @@ tailwind.config = { theme: { extend: {
 <body class="min-h-full bg-ground font-sans text-ink antialiased">
 <header class="border-b border-line bg-navy">
   <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-8">
-    <a href="<?= $home ?>" aria-label="Telecomlijn"><img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="h-9 w-auto"></a>
+    <a href="<?= $home ?>" aria-label="Telecomlijn"><img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="logo-on-dark h-9 w-auto"><img src="assets/telecomlijn-logo-color.png" alt="" aria-hidden="true" width="274" height="79" class="logo-on-light h-9 w-auto"></a>
     <a href="<?= $home ?>" class="pressable inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white hover:bg-white/10"><?= e($homeLabel) ?></a>
   </div>
 </header>
@@ -220,5 +212,7 @@ tailwind.config = { theme: { extend: {
   <p>© <?= date('Y') ?> Telecomlijn Zakelijk · KvK 65586492 · Seinhuiswachter 12, 3034 KH Rotterdam · <a class="font-semibold text-ink underline decoration-lime decoration-2 underline-offset-4" href="mailto:office@telecomlijn.nl">office@telecomlijn.nl</a></p>
 </footer>
 <script src="assets/motion.js" defer></script>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<?= theme_toggle_script() ?>
 </body>
 </html>

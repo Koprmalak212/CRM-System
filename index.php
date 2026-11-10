@@ -170,7 +170,7 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
       <div><h2 id="chart-h" class="text-lg font-bold tracking-tight">Activity, last 24 hours</h2>
         <p class="text-sm text-soft">Log events per hour, newest on the right</p></div>
       <p class="flex items-center gap-4 text-xs text-soft">
-        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-lime"></span>Info</span>
+        <span class="inline-flex items-center gap-1.5"><span class="chart-key h-2.5 w-2.5 rounded-sm bg-lime"></span>Info</span>
         <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-[#E9A23B]"></span>Warning</span>
         <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-coral"></span>Error</span>
       </p>

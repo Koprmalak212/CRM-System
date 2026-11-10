@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/theme.php';
 $admin = require_login();
 $pdo = db();
 $forced = !empty($admin['must_change']);
@@ -46,22 +47,13 @@ $field = 'mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[1
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <script src="assets/vendor/tailwind-3.4.17.js"></script>
-<script nonce="<?= csp_nonce() ?>">
-tailwind.config = { theme: { extend: {
-  fontFamily: { sans: ['"Hanken Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-  colors: { navy: { DEFAULT: '#111D36' }, lime: '#C7F36B', butter: { DEFAULT: '#FFF1A8' }, ground: '#0A1226', panel: '#111D36', line: '#233559', ink: '#EEF2FA', soft: '#A5B2CF' }
-} } };
-</script>
+<?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
-  html { color-scheme: dark; background: #0A1226; }
-  ::selection { background: #C7F36B; color: #111D36; }
-  :focus-visible { outline: 2px solid #C7F36B; outline-offset: 2px; border-radius: 6px; }
-  input { caret-color: #C7F36B; color: #EEF2FA; }
 </style>
 </head>
 <body class="min-h-full bg-ground font-sans text-ink antialiased">
 <main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
-  <img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="mb-8 h-10 w-auto self-start">
+  <img src="assets/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="logo-on-dark mb-8 h-10 w-auto self-start"><img src="assets/telecomlijn-logo-color.png" alt="" aria-hidden="true" width="274" height="79" class="logo-on-light mb-8 h-10 w-auto self-start">
   <h1 class="text-3xl font-bold tracking-tight">Choose a new password</h1>
   <p class="mt-2 text-[15px] text-soft"><?= $forced ? 'You are signed in with a temporary password. Replace it to continue.' : 'Pick a password only you know.' ?></p>
   <?php if ($error): ?><p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
@@ -77,5 +69,7 @@ tailwind.config = { theme: { extend: {
   </form>
   <form method="post" action="logout.php" class="mt-4"><?= csrf_field() ?><button class="text-sm font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Sign out instead</button></form>
 </main>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<?= theme_toggle_script() ?>
 </body>
 </html>
