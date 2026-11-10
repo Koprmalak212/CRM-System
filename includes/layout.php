@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/translate.php';
+require_once __DIR__ . '/notifications.php';
 
 function page_start(string $title, string $active, string $lede = '', bool $demoNote = true): void
 {
@@ -19,6 +20,8 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
         'logs' => ['logs.php', 'Activity logs', 'activity'],
     ];
     $flag = flash();
+    try { notifications_refresh(db()); $bell = notifications_bell(db()); }
+    catch (Throwable $e) { $bell = ''; error_log('Notifications unavailable: ' . $e->getMessage()); }   // a problem here must never stop a page from loading
     ?>
 <!doctype html>
 <html lang="en" class="h-full">
@@ -63,6 +66,11 @@ tailwind.config = {
   /* Layout safety nets: grid children may shrink below their content, and scroll boxes contain their own hidden labels */
   main .grid > * { min-width: 0; }
   .overflow-x-auto { position: relative; }
+  .bell-btn::-webkit-details-marker { display: none; }
+  .bell-ic { transform-origin: 50% 0; }
+  @keyframes bell-ring { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 30% { transform: rotate(-12deg); } 45% { transform: rotate(8deg); } 60% { transform: rotate(-5deg); } 75% { transform: rotate(2deg); } }
+  /* the bell only moves for people who have not asked for reduced motion */
+  @media (prefers-reduced-motion: no-preference) { .bell-btn[data-unread] .bell-ic { animation: bell-ring 1.4s ease-in-out .8s 2; } }
 </style>
 <script nonce="<?= csp_nonce() ?>">document.documentElement.classList.add('js');try{var s=localStorage.getItem('sbPinned');var p=s===null?!matchMedia('(hover:hover)').matches:s==='1';if(p)document.documentElement.dataset.sb='pinned'}catch(e){};try{if(localStorage.getItem('sbSeen'))document.documentElement.dataset.sbseen='1'}catch(e){}setTimeout(function(){if(!window.__motion)document.documentElement.classList.add('reveal-all')},3000);</script>
 <link rel="stylesheet" href="assets/motion.css">
@@ -126,6 +134,7 @@ tailwind.config = {
         </a>
       </form>
       <?= lang_widget('ml-auto') ?>
+      <?= $bell ?>
       <div class="hidden items-center gap-2 text-sm text-soft xl:flex">
         <span class="h-2 w-2 rounded-full bg-lime ring-2 ring-navy/20"></span><span>Localhost · MariaDB connected</span>
       </div>
@@ -164,6 +173,8 @@ function page_end(): void
 </div>
 <script nonce="<?= csp_nonce() ?>">
   const btn = document.getElementById('menuBtn'), sb = document.getElementById('sidebar');
+  document.addEventListener('click', e => { const d = document.getElementById('bell'); if (d && d.open && !d.contains(e.target)) d.open = false; });
+  document.addEventListener('keydown', e => { const d = document.getElementById('bell'); if (e.key === 'Escape' && d && d.open) { d.open = false; d.querySelector('summary').focus(); } });
   btn?.addEventListener('click', () => {
     const open = sb.classList.toggle('hidden') === false;
     sb.classList.toggle('flex', open);

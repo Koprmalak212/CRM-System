@@ -3,6 +3,15 @@ declare(strict_types=1);
 
 function tab_handle(PDO $pdo, array $admin): void
 {
+    if (($_POST['action'] ?? '') === 'notify') {
+        if (!is_admin()) { deny_access('settings:notify'); }
+        $mail = trim((string) ($_POST['notify_email'] ?? ''));
+        if ($mail !== '' && (!filter_var($mail, FILTER_VALIDATE_EMAIL) || mb_strlen($mail) > 190)) { flash('Enter a valid email address, or leave it empty to turn emails off.', 'bad'); return; }
+        $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('notify_email', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$mail]);
+        log_activity('info', 'Notification address changed', $mail !== '' ? $mail : '(off)');
+        flash($mail !== '' ? 'Notifications will be emailed to ' . $mail . '.' : 'Notification emails are off. The bell still works.');
+        return;
+    }
     $current = substr((string) ($_POST['current'] ?? ''), 0, 1024);
     $new = substr((string) ($_POST['new'] ?? ''), 0, 1024);
     $confirm = substr((string) ($_POST['confirm'] ?? ''), 0, 1024);
@@ -45,6 +54,17 @@ function tab_render(PDO $pdo, array $admin): void
       <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Update password</button>
     </form>
   </section>
+
+  <?php if (is_admin()): require_once dirname(__DIR__) . '/notifications.php'; ?>
+  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.03s" aria-labelledby="nt-h">
+    <h2 id="nt-h" class="text-lg font-bold tracking-tight">Notification email</h2>
+    <p class="mt-1 text-sm text-soft">Overdue invoices, failed backups, services that are down and urgent tickets also go to this address. They always show in the bell. Sending needs the email settings (a later step); until then messages are only recorded.</p>
+    <form method="post" class="mt-5 space-y-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="notify">
+      <div><label for="notify_email" class="text-sm font-semibold">Send notifications to</label><input id="notify_email" name="notify_email" type="email" maxlength="190" value="<?= e(notify_email($pdo)) ?>" class="<?= $field ?>"><p class="mt-1 text-xs text-soft">Leave empty to turn emails off.</p></div>
+      <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Save address</button>
+    </form>
+  </section>
+  <?php endif; ?>
 
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="env-h">
     <h2 id="env-h" class="text-lg font-bold tracking-tight">Environment</h2>

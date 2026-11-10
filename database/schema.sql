@@ -321,3 +321,21 @@ CREATE TABLE IF NOT EXISTS ticket_comments (
   KEY idx_tc_ticket (ticket_id, created_at),
   CONSTRAINT fk_tc_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Stage 6: notifications. dedupe_key is the event itself (for example invoice-overdue:12), so one event is announced once.
+-- emailed_at is filled by the mailer in stage 8.
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  kind VARCHAR(30) NOT NULL,
+  dedupe_key VARCHAR(120) NOT NULL UNIQUE,
+  title VARCHAR(160) NOT NULL,
+  body VARCHAR(300) NOT NULL DEFAULT '',
+  link VARCHAR(200) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  read_at DATETIME NULL,
+  emailed_at DATETIME NULL,
+  KEY idx_notif_created (created_at),
+  KEY idx_notif_read (read_at)
+) ENGINE=InnoDB;
+INSERT IGNORE INTO app_meta (k, v) VALUES ('notify_email', 'denis@telecomlijn.nl');

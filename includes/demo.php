@@ -288,6 +288,7 @@ function demo_remove(PDO $pdo): array
     $before = demo_counts($pdo, 1);
     $pdo->beginTransaction();
     try {
+        $pdo->exec('DELETE FROM notifications WHERE is_demo = 1');
         $pdo->exec('DELETE FROM tickets WHERE is_demo = 1');   // its comments go with it
         $pdo->exec('DELETE FROM notes WHERE is_demo = 1');
         $pdo->exec('DELETE FROM connections WHERE is_demo = 1');

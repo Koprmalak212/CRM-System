@@ -36,6 +36,11 @@ foreach (preg_split('/;\s*\n/', $sql) as $stmt) {
     }
 }
 
+// ---- seed rows that are safe to repeat (INSERT IGNORE)
+foreach (preg_split('/;\s*\n/', $sql) as $stmt) {
+    if (stripos(trim($stmt), 'INSERT IGNORE INTO') === 0) { $pdo->exec(trim($stmt)); say('seed row checked'); }
+}
+
 // ---- Stage 1: companies
 if (!col_exists($pdo, 'users', 'company_id')) {
     $pdo->exec('ALTER TABLE users ADD COLUMN company_id INT UNSIGNED NULL, ADD KEY idx_user_company (company_id), ADD CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT');
