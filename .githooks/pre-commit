@@ -1,7 +1,9 @@
 #!/bin/sh
 # Optional: runs the whole test suite before every commit. Turn it on with:  git config core.hooksPath .githooks
 # Needs Apache and MariaDB running (the suite signs in over HTTP). Skip once with:  git commit --no-verify
-php=/c/xampp/php/php.exe
-[ -x "$php" ] || php=php
+# Uses "php" from the PATH. To use another PHP, set PHP_BIN, for example:  PHP_BIN=/opt/php82/bin/php git commit
+php="${PHP_BIN:-php}"
+command -v "$php" >/dev/null 2>&1 || { echo "pre-commit: PHP not found (put php on the PATH or set PHP_BIN). Skip with --no-verify."; exit 1; }
+cd "$(git rev-parse --show-toplevel)" || exit 1
 out=$("$php" tests/run.php 2>&1); echo "$out" | tail -n 4
 echo "$out" | grep -q " 0 failed" || { echo "Tests failed: commit stopped."; exit 1; }

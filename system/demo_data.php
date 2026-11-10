@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
-require __DIR__ . '/../includes/core/bootstrap.php';   // also loads includes/demo.php
+require __DIR__ . '/../includes/core/bootstrap.php';
+require __DIR__ . '/../includes/modules/demo.php';   // the loader and remover are not part of every request
 $admin = require_login();
 if (!is_admin()) { deny_access('system/demo_data.php'); }   // loading or removing sample data is an admin action
 

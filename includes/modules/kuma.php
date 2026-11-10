@@ -77,8 +77,13 @@ function kuma_remove_key(PDO $pdo, int $adminId): void
 }
 
 // ---------- URL rules ----------
-/** Kuma usually lives on the internal network, so private and loopback addresses are allowed here (admin-only setting).
- *  Link-local (cloud metadata), unspecified, multicast and broadcast addresses are not. */
+/** DECISION, on purpose: private (10.x, 172.16-31.x, 192.168.x) and loopback (127.x, ::1) addresses are ALLOWED here, because an Uptime Kuma
+ *  server normally runs on the internal network or on this very machine. That is acceptable only because the feature is admin-only:
+ *  api/kuma_api.php answers 403 to everyone but an admin (the role is read fresh on every request), the settings can only be saved or
+ *  tested by that admin, and the saved API key is only ever sent to the saved address. Do NOT reuse this check for anything a normal user
+ *  can trigger: the endpoint checks (bin/check_endpoints.php) use the strict check in
+ *  includes/modules/monitor.php, which refuses private ranges unless 'allow_private_targets' is set in includes/config.local.php.
+ *  Still refused here: link-local (the cloud metadata address 169.254.169.254), unspecified, multicast and reserved addresses. */
 function kuma_ip_blocked(string $ip): bool
 {
     $bin = @inet_pton($ip);

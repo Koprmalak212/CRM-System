@@ -15,7 +15,6 @@ $homeLabel = !empty($_SESSION['admin']) ? 'Terug naar het dashboard' : 'Terug na
 <title>Privacybeleid · Telecomlijn</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
-<script src="assets/vendor/tailwind-3.4.17.js"></script>
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
   main .grid > * { min-width: 0; }
@@ -23,6 +22,7 @@ $homeLabel = !empty($_SESSION['admin']) ? 'Terug naar het dashboard' : 'Terug na
 </style>
 <script nonce="<?= csp_nonce() ?>">document.documentElement.classList.add('js');setTimeout(function(){if(!window.__motion)document.documentElement.classList.add('reveal-all')},3000);</script>
 <link rel="stylesheet" href="assets/css/motion.css">
+<link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body class="min-h-full bg-ground font-sans text-ink antialiased">
 <header class="border-b border-line bg-navy">

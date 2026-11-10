@@ -270,7 +270,7 @@ function log_activity(string $level, string $action, string $target = '', ?strin
         ->execute([$level, mb_substr($a, 0, 190), mb_substr($action, 0, 160), mb_substr($target, 0, 120), client_ip()]);
 }
 
-require __DIR__ . '/../modules/demo.php';
+require __DIR__ . '/demo_state.php';   // demo_loaded() only: the demo loader (includes/modules/demo.php) is included where it is used
 
 enforce_rate_limit();   // last, so every page gets the same flood protection before doing any work
 

@@ -48,10 +48,10 @@ $field = 'mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[1
 <title>Choose a new password · Telecomlijn Admin</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
-<script src="assets/vendor/tailwind-3.4.17.js"></script>
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
 </style>
+<link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body class="min-h-full bg-ground font-sans text-ink antialiased">
 <main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">

@@ -6,7 +6,7 @@ Everything needed to run, update and test the system. For what the system does, 
 
 - XAMPP (Apache + MariaDB 10.4+) with PHP 8.2 and the `openssl` and `pdo_mysql` extensions
 - `mod_rewrite` and `.htaccess` overrides enabled (the XAMPP default); the access rules depend on them
-- Node.js is optional and only needed for the browser-based checks
+- Node.js 18+ is optional: only needed to rebuild `assets/css/app.css` (see Styles) and for the browser-based checks
 
 ## Setup
 
@@ -17,10 +17,23 @@ Everything needed to run, update and test the system. For what the system does, 
    C:\xampp\php\php.exe bin\setup.php
    ```
 
-   Add `--demo` to also load fake demo data. If the database already exists the script refuses to run; `--reset` rebuilds it (your Kuma connection, API keys and endpoints are kept) and `--reset --wipe-all` removes those too.
-3. Open <http://localhost/Websites/test/> and sign in with `admin` / `admin`. **Change this password before using the system for anything real.**
+   The script prints a **random first password for the `admin` account, once**. Write it down: it is stored only as a hash, and you must choose a new password at the first sign-in. Add `--demo` for a trial install with fake demo data; that install keeps the well-known demo account `admin` / `admin` (the sign-in page shows a hint while it is unchanged), so never use `--demo` for real data. If the database already exists the script refuses to run; `--reset` rebuilds it (your Kuma connection, API keys and endpoints are kept) and `--reset --wipe-all` removes those too.
+3. Open <http://localhost/Websites/test/>, sign in as `admin` with the password the script printed, and choose your own password when asked. (A demo install: `admin` / `admin`, for trying only.)
 
 An existing database is brought up to date, keeping its data, with `C:\xampp\php\php.exe database\migrate.php`. It runs as root, can be repeated safely, and also migrates the old `users.company` text into companies.
+
+## Styles (Tailwind build)
+
+The pages use one compiled stylesheet, `assets/css/app.css`, which is committed, so running the system needs no Node. Rebuild it after you change classes in a page or the palette in `tailwind.config.js`:
+
+```
+npm ci
+npm run build:css
+```
+
+(`npm run build:css` runs `tailwindcss -c tailwind.config.js -i assets/css/tailwind.src.css -o assets/css/app.css --minify`; the build scans every page, the includes and `assets/js` for class names.) The theme colours are CSS variables (`theme_style()` in `includes/core/theme.php`), so the one file serves both the light and the dark theme. Build output for dynamic class names: write the full class name somewhere in the source (for example `'text-' . $x` will not be found, `$x ? 'text-left' : 'text-right'` will). CI runs the build before the tests, and a test fails if the committed `app.css` is out of date.
+
+Content-Security-Policy note: scripts need a nonce, but `style-src` keeps `'unsafe-inline'`, because about fifty elements carry a `style=""` attribute (animation delays, bar heights) that a nonce cannot cover, and Google Translate adds inline styles when a visitor allows it.
 
 ## Folder layout
 
@@ -40,7 +53,7 @@ bin/                       command-line jobs and installer; refused by the web s
 includes/core/             bootstrap, security, layout, theme, translation
 includes/modules/          feature logic: companies, tickets, invoices, mailer, PDF writer, two-factor, Kuma, ...
 includes/settings/         the tabs of the Settings page
-assets/css js img          motion system, phone table cards, logos; fonts/, vendor/ and avatars/ beside them
+assets/css js img          app.css (compiled Tailwind), motion system, phone table cards, logos; fonts/ and avatars/ beside them
 database/                  schema, migration, dumps, test-log baseline
 docs/                      guides, data-breach procedure, processing register
 tests/                     test suite (tests/parts, one file per stage), mock Kuma and mock SMTP server
@@ -57,13 +70,14 @@ The folders `bin`, `includes`, `database`, `tests`, `storage` and `docs` each ca
 | --- | --- |
 | `database/schema.sql` | The schema that `bin/setup.php` applies. This is the source of truth. |
 | `database/migrate.php` | Upgrades an existing database to the current schema without losing data. |
-| `database/ops_console_structure.sql` | A mysqldump of the table structure. |
-| `database/ops_console_data.sql` | A dump of the data (admin account, settings, test log). Logs, keys and mail settings are left out. |
+| `database/ops_console_structure.sql` | A mysqldump of the table structure (no data). |
 | `database/test_log_baseline.php` | The documented test history that feeds the Tests tab. |
 
 ## What is not in this repository
 
-Secrets are deliberately left out:
+Secrets and data are deliberately left out. A data dump (`database/ops_console_data.sql`) is no longer tracked: it held the admin account hash and a notification address, and is ignored by `.gitignore`. To move data between machines make a backup with `mysqldump` and keep it private. A fresh install needs no dump: `bin/setup.php` builds everything from `database/schema.sql` (add `--demo` for fake data).
+
+Left out:
 
 - `includes/config.local.php` (database password and `APP_KEY`, generated by `bin/setup.php`)
 - the saved Kuma connection and any API keys, so enter them again under Settings
@@ -73,7 +87,7 @@ Secrets are deliberately left out:
 
 ## Scheduled jobs
 
-Set these up in the Windows Task Scheduler (or cron):
+Set these up in the Windows Task Scheduler (or cron). **The retention job is the only thing that deletes expired data** (activity logs after 12 months, login attempts, rate-limit counters, monitoring history, old invoices): web requests no longer do any housekeeping, so if `bin/purge.php` is not scheduled, nothing is ever removed.
 
 | Job | When | Command |
 | --- | --- | --- |
@@ -84,6 +98,18 @@ Set these up in the Windows Task Scheduler (or cron):
 
 Recurring invoices are also created when the site is opened.
 
+On Linux the same jobs as cron lines (`crontab -e` for the web server's user, or the owner of the files):
+
+```
+# retention: every night at 03:15 (hourly keeps the rate-limit table smaller on a busy site: 15 * * * *)
+15 3 * * *  php /var/www/crm/bin/purge.php >> /var/www/crm/storage/purge.log 2>&1
+# recurring invoices: every day at 06:00
+0 6 * * *   php /var/www/crm/bin/run_recurring.php >> /var/www/crm/storage/recurring.log 2>&1
+# endpoint checks and Kuma history: every minute
+* * * * *   php /var/www/crm/bin/check_endpoints.php
+* * * * *   php /var/www/crm/bin/kuma_poll.php
+```
+
 ## Tests
 
 ```
@@ -92,7 +118,87 @@ C:\xampp\php\php.exe tests\run.php
 
 About 1,100 checks (one file per stage in `tests/parts/`): authentication, permissions, rate limiting, the SSRF guards, encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast, the phone layout, the calendar, and the folder structure (a crawler follows every link and form in the program). Results and fixes are also documented in Settings, Tests.
 
-Apache and MariaDB must be running; the run takes about two minutes. An optional pre-commit hook runs the suite before each commit: `git config core.hooksPath .githooks`.
+Apache and MariaDB must be running; the run takes about two minutes. An optional pre-commit hook runs the suite before each commit: `git config core.hooksPath .githooks` (it uses `php` from the PATH, or `PHP_BIN`).
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the suite on every push and pull request: PHP 8.2 with `pdo_mysql` and `openssl`, a MariaDB service, Apache with `mod_rewrite` (the suite checks the `.htaccess` rules), `php bin/setup.php --demo`, then `php tests/run.php`. The job fails unless the output contains ` 0 failed`.
+
+## Linux, Apache and MariaDB (production)
+
+The examples are for Debian or Ubuntu with the project in `/var/www/crm`; any other path works, because every link is relative to the folder the project is served from.
+
+**1. Packages**
+
+```
+sudo apt install apache2 libapache2-mod-php8.2 php8.2-cli php8.2-mysql php8.2-curl php8.2-mbstring mariadb-server
+sudo a2enmod rewrite headers
+```
+
+PHP needs `pdo_mysql`, `openssl`, `curl` and `mbstring` (`openssl`, `ctype` and `filter` are part of the standard Debian PHP package). `php -m` lists what is loaded. Argon2id password hashing is used when PHP has it (the default build does) and bcrypt otherwise.
+
+**2. Apache.** `.htaccess` is part of the security (closed folders, the HTTP to HTTPS redirect, the old-address redirects), so the site folder must allow overrides. A virtual host:
+
+```
+<VirtualHost *:80>
+    ServerName crm.example.com
+    DocumentRoot /var/www/crm
+    <Directory /var/www/crm>
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+```
+
+Check it with `curl -I http://crm.example.com/includes/core/bootstrap.php`: it must answer 403.
+
+**3. Database and first install.** On Debian the MariaDB `root` user signs in through the socket and has no password for TCP, which is what XAMPP's defaults assume. Create an administrator for the install, run setup with it, and drop it afterwards:
+
+```
+sudo mariadb -e "CREATE USER 'installer'@'127.0.0.1' IDENTIFIED BY 'a-long-temporary-password'; GRANT ALL ON *.* TO 'installer'@'127.0.0.1' WITH GRANT OPTION;"
+sudo -u www-data SETUP_DB_USER=installer SETUP_DB_PASS='a-long-temporary-password' php bin/setup.php
+sudo mariadb -e "DROP USER 'installer'@'127.0.0.1';"
+```
+
+`bin/setup.php` prints the first admin password once. It also creates the limited `ops_console_app` account (select, insert, update and delete only) and writes its password to `includes/config.local.php`. Later schema updates run `database/migrate.php` the same way, with `MIGRATE_DB_USER` and `MIGRATE_DB_PASS`. The database must run on the same machine as the web server.
+
+**4. Permissions.** The web server's user (`www-data`) must be able to write the runtime folder and read the config, and nobody else should:
+
+```
+sudo chown -R www-data:www-data /var/www/crm/storage
+sudo chmod 750 /var/www/crm/storage
+sudo chown www-data:www-data /var/www/crm/includes/config.local.php
+sudo chmod 640 /var/www/crm/includes/config.local.php
+```
+
+**5. Scheduled jobs.** Add the cron lines from "Scheduled jobs" above to the crontab of `www-data` (`sudo crontab -u www-data -e`): the retention purge is the only thing that deletes expired data.
+
+**6. HTTPS.** Get a certificate, for example with Let's Encrypt:
+
+```
+sudo apt install certbot python3-certbot-apache
+sudo certbot --apache -d crm.example.com
+```
+
+Once the site is served over HTTPS the program does the rest by itself: `.htaccess` sends plain HTTP to HTTPS (only `localhost` and private network addresses such as 10.x and 192.168.x stay on HTTP), the session cookie becomes `Secure` with the `__Host-` prefix, and `Strict-Transport-Security` is sent. Open the firewall for 80 and 443 only (`sudo ufw allow 'Apache Full'`), never for 3306.
+
+### Behind a reverse proxy or load balancer
+
+The program deliberately reads the visitor's address from `REMOTE_ADDR` only and ignores the `X-Forwarded-For` header, because that header is typed by the client unless a proxy you control sets it. Behind a proxy `REMOTE_ADDR` is the proxy's address, so **every user would share one rate-limit bucket (240 requests a minute) and one sign-in lockout counter**. Fix it with `mod_remoteip`, naming only the proxies you control:
+
+```
+sudo a2enmod remoteip
+# /etc/apache2/conf-available/remoteip.conf  (then: sudo a2enconf remoteip && sudo systemctl reload apache2)
+RemoteIPHeader X-Forwarded-For
+RemoteIPInternalProxy 10.0.0.5
+# a whole network: RemoteIPInternalProxy 10.0.0.0/24
+```
+
+Never trust a wide range such as `0.0.0.0/0`: anyone could then pick the address the limiter sees. If the proxy ends HTTPS and talks plain HTTP to Apache, also tell PHP that the visitor used HTTPS (this is what turns on the secure cookie and the HSTS header), again only for requests that come from the proxy:
+
+```
+SetEnvIf X-Forwarded-Proto "https" HTTPS=on
+```
+
+After this, `curl -I https://crm.example.com/auth/login.php` should show a `Set-Cookie: __Host-ops_console` with `Secure`, and the activity log should show the visitors' own addresses.
 
 ## Putting it on a network
 

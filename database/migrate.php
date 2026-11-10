@@ -13,13 +13,20 @@ declare(strict_types=1);
  */
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 
-$pdo = new PDO('mysql:host=127.0.0.1;dbname=' . (getenv('MIGRATE_DB') ?: 'ops_console') . ';charset=utf8mb4', 'root', '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+// Administrator account: XAMPP's root without a password, or MIGRATE_DB_USER / MIGRATE_DB_PASS / MIGRATE_DB_HOST (the same names as in docs/INSTALL.md)
+$pdo = new PDO('mysql:host=' . (getenv('MIGRATE_DB_HOST') ?: '127.0.0.1') . ';dbname=' . (getenv('MIGRATE_DB') ?: 'ops_console') . ';charset=utf8mb4', getenv('MIGRATE_DB_USER') ?: 'root', getenv('MIGRATE_DB_PASS') !== false ? (string) getenv('MIGRATE_DB_PASS') : '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $pdo->exec("SET time_zone = '" . date('P') . "'");
 
 function col_exists(PDO $p, string $t, string $c): bool
 {
     $s = $p->prepare('SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?');
     $s->execute([$t, $c]);
+    return (int) $s->fetchColumn() > 0;
+}
+function index_exists(PDO $p, string $t, string $i): bool
+{
+    $s = $p->prepare('SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?');
+    $s->execute([$t, $i]);
     return (int) $s->fetchColumn() > 0;
 }
 function say(string $m): void { echo "  $m\n"; }
@@ -81,5 +88,8 @@ if (!col_exists($pdo, 'invoices', 'recurring_id')) {
 // ---- Follow-up: editable notes, per-person notification emails
 if (!col_exists($pdo, 'notes', 'edited_at')) { $pdo->exec('ALTER TABLE notes ADD COLUMN edited_at DATETIME NULL'); say('notes.edited_at added'); }
 if (!col_exists($pdo, 'admins', 'notify_optin')) { $pdo->exec('ALTER TABLE admins ADD COLUMN notify_optin TINYINT(1) NOT NULL DEFAULT 0'); say('admins.notify_optin added'); }
+
+// ---- Hardening: lockout per account counts failures from every address
+if (!index_exists($pdo, 'login_attempts', 'idx_user_time')) { $pdo->exec('ALTER TABLE login_attempts ADD KEY idx_user_time (username, attempted_at)'); say('login_attempts.idx_user_time added'); }
 
 echo "Database is up to date.\n";

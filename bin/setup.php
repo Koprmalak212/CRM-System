@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-// Creates the ops_console database in MariaDB and seeds it with FAKE data.
+// Creates the ops_console database in MariaDB. A real install has only an admin account with a random first password
+// (printed once, must be changed at first sign-in); --demo also loads FAKE demo data and keeps the demo account admin / admin.
 // Run once:  C:\xampp\php\php.exe bin/setup.php   (CLI only; re-running resets all data)
 
 if (PHP_SAPI !== 'cli') {
@@ -9,15 +10,22 @@ if (PHP_SAPI !== 'cli') {
     exit('Run this from the command line: php bin/setup.php');
 }
 
-const DB_HOST = '127.0.0.1';
+// The database administrator used once, to create the database and the limited app account. XAMPP's default (root, no password) is used
+// unless you set SETUP_DB_USER and SETUP_DB_PASS (and SETUP_DB_HOST). The database must run on this machine: the app account is created for 127.0.0.1 and localhost.
+define('DB_HOST', getenv('SETUP_DB_HOST') ?: '127.0.0.1');
 const DB_NAME = 'ops_console';
-const DB_USER = 'root';
-const DB_PASS = '';
+define('DB_USER', getenv('SETUP_DB_USER') ?: 'root');
+define('DB_PASS', getenv('SETUP_DB_PASS') !== false ? (string) getenv('SETUP_DB_PASS') : '');
 const ADMIN_USERNAME = 'admin';
 const ADMIN_EMAIL = 'admin@telecomlijn.test';
-const ADMIN_PASSWORD = 'admin';
+require __DIR__ . '/../includes/modules/passwords.php';
+const DEMO_ADMIN_PASSWORD = 'admin';   // only for --demo installs (the sign-in page shows a hint while it is unchanged)
 
 $demo = in_array('--demo', $argv ?? [], true);    // seed fake demo data
+// A real install gets a random first password, printed once, and must change it at the first sign-in.
+// A demo install keeps the well-known demo account so it can be tried at once.
+$adminPassword = $demo ? DEMO_ADMIN_PASSWORD : random_password();
+$adminMustChange = $demo ? 0 : 1;
 $reset = in_array('--reset', $argv ?? [], true);  // allow dropping an existing database
 $wipe = in_array('--wipe-all', $argv ?? [], true);  // with --reset: also delete saved API keys, the Kuma connection and endpoints
 $pdo = new PDO('mysql:host=' . DB_HOST . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -66,8 +74,8 @@ file_put_contents(
 );
 
 // Admin
-$pdo->prepare("INSERT INTO admins (username, email, name, password_hash, role, perm_integrations, avatar, must_change_password) VALUES (?, ?, ?, ?, 'admin', 'manage', 'assets/avatars/oia-cat.gif', 0)")
-    ->execute([ADMIN_USERNAME, ADMIN_EMAIL, 'Denis Mehmed', (defined('PASSWORD_ARGON2ID') ? password_hash(ADMIN_PASSWORD, PASSWORD_ARGON2ID) : password_hash(ADMIN_PASSWORD, PASSWORD_BCRYPT, ['cost' => 12]))]);
+$pdo->prepare("INSERT INTO admins (username, email, name, password_hash, role, perm_integrations, avatar, must_change_password) VALUES (?, ?, ?, ?, 'admin', 'manage', 'assets/avatars/oia-cat.gif', ?)")
+    ->execute([ADMIN_USERNAME, ADMIN_EMAIL, 'Denis Mehmed', (defined('PASSWORD_ARGON2ID') ? password_hash($adminPassword, PASSWORD_ARGON2ID) : password_hash($adminPassword, PASSWORD_BCRYPT, ['cost' => 12])), $adminMustChange]);
 $restored = [];
 foreach ($keep as $t => $rows) {
     foreach ($rows as $r) {
@@ -91,5 +99,9 @@ echo "Done. Database '" . DB_NAME . "' created" . ($demo ? " and seeded with FAK
 ";
 if ($supportPass !== null) { echo "Normal demo account: support / $supportPass (no integrations access until an admin grants it)
 "; }
-echo 'Sign in at http://localhost/Websites/test/login.php with username ' . ADMIN_USERNAME . ' and password ' . ADMIN_PASSWORD . "
-";
+echo "Sign in at http://localhost/Websites/test/auth/login.php\n";
+if ($demo) {
+    echo 'Demo account: username ' . ADMIN_USERNAME . ' and password ' . DEMO_ADMIN_PASSWORD . " (for trying the system only)\n";
+} else {
+    echo "\n  First sign-in\n  username: " . ADMIN_USERNAME . "\n  password: " . $adminPassword . "\n\n  This password is shown only now and is stored only as a hash. You must choose a new one at the first sign-in.\n";
+}

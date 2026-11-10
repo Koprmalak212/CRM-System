@@ -1,0 +1,11 @@
+{
+  "name": "telecomlijn-crm",
+  "private": true,
+  "description": "Build tooling only: compiles the Tailwind stylesheet. The application itself is PHP and needs no Node at run time.",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i assets/css/tailwind.src.css -o assets/css/app.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

@@ -1,0 +1,75 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mariadb:
+        image: mariadb:10.6          # any 10.4+ works; setup.php connects as root without a password
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "1"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build the stylesheet (Tailwind)
+        run: |
+          npm ci
+          npm run build:css
+
+      # The suite checks .htaccess behaviour (closed folders, old-address redirects), so it needs a real Apache with mod_php.
+      - name: Install PHP 8.2 (pdo_mysql, openssl, curl, mbstring) and Apache
+        run: |
+          sudo add-apt-repository -y ppa:ondrej/php
+          sudo apt-get update
+          sudo apt-get install -y apache2 libapache2-mod-php8.2 php8.2-cli php8.2-mysql php8.2-curl php8.2-mbstring
+          sudo a2dismod mpm_event || true
+          sudo a2enmod mpm_prefork php8.2 rewrite headers
+          php -v
+          php -m | grep -E "^(pdo_mysql|openssl|curl|mbstring)$"
+
+      - name: Put the project where Apache serves it (/Websites/test)
+        run: |
+          sudo mkdir -p /var/www/html/Websites
+          sudo rsync -a --exclude=.git --exclude=node_modules "$GITHUB_WORKSPACE/" /var/www/html/Websites/test/
+          sudo chown -R www-data:www-data /var/www/html/Websites/test
+          printf '<Directory /var/www/html>\n  AllowOverride All\n  Require all granted\n</Directory>\n' | sudo tee /etc/apache2/conf-available/crm.conf
+          sudo a2enconf crm
+          sudo systemctl restart apache2
+
+      - name: Create the database (random admin password is printed once; the suite needs the demo account, so --demo)
+        working-directory: /var/www/html/Websites/test
+        run: sudo -u www-data php bin/setup.php --demo
+
+      - name: Run the test suite
+        working-directory: /var/www/html/Websites/test
+        run: |
+          set -o pipefail
+          sudo -u www-data php tests/run.php | tee /tmp/suite.txt
+          tail -n 5 /tmp/suite.txt
+          grep -q " 0 failed" /tmp/suite.txt || { echo "::error::The suite reported failures"; exit 1; }
+
+      - name: Apache error log (only if something failed)
+        if: failure()
+        run: |
+          sudo tail -n 80 /var/log/apache2/error.log || true
+          sudo tail -n 80 /var/www/html/Websites/test/storage/php-error.log || true

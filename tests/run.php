@@ -32,6 +32,7 @@ function app_source_files(): array
 
 require __DIR__ . '/../includes/modules/kuma.php';
 require __DIR__ . '/../includes/modules/notes.php';
+require __DIR__ . '/../includes/modules/demo.php';   // no longer loaded by bootstrap
 require __DIR__ . '/../includes/modules/csv.php';
 require __DIR__ . '/../includes/modules/notifications.php';
 require __DIR__ . '/../includes/modules/twofactor.php';
@@ -279,6 +280,19 @@ try {
     same($r['result'], 'invalid_url', 'an invalid address is reported before any request is made');
     $r = $t(['kumaUrl' => $mock, 'apiKey' => '']);
     check($r['ok'] === true, 'a blank key tests with the saved key');
+    // the saved key is only ever sent to the saved address
+    $pdo->exec('DELETE FROM rate_limits');   // the test action allows 10 calls a minute, and the cases above already used most of them
+    @unlink(__DIR__ . '/.mock_hits');
+    $r = $t(['kumaUrl' => $mock . '/', 'apiKey' => '']);
+    check($r['ok'] === true && mock_hits($mock) === 1, 'a blank key still tests the saved address when it is written with a trailing slash');
+    @unlink(__DIR__ . '/.mock_hits');
+    $r = $t(['kumaUrl' => 'http://127.0.0.1:03199', 'apiKey' => '']);   // the same server, written differently
+    check($r['ok'] === false && $r['result'] === 'no_key' && $r['message'] === 'Enter the API key to test.', 'a blank key with a different address is refused: "Enter the API key to test."', json_encode($r));
+    same(mock_hits($mock), 0, 'and the saved key was not sent to that address');
+    $r = $t(['kumaUrl' => 'http://127.0.0.2:3199', 'apiKey' => '']);
+    same($r['result'], 'no_key', 'a blank key with another host is refused too');
+    $r = $t(['kumaUrl' => 'http://127.0.0.1:03199', 'apiKey' => 'goodkey']);
+    check($r['ok'] === true, 'a key typed in by the admin can be tested against any valid address');
     $r = $t(['kumaUrl' => 'http://169.254.169.254', 'apiKey' => 'goodkey']);
     same($r['result'], 'invalid_url', 'the cloud metadata address is refused');
     same($pdo->query('SELECT kuma_url, api_key_enc, key_last4, poll_interval_s FROM kuma_settings WHERE id = 1')->fetch(), $snapshot, 'testing never changes the saved settings');
@@ -449,6 +463,7 @@ try {
     require TESTS_DIR . '/parts/stage13_followups.php';
     require TESTS_DIR . '/parts/stage14_calendar.php';
     require TESTS_DIR . '/parts/stage15_structure.php';
+    require TESTS_DIR . '/parts/stage16_hardening.php';
 
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();

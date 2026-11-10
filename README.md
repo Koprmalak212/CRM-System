@@ -15,7 +15,7 @@ Customers, support, planning, invoices and uptime, together.
 ![PHP 8.2](https://img.shields.io/badge/PHP-8.2-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![MariaDB](https://img.shields.io/badge/MariaDB-10.4+-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
-![1,126 checks passing](https://img.shields.io/badge/tests-1%2C126%20passing-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+[![Tests](https://img.shields.io/github/actions/workflow/status/Koprmalak212/CRM-System/tests.yml?branch=main&style=for-the-badge&label=tests&labelColor=111D36)](https://github.com/Koprmalak212/CRM-System/actions/workflows/tests.yml)
 ![Proprietary](https://img.shields.io/badge/licence-proprietary-111D36?style=for-the-badge&labelColor=111D36&color=FFF1A8)
 
 <br>
@@ -146,11 +146,11 @@ Contrast measured in light and dark, charts with data tables, full keyboard use,
 </tr>
 </table>
 
-An automated suite of **1,126 checks**, including a crawler that follows every link and form in the program, runs against a real server. Every test and fix is documented inside the product, under *Settings → Tests*.
+An automated suite of **over 1,100 checks** (run on every push by GitHub Actions), including a crawler that follows every link and form in the program, runs against a real server. Every test and fix is documented inside the product, under *Settings → Tests*.
 
 ## Under the hood
 
-PHP 8.2 and MariaDB with Tailwind CSS: no framework and no build step, on a plain XAMPP stack. Pages are grouped by feature (`auth`, `users`, `companies`, `tickets`, `calendar`, `invoices`, `monitoring`, `system`, ...), shared logic lives in `includes/`, and scheduled jobs in `bin/`. The PDF writer, the two-factor code (RFC 6238) and the SMTP client are written in-house, so customer data does not leave the server through third-party services.
+PHP 8.2 and MariaDB with Tailwind CSS: no framework, on a plain XAMPP stack. The stylesheet is compiled once with the Tailwind CLI and committed, so running the system needs no Node. Pages are grouped by feature (`auth`, `users`, `companies`, `tickets`, `calendar`, `invoices`, `monitoring`, `system`, ...), shared logic lives in `includes/`, and scheduled jobs in `bin/`. The PDF writer, the two-factor code (RFC 6238) and the SMTP client are written in-house, so customer data does not leave the server through third-party services.
 
 ## Documentation
 

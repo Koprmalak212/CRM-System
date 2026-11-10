@@ -34,7 +34,6 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
 <title><?= e($title) ?> · Telecomlijn Admin</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
-<script src="assets/vendor/tailwind-3.4.17.js"></script>
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
   html { font-feature-settings: "tnum" 1; }
@@ -54,6 +53,7 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
 <script nonce="<?= csp_nonce() ?>">document.documentElement.classList.add('js');try{var s=localStorage.getItem('sbPinned');var p=s===null?!matchMedia('(hover:hover)').matches:s==='1';if(p)document.documentElement.dataset.sb='pinned'}catch(e){};try{if(localStorage.getItem('sbSeen'))document.documentElement.dataset.sbseen='1'}catch(e){}setTimeout(function(){if(!window.__motion)document.documentElement.classList.add('reveal-all')},3000);</script>
 <link rel="stylesheet" href="assets/css/motion.css">
 <link rel="stylesheet" href="assets/css/cards.css">
+<link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <a href="<?= self_url() ?>#main" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-lime focus:px-4 focus:py-2 focus:font-semibold focus:text-navy">Skip to content</a>

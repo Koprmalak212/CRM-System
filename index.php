@@ -210,6 +210,7 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
 <?= trends_section($pdo) ?>
 
 <?php if (is_admin()):
+  require_once __DIR__ . '/includes/modules/demo.php';   // loaded only for the demo panel (admins)
   $dc = demo_counts($pdo, 1);
   $rc = demo_counts($pdo, 0);
   $demoRows = array_sum($dc);

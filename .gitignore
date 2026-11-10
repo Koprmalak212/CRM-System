@@ -6,3 +6,6 @@ storage/*
 node_modules/
 *.log
 .env
+# Data dumps hold real settings and account hashes: never commit them
+database/ops_console_data.sql
+database/*_data.sql

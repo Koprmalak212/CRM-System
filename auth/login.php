@@ -11,6 +11,7 @@ if (!empty($_SESSION['admin'])) redirect('index.php');
 const LOGIN_WINDOW_MINUTES = 15;
 const LOGIN_MAX_PER_USER = 5;     // failures for one username from one IP
 const LOGIN_MAX_PER_IP = 15;      // failures from one IP across any usernames
+const LOGIN_MAX_PER_ACCOUNT = 10; // failures for one account from ANY address (username or email typed): slows a spread-out guessing attack
 const DUMMY_HASH = '$argon2id$v=19$m=65536,t=4,p=1$WjRTTktmdmxua2Jic1gxZQ$2Y/LbzlvVhqHaFctMmqLPXh1xrfIdUYfKACfWc7VIRs';   // equalises timing for unknown users
 
 $error = '';
@@ -35,12 +36,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $byUser = $pdo->prepare('SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND username = ? AND attempted_at >= ?');
     $byUser->execute([$ip, $key, $window]);
 
-    if ((int) $byIp->fetchColumn() >= LOGIN_MAX_PER_IP || (int) $byUser->fetchColumn() >= LOGIN_MAX_PER_USER) {
+    // The account is looked up before the limits are checked, so failures typed as the username and as the email count together.
+    // Unknown names are counted under what was typed, and the answer is the same, so nothing reveals whether an account exists.
+    $stmt = $pdo->prepare('SELECT id, username, email, name, password_hash, must_change_password, totp_enabled FROM admins WHERE (username = ? OR email = ?) AND is_active = 1');
+    $stmt->execute([$user, $user]);
+    $row = $stmt->fetch();
+    $names = array_values(array_unique(array_filter([$key, $row ? mb_substr(strtolower((string) $row['username']), 0, 64) : '', $row ? mb_substr(strtolower((string) $row['email']), 0, 64) : ''], 'strlen')));
+    $byAccount = $pdo->prepare('SELECT COUNT(*) FROM login_attempts WHERE username IN (' . implode(',', array_fill(0, count($names), '?')) . ') AND attempted_at >= ?');
+    $byAccount->execute([...$names, $window]);
+    $accountFails = (int) $byAccount->fetchColumn();
+
+    if ((int) $byIp->fetchColumn() >= LOGIN_MAX_PER_IP || (int) $byUser->fetchColumn() >= LOGIN_MAX_PER_USER || $accountFails >= LOGIN_MAX_PER_ACCOUNT) {
         $error = 'Too many failed attempts. Wait ' . LOGIN_WINDOW_MINUTES . ' minutes and try again.';
     } else {
-        $stmt = $pdo->prepare('SELECT id, username, email, name, password_hash, must_change_password, totp_enabled FROM admins WHERE (username = ? OR email = ?) AND is_active = 1');
-        $stmt->execute([$user, $user]);
-        $row = $stmt->fetch();
         $ok = password_verify($pass, $row['password_hash'] ?? DUMMY_HASH) && $row;   // always hash-check, so timing does not reveal valid usernames
         if ($ok) {
             if (password_needs_rehash($row['password_hash'], password_algo())) {
@@ -57,6 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             login_complete($pdo, $row);
         }
         $pdo->prepare('INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, NOW())')->execute([$ip, $key]);
+        if ($accountFails + 1 === LOGIN_MAX_PER_ACCOUNT) {   // this failure was the one that closed the account for a while
+            log_activity('warning', 'Sign-in locked for ' . LOGIN_WINDOW_MINUTES . ' minutes: too many failures for one account', preg_match('/^[A-Za-z0-9._@-]{1,64}$/', $user) ? $user : '[unusual input]', 'anonymous');
+        }
         $pdo->prepare('DELETE FROM login_attempts WHERE attempted_at < ?')->execute([date('Y-m-d H:i:s', time() - 86400)]);
         // Log the failure without ever storing what was typed as a password; odd-looking usernames are masked.
         $shown = preg_match('/^[A-Za-z0-9._@-]{1,64}$/', $user) ? $user : '[unusual input]';
@@ -80,7 +91,6 @@ try {
 <title>Sign in · Telecomlijn Admin</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
-<script src="assets/vendor/tailwind-3.4.17.js"></script>
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
   @keyframes hop { 0% { transform: translateX(-10px); opacity: .6; } 55% { transform: translateX(3px); opacity: 1; } 100% { transform: none; } }
@@ -88,6 +98,7 @@ try {
 </style>
 <script nonce="<?= csp_nonce() ?>">document.documentElement.classList.add('js');setTimeout(function(){if(!window.__motion)document.documentElement.classList.add('reveal-all')},3000);</script>
 <link rel="stylesheet" href="assets/css/motion.css">
+<link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <?= lang_widget('absolute right-4 top-4 z-10 sm:right-8 sm:top-6') ?>

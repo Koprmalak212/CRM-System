@@ -135,7 +135,8 @@ CREATE TABLE login_attempts (
   username VARCHAR(64) NOT NULL,
   attempted_at DATETIME NOT NULL,
   KEY idx_ip_time (ip, attempted_at),
-  KEY idx_ip_user_time (ip, username, attempted_at)
+  KEY idx_ip_user_time (ip, username, attempted_at),
+  KEY idx_user_time (username, attempted_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE rate_limits (
