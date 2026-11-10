@@ -280,6 +280,7 @@ try {
     $r = $t(['kumaUrl' => $mock, 'apiKey' => '']);
     check($r['ok'] === true, 'a blank key tests with the saved key');
     // the saved key is only ever sent to the saved address
+    $pdo->exec('DELETE FROM rate_limits');   // the test action allows 10 calls a minute, and the cases above already used most of them
     @unlink(__DIR__ . '/.mock_hits');
     $r = $t(['kumaUrl' => $mock . '/', 'apiKey' => '']);
     check($r['ok'] === true && mock_hits($mock) === 1, 'a blank key still tests the saved address when it is written with a trailing slash');
