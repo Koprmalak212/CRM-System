@@ -6,7 +6,7 @@ Everything needed to run, update and test the system. For what the system does, 
 
 - XAMPP (Apache + MariaDB 10.4+) with PHP 8.2 and the `openssl` and `pdo_mysql` extensions
 - `mod_rewrite` and `.htaccess` overrides enabled (the XAMPP default); the access rules depend on them
-- Node.js is optional and only needed for the browser-based checks
+- Node.js 18+ is optional: only needed to rebuild `assets/css/app.css` (see Styles) and for the browser-based checks
 
 ## Setup
 
@@ -21,6 +21,19 @@ Everything needed to run, update and test the system. For what the system does, 
 3. Open <http://localhost/Websites/test/>, sign in as `admin` with the password the script printed, and choose your own password when asked. (A demo install: `admin` / `admin`, for trying only.)
 
 An existing database is brought up to date, keeping its data, with `C:\xampp\php\php.exe database\migrate.php`. It runs as root, can be repeated safely, and also migrates the old `users.company` text into companies.
+
+## Styles (Tailwind build)
+
+The pages use one compiled stylesheet, `assets/css/app.css`, which is committed, so running the system needs no Node. Rebuild it after you change classes in a page or the palette in `tailwind.config.js`:
+
+```
+npm ci
+npm run build:css
+```
+
+(`npm run build:css` runs `tailwindcss -c tailwind.config.js -i assets/css/tailwind.src.css -o assets/css/app.css --minify`; the build scans every page, the includes and `assets/js` for class names.) The theme colours are CSS variables (`theme_style()` in `includes/core/theme.php`), so the one file serves both the light and the dark theme. Build output for dynamic class names: write the full class name somewhere in the source (for example `'text-' . $x` will not be found, `$x ? 'text-left' : 'text-right'` will). CI runs the build before the tests, and a test fails if the committed `app.css` is out of date.
+
+Content-Security-Policy note: scripts need a nonce, but `style-src` keeps `'unsafe-inline'`, because about fifty elements carry a `style=""` attribute (animation delays, bar heights) that a nonce cannot cover, and Google Translate adds inline styles when a visitor allows it.
 
 ## Folder layout
 
@@ -40,7 +53,7 @@ bin/                       command-line jobs and installer; refused by the web s
 includes/core/             bootstrap, security, layout, theme, translation
 includes/modules/          feature logic: companies, tickets, invoices, mailer, PDF writer, two-factor, Kuma, ...
 includes/settings/         the tabs of the Settings page
-assets/css js img          motion system, phone table cards, logos; fonts/, vendor/ and avatars/ beside them
+assets/css js img          app.css (compiled Tailwind), motion system, phone table cards, logos; fonts/ and avatars/ beside them
 database/                  schema, migration, dumps, test-log baseline
 docs/                      guides, data-breach procedure, processing register
 tests/                     test suite (tests/parts, one file per stage), mock Kuma and mock SMTP server

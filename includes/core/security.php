@@ -99,6 +99,8 @@ $__n = $GLOBALS['csp_nonce'];
 // Google Translate (the language toggle) is the only third-party script source; everything else is self-hosted.
 header("Content-Security-Policy: default-src 'self'; "
     . "script-src 'self' 'nonce-$__n' https://translate.google.com https://translate.googleapis.com https://translate-pa.googleapis.com https://www.gstatic.com; "
+    // 'unsafe-inline' stays for styles: about fifty elements carry a style="" attribute (animation delays, bar heights, widths), which a nonce cannot cover,
+    // and Google Translate adds inline styles. Scripts are the strict part of this policy: they need the nonce.
     . "style-src 'self' 'unsafe-inline' https://translate.googleapis.com https://translate-pa.googleapis.com https://www.gstatic.com; "
     . "img-src 'self' data: https://*.google.com https://*.gstatic.com https://translate.googleapis.com https://translate-pa.googleapis.com; "
     . "font-src 'self'; connect-src 'self' https://translate.googleapis.com https://translate-pa.googleapis.com https://translate.google.com; "

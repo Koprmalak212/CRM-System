@@ -179,3 +179,45 @@ check($rc === 0 || $rc === -1 && $err === '', 'the hook is valid shell (sh -n)',
 $rd = (string) file_get_contents($root16 . '/README.md');
 check(!str_contains($rd, 'img.shields.io/badge/tests-') && str_contains($rd, 'actions/workflows/tests.yml'), 'README shows the workflow badge, not a typed-in test count');
 check(!preg_match('/\b1,126\b/', $rd), 'and no longer states a fixed number of checks');
+
+section('52. Hardening: Tailwind is compiled, not run in the browser');
+$css52 = $root16 . '/assets/css/app.css';
+check(is_file($css52) && filesize($css52) > 10000 && filesize($css52) < 400000, 'assets/css/app.css exists and is a compiled stylesheet of a sensible size (' . (is_file($css52) ? round(filesize($css52) / 1024) . ' KB' : 'missing') . ')');
+check(!is_file($root16 . '/assets/vendor/tailwind-3.4.17.js') && !is_dir($root16 . '/assets/vendor'), 'the in-browser Tailwind script is gone from the project');
+$bad52 = []; $nolink = [];
+foreach (app_source_files() as $f) {
+    $t = (string) file_get_contents($f);
+    if (str_contains($t, 'tailwind-3.4') || str_contains($t, 'tailwind.config=') || str_contains($t, 'theme_tailwind_script')) { $bad52[] = basename($f); }
+}
+same($bad52, [], 'no page loads the Tailwind script or configures it inline');
+foreach (['auth/login.php', 'auth/login_2fa.php', 'index.php', 'privacy/privacybeleid.php', 'settings/settings.php?tab=account'] as $pg) {
+    $r = http('GET', "$base/$pg", ['jar' => str_starts_with($pg, 'auth/login') || str_contains($pg, 'privacybeleid') ? '' : $admin]);
+    if ($r['code'] === 302) { $r = http('GET', "$base/auth/login.php", ['jar' => '']); }
+    if (!str_contains($r['body'], '<link rel="stylesheet" href="assets/css/app.css">') || str_contains($r['body'], 'tailwind-3.4')) { $nolink[] = $pg; }
+}
+same($nolink, [], 'the pages link assets/css/app.css and nothing else Tailwind');
+$h52 = http('GET', "$base/assets/css/app.css");
+check($h52['code'] === 200 && stripos($h52['headers'], 'text/css') !== false && str_contains($h52['body'], 'rgb(var(--c-ground)'), 'app.css is served as text/css and carries the themed colour variables');
+// the link is the last thing in the head, as the in-browser Tailwind used to be: utilities win over the inline page rules
+$lay = http('GET', "$base/index.php", ['jar' => $admin])['body'];
+check(preg_match('~<link rel="stylesheet" href="assets/css/app.css">\s*</head>~', $lay) === 1, 'the stylesheet link is the last element of the head, so utilities keep their place in the cascade');
+$cfg52 = (string) file_get_contents($root16 . '/tailwind.config.js');
+check(str_contains($cfg52, './includes/**/*.php') && str_contains($cfg52, './assets/js/*.js') && str_contains($cfg52, 'search,notifications,settings,privacy'), 'tailwind.config.js scans the pages, the includes and the scripts');
+$pkg = json_decode((string) file_get_contents($root16 . '/package.json'), true);
+check(($pkg['devDependencies']['tailwindcss'] ?? '') === '3.4.17' && str_contains((string) ($pkg['scripts']['build:css'] ?? ''), 'assets/css/app.css'), 'package.json pins Tailwind 3.4.17 and has the build:css script');
+check(is_file($root16 . '/package-lock.json'), 'package-lock.json is committed (CI installs exactly the same version)');
+check(!str_contains((string) file_get_contents($root16 . '/.gitignore'), 'package-lock') && str_contains((string) file_get_contents($root16 . '/.gitignore'), 'node_modules'), 'node_modules is ignored, the lock file is not');
+check(str_contains((string) file_get_contents($root16 . '/.github/workflows/tests.yml'), 'npm run build:css') && str_contains((string) file_get_contents($root16 . '/docs/INSTALL.md'), 'npm run build:css'), 'the build command is in the CI workflow and in docs/INSTALL.md');
+// the committed stylesheet is current: rebuild into a temp file and compare (skipped where Node is not installed)
+$bin52 = $root16 . '/node_modules/.bin/' . (DIRECTORY_SEPARATOR === chr(92) ? 'tailwindcss.cmd' : 'tailwindcss');
+if (is_file($bin52)) {
+    $tmp52 = sys_get_temp_dir() . '/app-css-check-' . getmypid() . '.css';
+    $cmd = escapeshellarg($bin52) . ' -c tailwind.config.js -i assets/css/tailwind.src.css -o ' . escapeshellarg($tmp52) . ' --minify';
+    $p = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp, $root16);
+    stream_get_contents($pp[1]); stream_get_contents($pp[2]); proc_close($p);
+    check(is_file($tmp52) && trim((string) file_get_contents($tmp52)) === trim((string) file_get_contents($css52)), 'a fresh Tailwind build gives exactly the committed app.css (run npm run build:css after changing classes)');
+    @unlink($tmp52);
+} else {
+    check(true, 'Node tooling is not installed here: the app.css freshness check is skipped (CI builds it)');
+}
+check(str_contains((string) file_get_contents($root16 . '/includes/core/security.php'), "style-src 'self' 'unsafe-inline'") && str_contains((string) file_get_contents($root16 . '/includes/core/security.php'), 'script-src \'self\' \'nonce-'), 'the policy is documented as it is: scripts need the nonce, style-src keeps unsafe-inline because style attributes remain');

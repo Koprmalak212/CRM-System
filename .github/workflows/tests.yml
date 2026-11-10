@@ -26,6 +26,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build the stylesheet (Tailwind)
+        run: |
+          npm ci
+          npm run build:css
+
       # The suite checks .htaccess behaviour (closed folders, old-address redirects), so it needs a real Apache with mod_php.
       - name: Install PHP 8.2 (pdo_mysql, openssl, curl, mbstring) and Apache
         run: |
@@ -40,7 +50,7 @@ jobs:
       - name: Put the project where Apache serves it (/Websites/test)
         run: |
           sudo mkdir -p /var/www/html/Websites
-          sudo rsync -a --exclude=.git "$GITHUB_WORKSPACE/" /var/www/html/Websites/test/
+          sudo rsync -a --exclude=.git --exclude=node_modules "$GITHUB_WORKSPACE/" /var/www/html/Websites/test/
           sudo chown -R www-data:www-data /var/www/html/Websites/test
           printf '<Directory /var/www/html>\n  AllowOverride All\n  Require all granted\n</Directory>\n' | sudo tee /etc/apache2/conf-available/crm.conf
           sudo a2enconf crm

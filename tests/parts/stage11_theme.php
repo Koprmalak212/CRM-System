@@ -28,8 +28,8 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     check(str_contains($css, 'html[data-theme=light]{') && str_contains($css, ':root,html[data-theme=dark]{') && str_contains($css, 'color-scheme:light') && str_contains($css, 'color-scheme:dark'), 'the CSS defines both palettes and tells the browser which colour scheme applies (native controls follow)');
     check(str_contains($css, '.on-navy{--c-ground:10 18 38'), 'dark islands (sidebar, service health, login brand panel) redeclare the dark palette');
     check(str_contains($css, 'html .text-lime') && str_contains($css, 'html .text-butter') && str_contains($css, 'html .chart .bg-lime') && str_contains($css, 'focus\\:ring-lime'), 'accent colours used as text, chart bars and focus rings follow the theme');
-    $cfg = theme_tailwind_script();
-    check(str_contains($cfg, "ground:'rgb(var(--c-ground) / <alpha-value>)'") && str_contains($cfg, "boxShadow:{panel:'var(--shadow-panel)'}") && !str_contains($cfg, '#0A1226'), 'the Tailwind colours point at the variables (so opacity modifiers such as bg-ground/95 keep working) and no dark colour is hard-coded');
+    $cfg = (string) file_get_contents(TESTS_DIR . '/../tailwind.config.js');
+    check(str_contains($cfg, "ground: v('ground')") && str_contains($cfg, 'rgb(var(--c-${n}) / <alpha-value>)') && str_contains($cfg, "boxShadow: { panel: 'var(--shadow-panel)' }") && !str_contains($cfg, '#0A1226'), 'the Tailwind colours point at the variables (so opacity modifiers such as bg-ground/95 keep working) and no dark colour is hard-coded');
 
     section('34. Theme: every page carries it');
     $boot = theme_boot_script();
@@ -62,10 +62,10 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
         $t = (string) file_get_contents($f);
         if (!in_array(basename($f), ['theme.php', 'security.php'], true) && preg_match('/color-scheme:\s*dark|background:\s*#0A1226|ground:\s*\'#0A1226\'/', $t)) { $hard[] = basename($f); }   // security.php: the bare 403 and 429 error pages stay dark on purpose
         if (preg_match('/opacity-[4-7]0/', $t) && basename($f) !== 'bootstrap.php') { $dim[] = basename($f); }
-        if (basename($f) !== 'theme.php' && str_contains($t, 'tailwind.config')) { $cfgs[] = basename($f); }
+        if (str_contains($t, 'tailwind.config')) { $cfgs[] = basename($f); }
     }
     check(!$hard, 'no page hard-codes the dark page colour or colour scheme any more', implode(', ', $hard));
-    check(!$cfgs, 'only includes/theme.php configures Tailwind (one palette for every page)', implode(', ', $cfgs));
+    check(!$cfgs, 'no page configures Tailwind inline: the one palette is in tailwind.config.js', implode(', ', $cfgs));
     check(!$dim, 'no row or text is dimmed with opacity (it silently lowers contrast); disabled and read rows use a tint', implode(', ', $dim));
     $bs = (string) file_get_contents(TESTS_DIR . '/../includes/core/bootstrap.php');
     check(str_contains($bs, "'info' => 'bg-ink/10 text-ink'") && !str_contains($bs, "bg-white/10 text-ink"), 'the neutral badge uses a tint of the text colour, so it shows in both themes');

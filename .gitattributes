@@ -1,0 +1,5 @@
+# Shell scripts and workflows must keep Unix line endings (a CR breaks them on Linux)
+.githooks/* text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
