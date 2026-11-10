@@ -8,6 +8,8 @@ $pdo = db();
 
 $usersTotal = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
 $usersNew = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL 30 DAY')->fetchColumn();
+$ticketsOpen = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed')")->fetchColumn();
+$ticketsUrgent = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed') AND priority = 'urgent'")->fetchColumn();
 $usersPending = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
 $conn = $pdo->query("SELECT COUNT(*) total, SUM(status = 'flagged') flagged FROM connections")->fetch();
 $lastBackup = $pdo->query("SELECT started_at FROM backups WHERE status = 'completed' ORDER BY started_at DESC LIMIT 1")->fetchColumn();
@@ -71,16 +73,17 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
   </div>
 </section>
 
-<div class="stat-grid rise mt-6 grid grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel lg:grid-cols-4 lg:divide-x" style="animation-delay:.05s">
+<div class="stat-grid rise mt-6 grid grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel lg:grid-cols-5 lg:divide-x" style="animation-delay:.05s">
   <?php
   $stats = [
       ['Accounts', number_format($usersTotal), '+' . $usersNew . ' in 30 days', 'users.php'],
+      ['Open tickets', (string) $ticketsOpen, $ticketsUrgent . ' urgent', 'tickets.php?status=open'],
       ['Open sessions', (string) (int) $conn['total'], (int) $conn['flagged'] . ' flagged', 'connections.php'],
       ['Last good backup', $lastBackup ? ago($lastBackup) : 'None', count($failedBackups) . ' failed in 48 h', 'backups.php'],
       ['Errors, 24 h', (string) $err24, ($delta === 0 ? 'same as before' : ($delta > 0 ? '+' . $delta . ' vs previous 24 h' : $delta . ' vs previous 24 h')), 'logs.php?level=error'],
   ];
   foreach ($stats as $i => [$label, $value, $note, $href]): ?>
-    <a href="<?= e($href) ?>" class="group block p-5 hover:bg-butter-50 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
+    <a href="<?= e($href) ?>" class="group block p-5 hover:bg-butter-50 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i === 4 ? 'col-span-2 lg:col-span-1' : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
       <dl>
       <dt class="text-sm font-medium text-soft"><?= e($label) ?></dt>
       <dd class="mt-1 text-[30px] font-bold leading-none tracking-tight"<?= ctype_digit($value) ? ' data-count="' . e($value) . '" data-delay="' . ($i * 90) . '"' : '' ?>><?= e($value) ?></dd>

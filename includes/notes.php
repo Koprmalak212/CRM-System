@@ -54,6 +54,13 @@ function timeline_items(PDO $pdo, string $type, int $id, int $limit = 50): array
             $items[] = ['at' => $r['created_at'], 'kind' => 'invoice', 'title' => 'Invoice issued', 'text' => $r['number'] . ' · ' . money((int) $r['total_cents']), 'by' => '', 'link' => 'invoice.php?id=' . (int) $r['id']];
         }
     }
+    if ($type === 'company') {
+        $t = $pdo->prepare('SELECT id, reference, subject, created_at FROM tickets WHERE company_id = ? ORDER BY created_at DESC LIMIT ' . (int) $limit);
+        $t->execute([$id]);
+        foreach ($t->fetchAll() as $r) {
+            $items[] = ['at' => $r['created_at'], 'kind' => 'ticket', 'title' => 'Ticket opened', 'text' => $r['reference'] . ' · ' . $r['subject'], 'by' => '', 'link' => 'ticket.php?id=' . (int) $r['id']];
+        }
+    }
     usort($items, fn($a, $b) => strcmp($b['at'], $a['at']));
     return array_slice($items, 0, $limit);
 }
@@ -72,7 +79,7 @@ function notes_panel(PDO $pdo, string $type, int $id, string $action): string
     if ($items) {
         $h .= '<ol class="mt-5 space-y-4 border-l border-line pl-5">';
         foreach ($items as $it) {
-            $dot = $it['kind'] === 'invoice' ? 'bg-butter' : 'bg-lime';
+            $dot = in_array($it['kind'], ['invoice', 'ticket'], true) ? 'bg-butter' : 'bg-lime';
             $h .= '<li class="relative"><span class="absolute -left-[1.62rem] top-1.5 h-2.5 w-2.5 rounded-full ' . $dot . '" aria-hidden="true"></span>'
                 . '<div class="flex flex-wrap items-center gap-x-2 text-xs text-soft"><span class="font-semibold text-ink">' . e($it['title']) . '</span><span>' . e(ago($it['at'])) . '</span>' . ($it['by'] !== '' ? '<span>· ' . e($it['by']) . '</span>' : '') . '</div>'
                 . '<p class="mt-1 whitespace-pre-line text-sm">' . ($it['link'] ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="' . e($it['link']) . '">' . e($it['text']) . '</a>' : e($it['text'])) . '</p></li>';

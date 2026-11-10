@@ -78,6 +78,7 @@ function icon(string $name, string $cls = 'h-[18px] w-[18px]'): string
         'gauge' => '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
         'send' => '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
         'check' => '<polyline points="20 6 9 17 4 12"/>',
+        'ticket' => '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2M13 17v2M13 11v2"/>',
         'building' => '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
     ];
     return '<svg class="' . $cls . ' icon-' . $name . ' shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$name] ?? '') . '</svg>';
@@ -93,6 +94,7 @@ function badge(string $status): string
         'failed' => ['bad', 'Failed'], 'suspended' => ['bad', 'Suspended'], 'error' => ['bad', 'Error'],
         'up' => ['ok', 'Up'], 'slow' => ['warn', 'Slow'], 'down' => ['bad', 'Down'], 'unknown' => ['info', 'Not checked yet'], 'admin' => ['ok', 'Admin'], 'user' => ['info', 'User'],
         'paid' => ['ok', 'Paid'], 'overdue' => ['bad', 'Overdue'], 'due' => ['wait', 'Due soon'], 'open' => ['info', 'Open'],
+        'in_progress' => ['wait', 'In progress'], 'waiting' => ['wait', 'Waiting'], 'resolved' => ['ok', 'Resolved'], 'closed' => ['info', 'Closed'], 'low' => ['info', 'Low'], 'normal' => ['info', 'Normal'], 'high' => ['warn', 'High'], 'urgent' => ['bad', 'Urgent'],
         'critical' => ['bad', 'Critical'], 'flagged' => ['bad', 'Flagged'], 'outage' => ['bad', 'Outage'],
     ];
     [$tone, $label] = $map[$status] ?? ['info', ucfirst($status)];

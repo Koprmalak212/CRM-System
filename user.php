@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/companies.php';
 require __DIR__ . '/includes/notes.php';
+require __DIR__ . '/includes/tickets.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -153,6 +154,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
       <p class="mt-3 text-sm text-soft">Nothing recorded for this user yet.</p>
     <?php endif; ?>
   </section>
+  <?= tickets_panel($pdo, 'user_id', $id, 'ticket_new.php?user=' . $id) ?>
   <?= notes_panel($pdo, 'user', $id, 'user.php?id=' . $id) ?>
 </div>
 <?php page_end(); ?>

@@ -286,3 +286,38 @@ CREATE TABLE IF NOT EXISTS notes (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_note_about (about_type, about_id, created_at)
 ) ENGINE=InnoDB;
+
+-- Stage 3: tickets (support requests) with a comment thread.
+CREATE TABLE IF NOT EXISTS tickets (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  reference VARCHAR(16) NOT NULL UNIQUE,
+  company_id INT UNSIGNED NULL,
+  user_id INT UNSIGNED NULL,
+  subject VARCHAR(160) NOT NULL,
+  description VARCHAR(2000) NOT NULL DEFAULT '',
+  status ENUM('open','in_progress','waiting','resolved','closed') NOT NULL DEFAULT 'open',
+  priority ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
+  assignee_id INT UNSIGNED NULL,
+  created_by VARCHAR(60) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME NULL,
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  KEY idx_ticket_status (status),
+  KEY idx_ticket_company (company_id),
+  KEY idx_ticket_user (user_id),
+  KEY idx_ticket_assignee (assignee_id),
+  CONSTRAINT fk_ticket_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ticket_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ticket_assignee FOREIGN KEY (assignee_id) REFERENCES admins(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS ticket_comments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ticket_id INT UNSIGNED NOT NULL,
+  author VARCHAR(60) NOT NULL,
+  body VARCHAR(2000) NOT NULL,
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_tc_ticket (ticket_id, created_at),
+  CONSTRAINT fk_tc_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

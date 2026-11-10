@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 /** Tables that carry the is_demo tag, in the order they are shown to the admin. */
 const DEMO_TABLES = [
-    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
+    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
     'payments' => 'Payments', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
@@ -122,6 +122,31 @@ function demo_seed(PDO $pdo): array
         foreach (array_slice($userIds, 0, 20) as $uid) {
             $kind = demo_pick(array_keys($noteTexts));
             $ni->execute(['user', $uid, $kind, demo_pick($noteTexts[$kind]), demo_pick(['admin', 'support']), demo_ts(mt_rand(3600, 40 * 86400))]);
+        }
+
+        // ----- Tickets with comments
+        $subjects = ['Internet connection keeps dropping', 'Cannot make outgoing calls', 'Request: extra 3CX seats', 'Invoice question: wrong amount', 'Yealink phone does not register', 'Slow upload speed on fiber line', 'Move office: relocate the connection', 'Voicemail to email not working', 'Firewall rule change request', 'WhatsApp Business messages delayed', 'New 085 number for sales team', 'Static IP address request', 'Router replaced, VPN no longer works', 'Request: DDoS protection report', 'Phone number porting status'];
+        $descs = ['Started this morning and happens several times an hour. We have already restarted the router.', 'Colleagues hear a busy tone when dialling external numbers. Internal calls work fine.', 'We are hiring three people next month and need phones for them.', 'The amount on the latest invoice does not match our quote.', 'The new desk phone shows an error after plugging it in.'];
+        $replies = ['Looking into it now.', 'We checked the line and see packet loss on our side. An engineer is scheduled.', 'Thanks, we will call you back this afternoon.', 'Can you confirm the issue is still happening?', 'Fixed on our side. Please confirm that it works for you.', 'Waiting for the customer to reply.'];
+        $adminIds = $pdo->query('SELECT id FROM admins WHERE is_active = 1')->fetchAll(PDO::FETCH_COLUMN);
+        $tIns = $pdo->prepare('INSERT INTO tickets (reference, company_id, user_id, subject, description, status, priority, assignee_id, created_by, created_at, updated_at, resolved_at, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)');
+        $tcIns = $pdo->prepare('INSERT INTO ticket_comments (ticket_id, author, body, created_at, is_demo) VALUES (?,?,?,?,1)');
+        $uByCo = [];
+        foreach ($pdo->query('SELECT id, company_id FROM users WHERE is_demo = 1')->fetchAll() as $ur) { $uByCo[(int) $ur['company_id']][] = (int) $ur['id']; }
+        for ($i = 0; $i < 40; $i++) {
+            $co = demo_pick($companyIds);
+            $uid = !empty($uByCo[$co]) && mt_rand(0, 100) < 80 ? demo_pick($uByCo[$co]) : null;
+            $st = demo_weighted(['open' => 22, 'in_progress' => 22, 'waiting' => 14, 'resolved' => 24, 'closed' => 18]);
+            $pr = demo_weighted(['low' => 18, 'normal' => 50, 'high' => 22, 'urgent' => 10]);
+            $age = mt_rand(2 * 3600, 90 * 86400);
+            $upd = mt_rand(0, max(0, $age - 600));
+            $done = in_array($st, ['resolved', 'closed'], true) ? demo_ts($upd) : null;
+            $tIns->execute(['TMP-D' . $i, $co, $uid, demo_pick($subjects), demo_pick($descs), $st, $pr, $adminIds && mt_rand(0, 100) < 75 ? demo_pick($adminIds) : null, 'admin', demo_ts($age), demo_ts($upd), $done]);
+            $tid = (int) $pdo->lastInsertId();
+            $pdo->prepare('UPDATE tickets SET reference = ? WHERE id = ?')->execute(['TCK-' . str_pad((string) $tid, 4, '0', STR_PAD_LEFT), $tid]);
+            for ($k = mt_rand(1, 4); $k > 0; $k--) {
+                $tcIns->execute([$tid, demo_pick(['admin', 'support']), demo_pick($replies), demo_ts(mt_rand($upd, max($upd, $age - 60)))]);
+            }
         }
 
         // ----- Connections (sessions)
@@ -263,6 +288,7 @@ function demo_remove(PDO $pdo): array
     $before = demo_counts($pdo, 1);
     $pdo->beginTransaction();
     try {
+        $pdo->exec('DELETE FROM tickets WHERE is_demo = 1');   // its comments go with it
         $pdo->exec('DELETE FROM notes WHERE is_demo = 1');
         $pdo->exec('DELETE FROM connections WHERE is_demo = 1');
         $pdo->exec('DELETE FROM users WHERE is_demo = 1');
