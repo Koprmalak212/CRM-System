@@ -145,4 +145,9 @@ $add('COMP-004', 'Companies', 'Migration of existing data', 'pass', 'database/mi
 $add('COMP-005', 'Companies', 'Demo data and removal', 'pass', 'The 14 demo companies are real rows with addresses, KvK and VAT numbers; every demo user and invoice links to one. Removing demo data keeps a company that a real user or kept invoice still uses.');
 $add('COMP-006', 'Companies', 'Phone-width layout of the new pages', 'info', 'The new pages reuse the existing scrolling-table and form patterns. The browser tool could not shrink the viewport during this stage, so 360 px was not measured; the full-site crawl at 360 / 768 / 1440 px is still to be run after the last stage.');
 
-return ['version' => 8, 'entries' => $e];
+// ---------- Stage 2: notes and timeline
+$add('NOTE-001', 'Notes', 'Notes and timeline on users and companies', 'pass', 'A form on user.php and company.php adds a note, call, email or meeting; the timeline lists them newest first, and a company timeline also shows invoices issued. The author is always the signed-in account (a forged author field is ignored). Text is escaped and line breaks kept; empty notes, unknown kinds and notes on a missing user or company are refused; a signed-out or token-less request is refused.');
+$add('NOTE-002', 'Notes', 'Length cap', 'fixed', 'The automated test expected a 5000-character note to be refused. The global input filter in security.php already cuts every value to 2000 characters before the page sees it, so such a note is saved capped at 2000. The test now asserts the cap.', 'No code change needed; test updated to match the designed behaviour.');
+$add('NOTE-003', 'Notes', 'Notes with deleted or demo records', 'pass', 'Deleting a company deletes its notes. Demo data adds notes to every demo company and 20 users; removing demo data deletes them, plus any hand-written note left on a removed demo user or company.');
+
+return ['version' => 9, 'entries' => $e];

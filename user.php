@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/companies.php';
+require __DIR__ . '/includes/notes.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -23,6 +24,7 @@ if (!$u) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    if (($_POST['action'] ?? '') === 'note') { notes_handle_post($pdo, 'user', $id, 'user.php?id=' . $id); }
     if (($_POST['action'] ?? '') === 'company') {
         $cid = (int) ($_POST['company_id'] ?? 0);
         $target = $cid > 0 ? company_find($pdo, $cid) : null;
@@ -151,5 +153,6 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
       <p class="mt-3 text-sm text-soft">Nothing recorded for this user yet.</p>
     <?php endif; ?>
   </section>
+  <?= notes_panel($pdo, 'user', $id, 'user.php?id=' . $id) ?>
 </div>
 <?php page_end(); ?>

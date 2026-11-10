@@ -273,3 +273,16 @@ CREATE TABLE IF NOT EXISTS companies (
 ) ENGINE=InnoDB;
 ALTER TABLE users ADD COLUMN company_id INT UNSIGNED NULL, ADD KEY idx_user_company (company_id), ADD CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT;
 ALTER TABLE invoices ADD COLUMN company_id INT UNSIGNED NULL, ADD KEY idx_inv_company (company_id), ADD CONSTRAINT fk_inv_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL;
+
+-- Stage 2: notes and activity timeline on users and companies (about_type + about_id; no foreign key because it points at two tables).
+CREATE TABLE IF NOT EXISTS notes (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  about_type ENUM('user','company') NOT NULL,
+  about_id INT UNSIGNED NOT NULL,
+  kind ENUM('note','call','email','meeting') NOT NULL DEFAULT 'note',
+  body VARCHAR(2000) NOT NULL,
+  author VARCHAR(60) NOT NULL,
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_note_about (about_type, about_id, created_at)
+) ENGINE=InnoDB;

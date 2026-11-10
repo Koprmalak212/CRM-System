@@ -3,11 +3,17 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/invoices.php';
 require __DIR__ . '/includes/companies.php';
+require __DIR__ . '/includes/notes.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
-$id = (int) ($_GET['id'] ?? 0);
+$id = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
 $c = company_find($pdo, $id) ?? company_not_found();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_check();
+    if (($_POST['action'] ?? '') === 'note') { notes_handle_post($pdo, 'company', $id, 'company.php?id=' . $id); }
+    redirect('company.php?id=' . $id);
+}
 
 $users = $pdo->prepare('SELECT id, name, email, role, status FROM users WHERE company_id = ? ORDER BY name');
 $users->execute([$id]);
@@ -82,5 +88,7 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
       </table>
     </div>
   </section>
+
+  <?= notes_panel($pdo, 'company', $id, 'company.php?id=' . $id) ?>
 </div>
 <?php page_end(); ?>

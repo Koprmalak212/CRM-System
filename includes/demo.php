@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 /** Tables that carry the is_demo tag, in the order they are shown to the admin. */
 const DEMO_TABLES = [
-    'companies' => 'Companies', 'users' => 'Users', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
+    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
     'payments' => 'Payments', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
@@ -104,6 +104,25 @@ function demo_seed(PDO $pdo): array
             $ins->execute([$f . ' ' . $l, $email, demo_weighted(['viewer' => 40, 'editor' => 28, 'support' => 20, 'admin' => 12]), $status, demo_pick($countries), $status === 'pending' ? 0 : mt_rand(3, 900), demo_ts($seen), demo_ts($created), demo_pick($companyIds), demo_pick($titles), '+31 6 ' . mt_rand(1000, 9999) . ' ' . mt_rand(1000, 9999)]);
         }
         $userIds = $pdo->query('SELECT id FROM users WHERE is_demo = 1')->fetchAll(PDO::FETCH_COLUMN);
+
+        // ----- Notes on demo companies and users
+        $noteTexts = [
+            'note' => ['Asked for a quote for two extra 3CX seats.', 'Contact person changed; new office manager starts next month.', 'Prefers contact by email, not phone.', 'Renewal of the fiber contract is coming up this quarter.'],
+            'call' => ['Called about a slow connection; engineer scheduled for tomorrow.', 'Called to confirm the invoice details. All fine.', 'Short call: asked about the DDoS protection add-on.'],
+            'email' => ['Sent the updated price list.', 'Replied to the question about the 085 number.', 'Sent the installation planning.'],
+            'meeting' => ['On-site meeting about moving the office network.', 'Video call: yearly review of services.'],
+        ];
+        $ni = $pdo->prepare('INSERT INTO notes (about_type, about_id, kind, body, author, created_at, is_demo) VALUES (?,?,?,?,?,?,1)');
+        foreach ($companies as $co) {
+            for ($k = mt_rand(2, 4); $k > 0; $k--) {
+                $kind = demo_pick(array_keys($noteTexts));
+                $ni->execute(['company', $co['id'], $kind, demo_pick($noteTexts[$kind]), demo_pick(['admin', 'support']), demo_ts(mt_rand(3600, 60 * 86400))]);
+            }
+        }
+        foreach (array_slice($userIds, 0, 20) as $uid) {
+            $kind = demo_pick(array_keys($noteTexts));
+            $ni->execute(['user', $uid, $kind, demo_pick($noteTexts[$kind]), demo_pick(['admin', 'support']), demo_ts(mt_rand(3600, 40 * 86400))]);
+        }
 
         // ----- Connections (sessions)
         $devices = ['Chrome 126 · Windows 11','Safari 17 · macOS 14','Firefox 127 · Ubuntu','Edge 126 · Windows 10','Safari · iPhone 15','Chrome · Android 14','curl/8.4 · API client'];
@@ -244,11 +263,14 @@ function demo_remove(PDO $pdo): array
     $before = demo_counts($pdo, 1);
     $pdo->beginTransaction();
     try {
+        $pdo->exec('DELETE FROM notes WHERE is_demo = 1');
         $pdo->exec('DELETE FROM connections WHERE is_demo = 1');
         $pdo->exec('DELETE FROM users WHERE is_demo = 1');
+        $pdo->exec("DELETE FROM notes WHERE about_type = 'user' AND about_id NOT IN (SELECT id FROM users)");   // notes typed by hand on a removed demo user go with that user
         $pdo->exec('DELETE FROM invoices WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = invoices.id AND p.is_demo = 0)');
         // a demo company stays while a real user or a kept invoice still points at it
         $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id)');
+        $pdo->exec("DELETE FROM notes WHERE about_type = 'company' AND about_id NOT IN (SELECT id FROM companies)");
         $pdo->exec('DELETE FROM monitored_endpoints WHERE is_demo = 1');
         $pdo->exec('DELETE FROM services WHERE is_demo = 1');
         $pdo->exec('DELETE FROM reports WHERE is_demo = 1');

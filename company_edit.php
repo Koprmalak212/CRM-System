@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash($c['name'] . ' still has ' . $userCount . ' user' . ($userCount === 1 ? '' : 's') . '. Move or remove them before deleting the company.', 'error');
             redirect('company.php?id=' . $id);
         }
+        $pdo->prepare("DELETE FROM notes WHERE about_type = 'company' AND about_id = ?")->execute([$id]);
         $pdo->prepare('DELETE FROM companies WHERE id = ?')->execute([$id]);   // its invoices stay; they simply lose the link
         log_activity('warning', 'Company deleted', $c['name']);
         flash($c['name'] . ' was deleted. Its invoices were kept.');
