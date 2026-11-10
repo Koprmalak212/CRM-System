@@ -344,5 +344,8 @@ function purge_expired_data(PDO $pdo): int
     $pdo->prepare('DELETE FROM endpoint_checks WHERE checked_at < ?')->execute([date('Y-m-d H:i:s', strtotime('-30 days'))]);
     // Financial records: statutory retention is 7 years (fiscale bewaarplicht). After that the customer data goes too.
     $pdo->prepare('DELETE FROM invoices WHERE issue_date < ?')->execute([date('Y-m-d', strtotime('-7 years'))]);
+    if (!function_exists('comm_purge')) { require_once __DIR__ . '/../modules/comm.php'; }
+    try { comm_purge($pdo); }   // calls and messages hold phone numbers: kept 12 months
+    catch (PDOException $e) { error_log('Purge of calls and messages skipped (run database/migrate.php): ' . $e->getMessage()); }   // the table does not exist yet on a database that was not migrated
     return $removed;
 }

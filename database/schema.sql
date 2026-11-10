@@ -470,3 +470,66 @@ CREATE TABLE IF NOT EXISTS appointments (
   CONSTRAINT fk_appt_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
   CONSTRAINT fk_appt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+-- Connectors (3CX, Yeastar, Twilio, Short.io): one row per service. The secret (client secret, auth token, API key) is stored encrypted
+-- (AES-256-GCM) and never shown again; only its last four characters are kept for display.
+CREATE TABLE IF NOT EXISTS connectors (
+  provider VARCHAR(20) NOT NULL PRIMARY KEY,            -- threecx | yeastar | twilio | shortio
+  enabled TINYINT(1) NOT NULL DEFAULT 0,
+  base_url VARCHAR(300) NOT NULL DEFAULT '',             -- the PBX address; empty for the cloud services (their own address is built in)
+  account_ref VARCHAR(190) NOT NULL DEFAULT '',          -- Twilio account SID, or the client ID of a PBX: not secret
+  secret_enc TEXT NULL,
+  secret_last4 VARCHAR(8) NOT NULL DEFAULT '',
+  verify_tls TINYINT(1) NOT NULL DEFAULT 1,              -- 0 = accept a self-signed certificate (a PBX on the local network)
+  keep_text TINYINT(1) NOT NULL DEFAULT 0,               -- Twilio: keep the text of messages (off by default: only who, when and status)
+  last_sync_at DATETIME NULL,
+  last_state VARCHAR(20) NOT NULL DEFAULT 'never',       -- never | ok | unauthorized | unreachable | invalid | busy
+  last_count INT UNSIGNED NOT NULL DEFAULT 0,
+  updated_by VARCHAR(60) NOT NULL DEFAULT '',
+  updated_at DATETIME NULL
+) ENGINE=InnoDB;
+
+-- Calls and text messages from the phone systems and Twilio, matched to a person and a company by phone number.
+CREATE TABLE IF NOT EXISTS comm_log (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  provider VARCHAR(20) NOT NULL,
+  kind ENUM('call','sms') NOT NULL,
+  external_id VARCHAR(100) NOT NULL,
+  direction ENUM('in','out','internal') NOT NULL,
+  from_number VARCHAR(40) NOT NULL DEFAULT '',
+  to_number VARCHAR(40) NOT NULL DEFAULT '',
+  party_key VARCHAR(12) NOT NULL DEFAULT '',             -- last 9 digits of the number outside the company, for matching
+  started_at DATETIME NOT NULL,
+  duration_s INT UNSIGNED NOT NULL DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'other',
+  body VARCHAR(1000) NOT NULL DEFAULT '',
+  user_id INT UNSIGNED NULL,
+  company_id INT UNSIGNED NULL,
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  synced_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comm (provider, kind, external_id),
+  KEY idx_comm_time (started_at),
+  KEY idx_comm_company (company_id, started_at),
+  KEY idx_comm_user (user_id, started_at),
+  KEY idx_comm_key (party_key),
+  CONSTRAINT fk_comm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_comm_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Short links from Short.io, optionally belonging to a company.
+CREATE TABLE IF NOT EXISTS short_links (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  external_id VARCHAR(100) NOT NULL,
+  domain VARCHAR(190) NOT NULL DEFAULT '',
+  short_url VARCHAR(400) NOT NULL,
+  original_url VARCHAR(2000) NOT NULL,
+  title VARCHAR(190) NOT NULL DEFAULT '',
+  company_id INT UNSIGNED NULL,
+  created_remote DATETIME NULL,
+  created_by VARCHAR(60) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  synced_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_short (external_id),
+  KEY idx_short_company (company_id),
+  CONSTRAINT fk_short_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+) ENGINE=InnoDB;

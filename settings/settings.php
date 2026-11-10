@@ -8,10 +8,10 @@ $pdo = db();
 // Tabs and who may open them. This is enforced here on the server; hiding a tab in the menu is only a convenience.
 $tabs = ['account' => 'Account'];
 if (integrations_level() !== 'none') { $tabs['integrations'] = 'Integrations'; }
-if (is_admin()) { $tabs['team'] = 'Team & access'; $tabs['company'] = 'Company details'; $tabs['email'] = 'Email'; $tabs['kuma'] = 'Kuma API Key'; $tabs['tests'] = 'Tests'; }
+if (is_admin()) { $tabs['team'] = 'Team & access'; $tabs['company'] = 'Company details'; $tabs['email'] = 'Email'; $tabs['kuma'] = 'Kuma API Key'; $tabs['connectors'] = 'Connectors'; $tabs['tests'] = 'Tests'; }
 
 $tab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'account');
-if (!in_array($tab, ['account', 'integrations', 'team', 'company', 'email', 'kuma', 'tests'], true)) { $tab = 'account'; }
+if (!in_array($tab, ['account', 'integrations', 'team', 'company', 'email', 'kuma', 'connectors', 'tests'], true)) { $tab = 'account'; }
 if (!isset($tabs[$tab])) { deny_access('settings:' . $tab); }
 
 require __DIR__ . '/../includes/settings/' . $tab . '.php';   // defines tab_handle() and tab_render() for this tab
@@ -30,6 +30,7 @@ $lede = [
     'company' => 'The details printed on every invoice and PDF. Only admins see this tab.',
     'email' => 'How the system sends email, and the outbox of every message. Only admins see this tab.',
     'kuma' => 'Connect Uptime Kuma so its monitors show on the Uptime page. Only admins see this tab.',
+    'connectors' => 'Connect 3CX, Yeastar, Twilio and Short.io: encrypted credentials, a test button and a sync. Only admins see this tab.',
     'tests' => 'Documentation of the tests that were performed, what they found and how it was fixed. Only admins see this tab.',
 ][$tab];
 page_start('Settings', 'settings', $lede);

@@ -42,6 +42,7 @@ index.php                  the Overview (the only page in the project root)
 auth/                      sign-in, two-step, password reset, invitations, forced password change
 users/  companies/         customer people and organisations
 tickets/  calendar/        support tickets, appointments and .ics export
+calls/  links/            calls and messages (3CX, Yeastar, Twilio) and short links (Short.io)
 invoices/                  invoices, PDF, payments, recurring invoices
 monitoring/                uptime, endpoint checks, connections
 system/                    reports, backups, activity logs, CSV export and import, demo data
@@ -95,6 +96,7 @@ Set these up in the Windows Task Scheduler (or cron). **The retention job is the
 | Recurring invoices | daily | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\run_recurring.php` |
 | Endpoint checks | every minute | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\check_endpoints.php` |
 | Kuma history | every minute | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\kuma_poll.php` |
+| Connectors (calls, messages, short links) | every 5 minutes | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\sync_connectors.php` |
 
 Recurring invoices are also created when the site is opened.
 
@@ -108,7 +110,27 @@ On Linux the same jobs as cron lines (`crontab -e` for the web server's user, or
 # endpoint checks and Kuma history: every minute
 * * * * *   php /var/www/crm/bin/check_endpoints.php
 * * * * *   php /var/www/crm/bin/kuma_poll.php
+# connectors (3CX, Yeastar, Twilio, Short.io): every 5 minutes
+*/5 * * * * php /var/www/crm/bin/sync_connectors.php
 ```
+
+## Connectors: 3CX, Yeastar, Twilio and Short.io
+
+Open Settings, Connectors (admins only). Every service has its own box with a **Test connection** button (nothing is saved by a test), a **Save** button and a **Sync now** button. Secrets are stored encrypted (AES-256-GCM, with the `APP_KEY` from `includes/config.local.php`) and are never shown again: leave the secret field empty to keep the saved one. A saved secret is only used for the address and ID it was saved with: change the address and the secret is dropped.
+
+| Service | You need | Gives you |
+| --- | --- | --- |
+| 3CX | Server address, Client ID and Client secret of an API client application (3CX version 20, Integrations, API, with access to the call history) | Calls |
+| Yeastar | Server address (with port), Client ID and Client secret (P-Series, Integrations, API) | Calls |
+| Twilio | Account SID (starts with `AC`) and Auth token | Calls and text messages |
+| Short.io | A secret API key | Short links |
+
+- A phone system on your own network usually has a self-signed certificate: tick "Accept a self-signed certificate" for that service only. Addresses on private networks are allowed (like the Uptime Kuma address); link-local addresses such as the cloud metadata address are refused.
+- Calls and messages are matched to people and companies by **phone number** (the last nine digits, so `+31 6 1234 5678` and `06 1234 5678` are the same number). Keep the phone numbers on people and companies up to date; anything unclear stays "Unmatched". A number shared by colleagues of one company is matched to the company.
+- **Message text is not stored** unless you tick "Keep the text of messages" for Twilio. Calls and messages are deleted after 12 months by `bin/purge.php`, are part of the privacy export and are blanked by the privacy erasure.
+- Short links are tagged with the company when they are made here (`company-<id>`), so the company shows on the Short links page and on the company page. Links made elsewhere are listed without a company.
+- Data is fetched by `bin/sync_connectors.php` (see Scheduled jobs) or with Sync now: never inside an ordinary page view.
+- The field names of each service follow its public API documentation as far as known, and the code accepts several spellings. It could not be tried against real accounts while it was built: if a real service answers differently, the sync reports "Invalid response" and stores nothing. Tell the developer which service and what it said.
 
 ## Tests
 

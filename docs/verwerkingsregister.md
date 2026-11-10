@@ -13,6 +13,8 @@ Verwerkingsverantwoordelijke: Telecomlijn Zakelijk, Seinhuiswachter 12, 3034 KH 
 | 5 | Inlogpogingen en snelheidsbegrenzing | IP-adres, ingevoerde gebruikersnaam (alleen als die op een gebruikersnaam lijkt), tijdstip | Bescherming tegen aanvallen | Gerechtvaardigd belang (art. 6 lid 1 sub f) | 24 uur (inlogpogingen), 1 uur (snelheidsbegrenzing) | Geen |
 | 6 | Facturen en betalingen | Naam en adres van de klant, e-mailadres, factuurregels, betalingen | Facturering, fiscale administratie | Wettelijke verplichting (art. 6 lid 1 sub c) | **7 jaar** (fiscale bewaarplicht), daarna automatisch verwijderd | Boekhouder, belastingdienst indien wettelijk verplicht |
 | 7 | Vertaalfunctie (Google Translate) | De tekst van de pagina, inclusief zichtbare namen, e-mailadressen en IP-adressen | Interface in de taal van de gebruiker | **Toestemming** (art. 6 lid 1 sub a), vooraf gevraagd, intrekbaar via de voettekst | Toestemming wordt lokaal in de browser bewaard tot intrekking | Google (mogelijk verwerking buiten de EER) |
+| 8 | Gesprekken en berichten (3CX, Yeastar, Twilio) | Telefoonnummers, tijdstip, duur, status; berichttekst alleen als dat expliciet is ingeschakeld (standaard uit) | Overzicht van klantcontact per bedrijf en persoon | Gerechtvaardigd belang (art. 6 lid 1 sub f); uitvoering overeenkomst | **12 maanden**, daarna automatisch verwijderd | Telefoonprovider (3CX/Yeastar-beheerder) en Twilio als verwerker; verwerkersovereenkomst nodig |
+| 9 | Korte links (Short.io) | Doeladres, titel, gekoppeld bedrijf | Korte links delen met klanten | Gerechtvaardigd belang | Tot verwijdering | Short.io als verwerker; verwerkersovereenkomst nodig |
 
 ## Cookies en lokale opslag in het beheerportaal
 

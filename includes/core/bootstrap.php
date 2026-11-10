@@ -192,6 +192,8 @@ function icon(string $name, string $cls = 'h-[18px] w-[18px]'): string
         'ticket' => '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2M13 17v2M13 11v2"/>',
         'sun' => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/>',
         'calendar' => '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+        'phone' => '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+        'link' => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
         'building' => '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
     ];
     return '<svg class="' . $cls . ' icon-' . $name . ' shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$name] ?? '') . '</svg>';
@@ -208,6 +210,7 @@ function badge(string $status): string
         'up' => ['ok', 'Up'], 'slow' => ['warn', 'Slow'], 'down' => ['bad', 'Down'], 'unknown' => ['info', 'Not checked yet'], 'admin' => ['ok', 'Admin'], 'user' => ['info', 'User'],
         'paid' => ['ok', 'Paid'], 'overdue' => ['bad', 'Overdue'], 'due' => ['wait', 'Due soon'], 'open' => ['info', 'Open'],
         'done' => ['ok', 'Done'], 'cancelled' => ['info', 'Cancelled'], 'sent' => ['ok', 'Sent'], 'recorded' => ['wait', 'Recorded'], 'in_progress' => ['wait', 'In progress'], 'waiting' => ['wait', 'Waiting'], 'resolved' => ['ok', 'Resolved'], 'closed' => ['info', 'Closed'], 'low' => ['info', 'Low'], 'normal' => ['info', 'Normal'], 'high' => ['warn', 'High'], 'urgent' => ['bad', 'Urgent'],
+        'answered' => ['ok', 'Answered'], 'missed' => ['bad', 'Missed'], 'busy' => ['warn', 'Busy'], 'delivered' => ['ok', 'Delivered'], 'received' => ['info', 'Received'], 'queued' => ['wait', 'Queued'], 'other' => ['info', 'Other'],
         'critical' => ['bad', 'Critical'], 'flagged' => ['bad', 'Flagged'], 'outage' => ['bad', 'Outage'],
     ];
     [$tone, $label] = $map[$status] ?? ['info', ucfirst($status)];

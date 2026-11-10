@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../includes/core/bootstrap.php';
+require __DIR__ . '/../includes/modules/comm.php';   // COMM_RETENTION_MONTHS
 require __DIR__ . '/../includes/core/layout.php';
 $admin = require_login();
 if (!is_admin()) { deny_access('privacy/privacy.php'); }   // exports and erasures touch personal data: admins only
@@ -19,6 +20,12 @@ function collect_subject(PDO $pdo, string $email): array
         $c->execute([$user['id']]);
         $conns = $c->fetchAll();
     }
+    $comm = [];
+    if ($user) {
+        $cm = $pdo->prepare('SELECT provider, kind, direction, from_number, to_number, started_at, duration_s, status, body FROM comm_log WHERE user_id = ? ORDER BY started_at DESC LIMIT 5000');
+        $cm->execute([$user['id']]);
+        $comm = $cm->fetchAll();
+    }
     $l = $pdo->prepare('SELECT level, action, target, ip, created_at FROM activity_logs WHERE actor = ? ORDER BY created_at DESC LIMIT 5000');
     $l->execute([$email]);
     $logs = $l->fetchAll();
@@ -35,7 +42,7 @@ function collect_subject(PDO $pdo, string $email): array
         $inv['payments'] = $p->fetchAll();
     }
     unset($inv);
-    return ['user' => $user, 'connections' => $conns, 'activity_logs' => $logs, 'invoices' => $invoices];
+    return ['user' => $user, 'connections' => $conns, 'calls_and_messages' => $comm, 'activity_logs' => $logs, 'invoices' => $invoices];
 }
 
 $email = mb_substr(trim((string) ($_GET['email'] ?? $_POST['email'] ?? '')), 0, 190);
@@ -70,6 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validEmail) {
             $pdo->beginTransaction();
             try {
                 $pdo->prepare('DELETE FROM connections WHERE user_id = ?')->execute([$id]);
+                // calls and messages: the person link, the matching key, the message text and the person's own number go; the rest is a company record
+                $pdo->prepare("UPDATE comm_log SET user_id = NULL, party_key = '', body = '', from_number = IF(direction = 'in', '', from_number), to_number = IF(direction = 'out', '', to_number) WHERE user_id = ?")->execute([$id]);
                 $pdo->prepare("UPDATE activity_logs SET actor = 'anonymised', ip = '0.0.0.0' WHERE actor = ?")->execute([$email]);
                 $pdo->prepare("UPDATE users SET name = 'Anonymised user', email = ?, country = '', status = 'suspended' WHERE id = ?")
                     ->execute(['anonymised-' . $id . '@invalid.example', $id]);
@@ -114,6 +123,7 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     <dl class="divide-y divide-line text-sm">
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">User account</dt><dd class="text-soft"><?= $data['user'] ? e($data['user']['name'] . ' · ' . $data['user']['role'] . ' · ' . $data['user']['status'] . ' · ' . $data['user']['country']) : 'None' ?></dd></div>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Open sessions (IP addresses)</dt><dd class="text-soft"><?= count($data['connections']) ?></dd></div>
+      <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Calls and messages</dt><dd class="text-soft"><?= count($data['calls_and_messages']) ?> (from the phone systems and Twilio, deleted automatically after <?= COMM_RETENTION_MONTHS ?> months)</dd></div>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Activity-log entries</dt><dd class="text-soft"><?= count($data['activity_logs']) ?> (deleted automatically after <?= LOG_RETENTION_MONTHS ?> months)</dd></div>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Invoices as contact</dt><dd class="text-soft"><?= count($data['invoices']) ?> <?= $data['invoices'] ? '(kept 7 years: legal obligation, tax records)' : '' ?></dd></div>
     </dl>

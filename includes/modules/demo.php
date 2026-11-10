@@ -14,8 +14,10 @@ declare(strict_types=1);
 /** Tables that carry the is_demo tag, in the order they are shown to the admin. */
 require_once __DIR__ . '/../core/demo_state.php';   // demo_loaded()
 
+require_once __DIR__ . '/comm.php';   // phone_key(): also used when this file is loaded on its own (bin/setup.php)
+
 const DEMO_TABLES = [
-    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'appointments' => 'Appointments', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
+    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'appointments' => 'Appointments', 'comm_log' => 'Calls and messages', 'short_links' => 'Short links', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
     'payments' => 'Payments', 'recurring_invoices' => 'Recurring invoices', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
@@ -155,6 +157,30 @@ function demo_seed(PDO $pdo): array
                 $contact = !empty($uByCo[$co['id']]) && mt_rand(0, 100) < 80 ? demo_pick($uByCo[$co['id']]) : null;
                 $apIns->execute([$co['id'], $contact, demo_pick($apTitles), demo_pick($apPlaces), '', $status, date('Y-m-d H:i:s', $startTs), date('Y-m-d H:i:s', $endTs), 'admin']);
             }
+        }
+
+        // ----- Calls, messages and short links, as the connectors would deliver them: the numbers of demo people (so they match), a few unknown ones stay unmatched
+        $people = $pdo->query("SELECT id, company_id, phone FROM users WHERE is_demo = 1 AND phone <> ''")->fetchAll();
+        $clIns = $pdo->prepare('INSERT INTO comm_log (provider, kind, external_id, direction, from_number, to_number, party_key, started_at, duration_s, status, body, user_id, company_id, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)');
+        $ownLine = '+31 10 200 2000';
+        for ($k = 0; $k < 70 && $people; $k++) {
+            $pp = demo_pick($people);
+            $known = mt_rand(0, 100) < 85;
+            $num = $known ? (string) $pp['phone'] : '+31 6 ' . mt_rand(10000000, 99999999);
+            $isSms = mt_rand(0, 100) < 22;
+            $dirn = demo_weighted(['in' => 55, 'out' => 45]);
+            $svc = $isSms ? 'twilio' : demo_pick(['threecx', 'threecx', 'yeastar', 'twilio']);
+            if ($isSms) { $cst = $dirn === 'in' ? 'received' : demo_weighted(['delivered' => 85, 'sent' => 8, 'failed' => 7]); $secs = 0; }
+            else { $cst = $dirn === 'in' ? demo_weighted(['answered' => 72, 'missed' => 24, 'busy' => 4]) : demo_weighted(['answered' => 80, 'missed' => 14, 'busy' => 6]); $secs = $cst === 'answered' ? mt_rand(20, 1500) : 0; }
+            $clIns->execute([$svc, $isSms ? 'sms' : 'call', 'demo-' . $k, $dirn, $dirn === 'in' ? $num : $ownLine, $dirn === 'in' ? $ownLine : $num, phone_key($num),
+                date('Y-m-d H:i:s', time() - mt_rand(600, 28 * 86400)), $secs, $cst, '', $known ? (int) $pp['id'] : null, $known && $pp['company_id'] !== null ? (int) $pp['company_id'] : null]);
+        }
+        $slIns = $pdo->prepare('INSERT INTO short_links (external_id, domain, short_url, original_url, title, company_id, created_remote, created_by, is_demo) VALUES (?,?,?,?,?,?,?,?,1)');
+        $slTitles = ['Quote: 3CX migration', 'Onboarding checklist', 'Router replacement guide', 'Customer portal login', 'Support request form', 'Training video: phone system', 'Network health report', 'Contract renewal'];
+        foreach (array_slice($companies, 0, 10) as $si => $co) {
+            $code = substr(md5('demo-link-' . $si), 0, 6);
+            $slIns->execute(['demo-' . $si, 'go.telecomlijn.test', 'https://go.telecomlijn.test/' . $code, 'https://www.telecomlijn.test/klant/' . (int) $co['id'] . '/' . demo_pick(['welkom', 'offerte', 'handleiding', 'portaal']), demo_pick($slTitles),
+                (int) $co['id'], date('Y-m-d H:i:s', time() - mt_rand(86400, 60 * 86400)), 'admin']);
         }
 
         // ----- Connections (sessions)
@@ -325,6 +351,8 @@ function demo_remove(PDO $pdo): array
     $pdo->beginTransaction();
     try {
         $pdo->exec('DELETE FROM appointments WHERE is_demo = 1');
+        $pdo->exec('DELETE FROM comm_log WHERE is_demo = 1');
+        $pdo->exec('DELETE FROM short_links WHERE is_demo = 1');
         $pdo->exec('DELETE FROM notifications WHERE is_demo = 1');
         $pdo->exec('DELETE FROM tickets WHERE is_demo = 1');   // its comments go with it
         $pdo->exec('DELETE FROM notes WHERE is_demo = 1');

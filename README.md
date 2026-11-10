@@ -68,7 +68,7 @@ Create **invoices** from a company in seconds, record payments, and see what is 
 <td valign="top">
 
 ### 📡 Watch your services
-An **uptime** page in the style of Uptime Kuma, plus your own **endpoint checks**. A service that goes down tells you before a customer does.
+An **uptime** page in the style of Uptime Kuma, plus your own **endpoint checks**. A service that goes down tells you before a customer does. Connect **3CX**, **Yeastar** and **Twilio** to see calls and messages per customer, and **Short.io** for short links per company.
 
 </td>
 <td valign="top">

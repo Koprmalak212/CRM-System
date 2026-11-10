@@ -26,6 +26,7 @@ Contents
   13. Notifications and email
   14. Connections
   15. Uptime and endpoint checks
+  15A. Calls, messages and short links (connectors)
   16. Reports
   17. Backups
   18. Activity logs
@@ -472,6 +473,46 @@ Endpoint checks (monitoring/monitoring_uptime.php, bin/check_endpoints.php)
   slow or down with the time taken. Addresses that point to internal or
   private networks are refused on purpose.
 
+
+===============================================================================
+15A. CALLS, MESSAGES AND SHORT LINKS (CONNECTORS)
+===============================================================================
+
+Connect your phone system and other services under Settings > Connectors
+(admins only): 3CX and Yeastar (call history), Twilio (calls and text
+messages) and Short.io (short links). Each service has its own box: the
+credentials (secrets are stored encrypted and never shown again), a "Test
+connection" button, "Save", "Sync now" and "Remove credentials". The data is
+fetched every few minutes by a scheduled job, or at once with Sync now.
+
+Calls page (calls/calls.php)
+  Every call and message, newest first, with the number of calls and missed
+  incoming calls in the last 30 days. Filters: type (calls or messages),
+  service (3CX, Yeastar, Twilio), company, person, direction, status, a date
+  range, and a search on the number or the message text. Sort by when, length,
+  status or service. A number that belongs to nobody on file shows as
+  "Unmatched"; the company filter has an "Unmatched numbers" choice.
+
+How a number finds its person
+  The last nine digits are compared with the phone numbers of people and
+  companies, so +31 6 1234 5678, 0031 6 1234 5678 and 06 1234 5678 are one
+  number. One person gives that person and their company; colleagues sharing a
+  number give the company; a company's own number gives the company.
+
+Short links page (links/links.php)
+  Links made with Short.io, filterable by company, date and text. Anyone who
+  is signed in can make a short link (address, optional title, optional
+  company); it is created at Short.io and stored here. Admins can sync.
+
+On the company and person pages
+  A box "Calls and messages" (the latest five, with a link to all of them,
+  already filtered) and, on a company, a box "Short links".
+
+Privacy
+  Message text is only stored when "Keep the text of messages" is ticked for
+  Twilio. Calls and messages are deleted after 12 months, are included in the
+  privacy export, and the privacy erasure unlinks the person and blanks their
+  number, matching key and message text.
 
 ===============================================================================
 16. REPORTS (system/reports.php)

@@ -374,6 +374,12 @@ after the user consents.
   Login attempts / rate limits IP address, username typed        24 h / 1 h
   Notifications                event text                        90 days
   Email outbox                 recipient, subject, body          30 days
+  Calls and messages           phone numbers, time, length,      12 months
+  (3CX, Yeastar, Twilio)       status; message text only if
+                               switched on (off by default)
+  Short links (Short.io)       address, title, company           until deleted
+  Connector credentials        client secret, token or API key   until removed
+                               (encrypted, AES-256-GCM)
   Uptime heartbeats and checks service names, status             30 days
   Reset / invitation tokens    HMAC hash only                    1 hour
   Browser storage              theme, sidebar, translate         in the browser

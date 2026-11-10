@@ -5,6 +5,7 @@ require __DIR__ . '/../includes/modules/companies.php';
 require __DIR__ . '/../includes/modules/notes.php';
 require __DIR__ . '/../includes/modules/tickets.php';
 require __DIR__ . '/../includes/modules/appointments.php';
+require __DIR__ . '/../includes/modules/comm.php';
 require __DIR__ . '/../includes/core/layout.php';
 require_login();
 $pdo = db();
@@ -157,6 +158,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
   </section>
   <?= tickets_panel($pdo, 'user_id', $id, 'tickets/ticket_new.php?user=' . $id) ?>
   <?php if ($u['company_id'] !== null): ?><?= appointments_panel($pdo, (int) $u['company_id'], 'Appointments of ' . $u['company'], 'calendar/appointment_edit.php?company=' . (int) $u['company_id'] . '&user=' . $id, $id) ?><?php endif; ?>
+  <?= comm_panel($pdo, 'user_id', $id, 'Calls and messages') ?>
   <?= notes_panel($pdo, 'user', $id, 'users/user.php?id=' . $id) ?>
 </div>
 <?php page_end(); ?>
