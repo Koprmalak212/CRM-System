@@ -130,3 +130,35 @@ check($old49() === 0 && $win49() === 0, 'and it removes the expired activity-log
 same(http('GET', "$base/bin/purge.php")['code'], 403, 'the purge can not be started from the web (403)');
 $inst49 = (string) file_get_contents($root16 . '/docs/INSTALL.md');
 check(str_contains($inst49, 'bin/purge.php') && str_contains($inst49, '15 3 * * *') && str_contains($inst49, 'only thing that deletes expired data'), 'docs/INSTALL.md documents the cron line and says that nothing else purges');
+
+section('50. Hardening: the demo module is loaded only where it is used');
+$boot50 = (string) file_get_contents($root16 . '/includes/core/bootstrap.php');
+$loadsDemo = fn(string $src) => preg_match('~(?<![A-Za-z_])(require|require_once|include|include_once)(?![A-Za-z_])[^;]*modules/demo\.php~', $src) === 1;   // a real require, not a comment
+check(!$loadsDemo($boot50), 'bootstrap.php no longer requires includes/modules/demo.php');
+foreach (['system/demo_data.php', 'bin/setup.php', 'index.php'] as $f) {
+    check($loadsDemo((string) file_get_contents($root16 . '/' . $f)), "$f loads the demo module itself");
+}
+$others = [];
+foreach (app_source_files() as $f) {
+    $rel = ltrim(str_replace(str_replace(chr(92), '/', $root16), '', $f), '/');
+    if ($loadsDemo((string) file_get_contents($f)) && !in_array($rel, ['system/demo_data.php', 'bin/setup.php', 'index.php', 'includes/core/bootstrap.php'], true)) { $others[] = $rel; }
+}
+same($others, [], 'no other file loads the demo module');
+$p = proc_open([PHP_BINARY, '-r', 'require ' . var_export($root16 . '/includes/core/bootstrap.php', true) . '; echo (function_exists("demo_seed") ? "seed" : "noseed"), ",", (function_exists("demo_remove") ? "remove" : "noremove"), ",", (function_exists("demo_loaded") ? "loaded" : "noloaded"), ",", (function_exists("demo_counts") ? "counts" : "nocounts");'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp);
+$o50 = trim(stream_get_contents($pp[1])); proc_close($p);
+same($o50, 'noseed,noremove,loaded,nocounts', 'after bootstrap only the cheap demo_loaded() exists: no seed, remove or count code is loaded');
+$p = proc_open([PHP_BINARY, '-r', 'require ' . var_export($root16 . '/includes/core/bootstrap.php', true) . '; require ' . var_export($root16 . '/includes/modules/demo.php', true) . '; echo (function_exists("demo_seed") && function_exists("demo_remove") && function_exists("demo_counts") && function_exists("demo_loaded")) ? "all" : "missing";'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp);
+same(trim(stream_get_contents($pp[1])), 'all', 'and including the demo module adds them without a redeclare error'); proc_close($p);
+// pages still behave: the banner follows the flag, and the Overview panel and the demo endpoint still work
+$flag50 = $pdo->query("SELECT v FROM app_meta WHERE k = 'demo_loaded'")->fetchColumn();
+$pdo->exec("INSERT INTO app_meta (k, v) VALUES ('demo_loaded', '1') ON DUPLICATE KEY UPDATE v = '1'");
+$html = http('GET', "$base/companies/companies.php", ['jar' => $admin])['body'];
+check(str_contains($html, 'Demo data is loaded') && str_contains($html, 'Demo data seeded for display'), 'with the flag set every page still shows the demo banner and the footer note');
+$pdo->exec("INSERT INTO app_meta (k, v) VALUES ('demo_loaded', '0') ON DUPLICATE KEY UPDATE v = '0'");
+$html = http('GET', "$base/companies/companies.php", ['jar' => $admin])['body'];
+check(!str_contains($html, 'Demo data is loaded'), 'and without it neither is shown');
+$html = http('GET', "$base/index.php", ['jar' => $admin])['body'];
+check(str_contains($html, 'id="demo-data"') && str_contains($html, 'system/demo_data.php'), 'the Overview still shows the demo panel to an admin');
+$r = http('GET', "$base/system/demo_data.php", ['jar' => $admin]);
+check($r['code'] === 302, 'system/demo_data.php still loads without errors (a GET goes back to the Overview)', (string) $r['code']);
+if ($flag50 === false) { $pdo->exec("DELETE FROM app_meta WHERE k = 'demo_loaded'"); } else { $pdo->prepare("UPDATE app_meta SET v = ? WHERE k = 'demo_loaded'")->execute([$flag50]); }

@@ -12,21 +12,13 @@ declare(strict_types=1);
  */
 
 /** Tables that carry the is_demo tag, in the order they are shown to the admin. */
+require_once __DIR__ . '/../core/demo_state.php';   // demo_loaded()
+
 const DEMO_TABLES = [
     'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'appointments' => 'Appointments', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
     'payments' => 'Payments', 'recurring_invoices' => 'Recurring invoices', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
-
-function demo_loaded(?PDO $pdo = null): bool
-{
-    static $cache = null;
-    if ($pdo === null && $cache !== null) { return $cache; }
-    try { $v = ($pdo ?? db())->query("SELECT v FROM app_meta WHERE k = 'demo_loaded'")->fetchColumn() === '1'; }
-    catch (Throwable $e) { $v = false; }
-    if ($pdo === null) { $cache = $v; }
-    return $v;
-}
 
 function demo_set_flag(PDO $pdo, bool $on): void
 {

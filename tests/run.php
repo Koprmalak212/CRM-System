@@ -32,6 +32,7 @@ function app_source_files(): array
 
 require __DIR__ . '/../includes/modules/kuma.php';
 require __DIR__ . '/../includes/modules/notes.php';
+require __DIR__ . '/../includes/modules/demo.php';   // no longer loaded by bootstrap
 require __DIR__ . '/../includes/modules/csv.php';
 require __DIR__ . '/../includes/modules/notifications.php';
 require __DIR__ . '/../includes/modules/twofactor.php';
