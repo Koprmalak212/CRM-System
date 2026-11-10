@@ -24,7 +24,20 @@ CREATE TABLE `activity_logs` (
   PRIMARY KEY (`id`),
   KEY `idx_created` (`created_at`),
   KEY `idx_level` (`level`)
-) ENGINE=InnoDB AUTO_INCREMENT=4480 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17386 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `admin_recovery_codes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `admin_recovery_codes` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `admin_id` int(10) unsigned NOT NULL,
+  `code_hash` char(64) NOT NULL,
+  `used_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_rc_admin` (`admin_id`,`code_hash`),
+  CONSTRAINT `fk_rc_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=811 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `admins`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -41,10 +54,14 @@ CREATE TABLE `admins` (
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `avatar` varchar(120) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `totp_secret_enc` text DEFAULT NULL,
+  `totp_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `totp_last_step` bigint(20) unsigned DEFAULT NULL,
+  `session_epoch` int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=215 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `api_keys`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -62,7 +79,7 @@ CREATE TABLE `api_keys` (
   `revoked_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `key_hash` (`key_hash`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=108 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `app_meta`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -88,7 +105,48 @@ CREATE TABLE `backups` (
   `is_demo` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_started` (`started_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=229 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=652 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `companies`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `companies` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `address` varchar(160) NOT NULL DEFAULT '',
+  `postcode` varchar(12) NOT NULL DEFAULT '',
+  `city` varchar(80) NOT NULL DEFAULT '',
+  `country` varchar(60) NOT NULL DEFAULT 'Netherlands',
+  `kvk` varchar(12) NOT NULL DEFAULT '',
+  `vat_number` varchar(20) NOT NULL DEFAULT '',
+  `email` varchar(190) NOT NULL DEFAULT '',
+  `phone` varchar(40) NOT NULL DEFAULT '',
+  `website` varchar(190) NOT NULL DEFAULT '',
+  `notes` varchar(1000) NOT NULL DEFAULT '',
+  `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_company_name` (`name`),
+  KEY `idx_company_kvk` (`kvk`)
+) ENGINE=InnoDB AUTO_INCREMENT=1312 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `company_profile`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `company_profile` (
+  `id` tinyint(3) unsigned NOT NULL,
+  `name` varchar(80) NOT NULL DEFAULT '',
+  `address1` varchar(80) NOT NULL DEFAULT '',
+  `address2` varchar(80) NOT NULL DEFAULT '',
+  `address3` varchar(80) NOT NULL DEFAULT '',
+  `kvk` varchar(8) NOT NULL DEFAULT '',
+  `btw_number` varchar(20) NOT NULL DEFAULT '',
+  `iban` varchar(34) NOT NULL DEFAULT '',
+  `email` varchar(190) NOT NULL DEFAULT '',
+  `phone` varchar(40) NOT NULL DEFAULT '',
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `connections`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -110,7 +168,7 @@ CREATE TABLE `connections` (
   KEY `idx_status` (`status`),
   KEY `fk_conn_user` (`user_id`),
   CONSTRAINT `fk_conn_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=273 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=681 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `endpoint_checks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -126,7 +184,27 @@ CREATE TABLE `endpoint_checks` (
   PRIMARY KEY (`id`),
   KEY `idx_ep_time` (`endpoint_id`,`checked_at`),
   CONSTRAINT `fk_check_ep` FOREIGN KEY (`endpoint_id`) REFERENCES `monitored_endpoints` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=150 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `invitations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `invitations` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `email` varchar(190) NOT NULL,
+  `username` varchar(30) NOT NULL,
+  `name` varchar(80) NOT NULL,
+  `role` enum('admin','user') NOT NULL DEFAULT 'user',
+  `perm_integrations` enum('none','view','manage') NOT NULL DEFAULT 'none',
+  `token_hash` char(64) NOT NULL,
+  `invited_by` varchar(60) NOT NULL DEFAULT '',
+  `expires_at` datetime NOT NULL,
+  `used_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_hash` (`token_hash`),
+  KEY `idx_inv_email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=176 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `invoice_items`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -140,7 +218,7 @@ CREATE TABLE `invoice_items` (
   PRIMARY KEY (`id`),
   KEY `fk_item_invoice` (`invoice_id`),
   CONSTRAINT `fk_item_invoice` FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=726 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2567 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `invoices`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -161,11 +239,17 @@ CREATE TABLE `invoices` (
   `notes` varchar(255) NOT NULL DEFAULT '',
   `created_at` datetime NOT NULL,
   `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  `company_id` int(10) unsigned DEFAULT NULL,
+  `recurring_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `number` (`number`),
+  UNIQUE KEY `uq_inv_recurring` (`recurring_id`,`issue_date`),
   KEY `idx_issue` (`issue_date`),
-  KEY `idx_due` (`due_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=387 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  KEY `idx_due` (`due_date`),
+  KEY `idx_inv_company` (`company_id`),
+  CONSTRAINT `fk_inv_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_inv_recurring` FOREIGN KEY (`recurring_id`) REFERENCES `recurring_invoices` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=1638 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `kuma_heartbeats`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -181,7 +265,7 @@ CREATE TABLE `kuma_heartbeats` (
   PRIMARY KEY (`id`),
   KEY `idx_key_at` (`monitor_key`,`at`),
   KEY `idx_important` (`important`,`at`)
-) ENGINE=InnoDB AUTO_INCREMENT=6005 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13448 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `kuma_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -208,6 +292,41 @@ CREATE TABLE `login_attempts` (
   PRIMARY KEY (`id`),
   KEY `idx_ip_time` (`ip`,`attempted_at`),
   KEY `idx_ip_user_time` (`ip`,`username`,`attempted_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=590 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `mail_outbox`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `mail_outbox` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `kind` varchar(20) NOT NULL DEFAULT 'other',
+  `to_email` varchar(190) NOT NULL,
+  `subject` varchar(190) NOT NULL,
+  `body` mediumtext NOT NULL,
+  `status` enum('recorded','sent','failed') NOT NULL DEFAULT 'recorded',
+  `error` varchar(200) NOT NULL DEFAULT '',
+  `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `sent_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_mail_created` (`created_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=822 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `mail_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `mail_settings` (
+  `id` tinyint(3) unsigned NOT NULL,
+  `host` varchar(190) NOT NULL DEFAULT '',
+  `port` smallint(5) unsigned NOT NULL DEFAULT 587,
+  `encryption` enum('none','starttls','ssl') NOT NULL DEFAULT 'starttls',
+  `username` varchar(190) NOT NULL DEFAULT '',
+  `password_enc` text DEFAULT NULL,
+  `from_email` varchar(190) NOT NULL DEFAULT '',
+  `from_name` varchar(80) NOT NULL DEFAULT 'Telecomlijn Admin',
+  `base_url` varchar(190) NOT NULL DEFAULT '',
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `monitored_endpoints`;
@@ -234,7 +353,60 @@ CREATE TABLE `monitored_endpoints` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `is_demo` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=130 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `notes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notes` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `about_type` enum('user','company') NOT NULL,
+  `about_id` int(10) unsigned NOT NULL,
+  `kind` enum('note','call','email','meeting') NOT NULL DEFAULT 'note',
+  `body` varchar(2000) NOT NULL,
+  `author` varchar(60) NOT NULL,
+  `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_note_about` (`about_type`,`about_id`,`created_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=516 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `notifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notifications` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `kind` varchar(30) NOT NULL,
+  `dedupe_key` varchar(120) NOT NULL,
+  `title` varchar(160) NOT NULL,
+  `body` varchar(300) NOT NULL DEFAULT '',
+  `link` varchar(200) NOT NULL DEFAULT '',
+  `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `read_at` datetime DEFAULT NULL,
+  `emailed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `dedupe_key` (`dedupe_key`),
+  KEY `idx_notif_created` (`created_at`),
+  KEY `idx_notif_read` (`read_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=28835 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `password_resets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `password_resets` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `admin_id` int(10) unsigned NOT NULL,
+  `token_hash` char(64) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `used_at` datetime DEFAULT NULL,
+  `ip` varchar(45) NOT NULL DEFAULT '',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_hash` (`token_hash`),
+  KEY `idx_reset_admin` (`admin_id`,`created_at`),
+  CONSTRAINT `fk_reset_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `payments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -251,7 +423,7 @@ CREATE TABLE `payments` (
   PRIMARY KEY (`id`),
   KEY `fk_pay_invoice` (`invoice_id`),
   CONSTRAINT `fk_pay_invoice` FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=228 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=795 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `rate_limits`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -263,6 +435,30 @@ CREATE TABLE `rate_limits` (
   `hits` int(10) unsigned NOT NULL DEFAULT 1,
   PRIMARY KEY (`ip`,`bucket`,`window_start`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `recurring_invoices`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `recurring_invoices` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `company_id` int(10) unsigned NOT NULL,
+  `description` varchar(200) NOT NULL,
+  `amount_cents` int(10) unsigned NOT NULL,
+  `vat_rate` tinyint(3) unsigned NOT NULL DEFAULT 21,
+  `frequency` enum('month','quarter','year') NOT NULL DEFAULT 'month',
+  `next_date` date NOT NULL,
+  `anchor_day` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `terms_days` tinyint(3) unsigned NOT NULL DEFAULT 14,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `last_run` date DEFAULT NULL,
+  `created_by` varchar(60) NOT NULL DEFAULT '',
+  `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_rec_due` (`active`,`next_date`),
+  KEY `fk_rec_company` (`company_id`),
+  CONSTRAINT `fk_rec_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=81 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reports`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -277,7 +473,7 @@ CREATE TABLE `reports` (
   `generated_at` datetime NOT NULL,
   `is_demo` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=166 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=406 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `service_checks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -299,7 +495,7 @@ CREATE TABLE `services` (
   `sort_order` tinyint(3) unsigned NOT NULL,
   `is_demo` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=65 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=161 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `test_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -320,7 +516,51 @@ CREATE TABLE `test_log` (
   UNIQUE KEY `ref` (`ref`),
   KEY `idx_area` (`area`),
   KEY `idx_result` (`result`)
-) ENGINE=InnoDB AUTO_INCREMENT=454 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1016 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `ticket_comments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `ticket_comments` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `ticket_id` int(10) unsigned NOT NULL,
+  `author` varchar(60) NOT NULL,
+  `body` varchar(2000) NOT NULL,
+  `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_tc_ticket` (`ticket_id`,`created_at`),
+  CONSTRAINT `fk_tc_ticket` FOREIGN KEY (`ticket_id`) REFERENCES `tickets` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=729 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `tickets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `tickets` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `reference` varchar(16) NOT NULL,
+  `company_id` int(10) unsigned DEFAULT NULL,
+  `user_id` int(10) unsigned DEFAULT NULL,
+  `subject` varchar(160) NOT NULL,
+  `description` varchar(2000) NOT NULL DEFAULT '',
+  `status` enum('open','in_progress','waiting','resolved','closed') NOT NULL DEFAULT 'open',
+  `priority` enum('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
+  `assignee_id` int(10) unsigned DEFAULT NULL,
+  `created_by` varchar(60) NOT NULL DEFAULT '',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `resolved_at` datetime DEFAULT NULL,
+  `is_demo` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `reference` (`reference`),
+  KEY `idx_ticket_status` (`status`),
+  KEY `idx_ticket_company` (`company_id`),
+  KEY `idx_ticket_user` (`user_id`),
+  KEY `idx_ticket_assignee` (`assignee_id`),
+  CONSTRAINT `fk_ticket_assignee` FOREIGN KEY (`assignee_id`) REFERENCES `admins` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_ticket_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_ticket_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=583 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -336,15 +576,16 @@ CREATE TABLE `users` (
   `last_seen` datetime NOT NULL,
   `created_at` datetime NOT NULL,
   `is_demo` tinyint(1) NOT NULL DEFAULT 0,
-  `company` varchar(120) NOT NULL DEFAULT '',
   `job_title` varchar(80) NOT NULL DEFAULT '',
   `phone` varchar(40) NOT NULL DEFAULT '',
+  `company_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   KEY `idx_status` (`status`),
   KEY `idx_role` (`role`),
-  KEY `idx_company` (`company`)
-) ENGINE=InnoDB AUTO_INCREMENT=579 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  KEY `idx_user_company` (`company_id`),
+  CONSTRAINT `fk_user_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1699 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

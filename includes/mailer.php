@@ -14,11 +14,43 @@ if (!function_exists('secret_decrypt')) { require __DIR__ . '/monitor.php'; }
 const MAIL_KEEP_DAYS = 30;
 const MAIL_TOKEN_TEXT_KINDS = ['reset', 'invite'];   // messages that contain a one-time link: their text is wiped once they were really sent
 
+/**
+ * Optional settings from the environment or from includes/config.local.php, under these names:
+ *   SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, EMAIL_FROM, EMAIL_TARGET
+ * Whatever is saved in Settings > Email wins; these only fill in what has not been saved there (a server install can keep the
+ * password out of the database that way). Returns the values that are set, keyed host, port, username, password, from, target.
+ */
+function mail_env(bool $refresh = false): array
+{
+    static $cache = null;
+    if ($cache !== null && !$refresh) { return $cache; }
+    $file = __DIR__ . '/config.local.php';
+    $cfg = is_file($file) ? (array) (include $file) : [];
+    $pick = function (string $name) use ($cfg): ?string {
+        $v = getenv($name);
+        if ($v === false || $v === '') { $v = $cfg[$name] ?? $cfg[strtolower($name)] ?? null; }
+        return is_scalar($v) && trim((string) $v) !== '' ? trim((string) $v) : null;
+    };
+    $map = ['host' => 'SMTP_SERVER', 'port' => 'SMTP_PORT', 'username' => 'SMTP_USERNAME', 'password' => 'SMTP_PASSWORD', 'from' => 'EMAIL_FROM', 'target' => 'EMAIL_TARGET'];
+    $out = [];
+    foreach ($map as $k => $name) { if (($v = $pick($name)) !== null) { $out[$k] = $v; } }
+    return $cache = $out;
+}
+
 function mail_settings(PDO $pdo): array
 {
-    $d = ['host' => '', 'port' => 587, 'encryption' => 'starttls', 'username' => '', 'password_enc' => null, 'from_email' => '', 'from_name' => 'Telecomlijn Admin', 'base_url' => ''];
-    try { $r = $pdo->query('SELECT * FROM mail_settings WHERE id = 1')->fetch(); } catch (Throwable $e) { return $d; }
-    return $r ? array_merge($d, $r) : $d;
+    $d = ['host' => '', 'port' => 587, 'encryption' => 'starttls', 'username' => '', 'password_enc' => null, 'from_email' => '', 'from_name' => 'Telecomlijn Admin', 'base_url' => '', 'password_plain' => null, 'from_env' => []];
+    try { $r = $pdo->query('SELECT * FROM mail_settings WHERE id = 1')->fetch(); } catch (Throwable $e) { $r = false; }
+    $c = $r ? array_merge($d, $r) : $d;
+    $env = mail_env();
+    if ($c['host'] === '' && isset($env['host'])) {   // no server saved in Settings: use the environment's
+        $c['host'] = $env['host']; $c['from_env'][] = 'SMTP_SERVER';
+        if (isset($env['port']) && ctype_digit($env['port'])) { $c['port'] = (int) $env['port']; $c['from_env'][] = 'SMTP_PORT'; if ((int) $env['port'] === 465) { $c['encryption'] = 'ssl'; } }
+        if ($c['username'] === '' && isset($env['username'])) { $c['username'] = $env['username']; $c['from_env'][] = 'SMTP_USERNAME'; }
+        if (empty($c['password_enc']) && isset($env['password'])) { $c['password_plain'] = $env['password']; $c['from_env'][] = 'SMTP_PASSWORD'; }
+    }
+    if ($c['from_email'] === '' && isset($env['from'])) { $c['from_email'] = $env['from']; $c['from_env'][] = 'EMAIL_FROM'; }
+    return $c;
 }
 
 function mail_is_local(): bool
@@ -131,7 +163,7 @@ function mail_send(PDO $pdo, string $to, string $subject, string $body, string $
     $from = filter_var((string) $cfg['from_email'], FILTER_VALIDATE_EMAIL) ? (string) $cfg['from_email'] : 'no-reply@' . (preg_replace('/[^A-Za-z0-9.-]/', '', (string) parse_url((string) $cfg['base_url'], PHP_URL_HOST)) ?: 'localhost');
     $status = 'recorded'; $note = 'No mail server is set up on this computer, so the message is only recorded in the outbox.';
     if ($cfg['host'] !== '') {
-        $err = smtp_send($cfg, secret_decrypt((string) $cfg['password_enc']), $from, $to, mail_build($from, (string) $cfg['from_name'], $to, $subject, $body, (string) $cfg['host']));
+        $err = smtp_send($cfg, $cfg['password_plain'] ?? secret_decrypt((string) $cfg['password_enc']), $from, $to, mail_build($from, (string) $cfg['from_name'], $to, $subject, $body, (string) $cfg['host']));
         $status = $err === null ? 'sent' : 'failed'; $note = $err ?? 'Sent.';
     } elseif (!mail_is_local()) {
         $ok = @mail($to, mail_encode_header($subject), str_replace("\n", "\r\n", $body), 'From: ' . $from . "\r\nContent-Type: text/plain; charset=UTF-8\r\nMIME-Version: 1.0");

@@ -2,15 +2,20 @@
 declare(strict_types=1);
 
 const NOTIFY_REFRESH_SECONDS = 180;   // the checks below run at most every three minutes, whoever loads a page
-const NOTIFY_DEFAULT_EMAIL = 'denis@telecomlijn.nl';
 const NOTIFY_KEEP_DAYS = 90;
 
-/** Where notification emails go (Settings > Account). Pre-filled with the default until an admin changes it. */
+/**
+ * Where notification emails go: the "Send notifications to" setting (EMAIL_TARGET) in Settings > Email. Nothing is built into the code.
+ * Only when that setting has never been saved can the EMAIL_TARGET environment variable (or config.local.php) supply it.
+ * An empty saved value means: do not email.
+ */
 function notify_email(PDO $pdo): string
 {
     $s = $pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'");
     $v = $s ? $s->fetchColumn() : false;
-    return $v === false ? NOTIFY_DEFAULT_EMAIL : (string) $v;
+    if ($v !== false) { return (string) $v; }
+    require_once __DIR__ . '/mailer.php';
+    return (string) (mail_env()['target'] ?? '');
 }
 
 /** Stores a notification once. The unique key is the event itself, so the same event is never announced twice. */

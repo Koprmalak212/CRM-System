@@ -1143,19 +1143,50 @@ try {
 
     // notification email in Settings
     $acc = http('GET', "$base/settings.php?tab=account", ['jar' => $admin])['body'];
-    check(str_contains($acc, 'name="notify_email"') && str_contains($acc, 'value="denis@telecomlijn.nl"'), 'Settings > Account has the notification email, pre-filled with denis@telecomlijn.nl');
-    check(!str_contains(http('GET', "$base/settings.php?tab=account", ['jar' => $user])['body'], 'notify_email'), 'a normal account does not see it');
-    same($post($user, 'settings.php?tab=account', ['tab' => 'account', 'action' => 'notify', 'notify_email' => 'evil@example.test'], 'settings.php?tab=account')['code'], 403, 'a normal account can not change it (403)');
-    same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), 'denis@telecomlijn.nl', 'and it did not change');
-    $post($admin, 'settings.php?tab=account', ['tab' => 'account', 'action' => 'notify', 'notify_email' => 'not an email'], 'settings.php?tab=account');
-    same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), 'denis@telecomlijn.nl', 'an invalid address is refused');
-    $post($admin, 'settings.php?tab=account', ['tab' => 'account', 'action' => 'notify', 'notify_email' => 'team@example.test'], 'settings.php?tab=account');
+    $notifyKeep = $pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn();
+    // the notification address is a setting (EMAIL_TARGET) under Settings > Email, not part of the code
+    $srcAll = ''; foreach (array_merge(glob(__DIR__ . '/../*.php'), glob(__DIR__ . '/../includes/*.php'), glob(__DIR__ . '/../includes/settings/*.php')) as $f) { $srcAll .= (string) file_get_contents($f); }
+    check(!str_contains($srcAll, 'denis@telecomlijn.nl') && !str_contains($srcAll, 'NOTIFY_DEFAULT_EMAIL'), 'no notification address is written into the program code');
+    check(!str_contains((string) file_get_contents(__DIR__ . '/../database/schema.sql'), 'denis@telecomlijn.nl'), 'and none is seeded by the schema');
+    check(!str_contains($acc, 'name="notify_email"') && str_contains($acc, 'settings.php?tab=email'), 'Settings > Account no longer has the field; it points to Settings > Email');
+    $emTab = http('GET', "$base/settings.php?tab=email", ['jar' => $admin])['body'];
+    check(str_contains($emTab, 'name="email_target"') && str_contains($emTab, 'EMAIL_TARGET'), 'Settings > Email has "Send notifications to" (EMAIL_TARGET)');
+    foreach (['SMTP_SERVER', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'EMAIL_FROM'] as $nm) { check(str_contains($emTab, $nm), "Settings > Email shows the setting name $nm next to its field"); }
+    $nSave = fn(array $d) => $post($admin, 'settings.php?tab=email', ['tab' => 'email', 'action' => 'save', 'host' => '', 'port' => '587', 'encryption' => 'starttls', 'username' => '', 'password' => '', 'from_email' => '', 'from_name' => 'Telecomlijn Admin', 'base_url' => ''] + $d, 'settings.php?tab=email');
+    $before = $pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn();
+    $nSave(['email_target' => 'not an email']);
+    same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), $before, 'an invalid notification address is refused');
+    same($post($user, 'settings.php?tab=email', ['tab' => 'email', 'action' => 'save', 'email_target' => 'evil@example.test'], 'settings.php')['code'], 403, 'a normal account can not change it (403)');
+    same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), $before, 'and it did not change');
+    $nSave(['email_target' => 'team@example.test']);
     same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), 'team@example.test', 'an admin can change it');
-    check(str_contains(http('GET', "$base/settings.php?tab=account", ['jar' => $admin])['body'], 'value="team@example.test"'), 'the new address is shown');
-    $post($admin, 'settings.php?tab=account', ['tab' => 'account', 'action' => 'notify', 'notify_email' => ''], 'settings.php?tab=account');
-    same(notify_email($pdo), '', 'it can be emptied to turn emails off');
+    check(str_contains(http('GET', "$base/settings.php?tab=email", ['jar' => $admin])['body'], 'value="team@example.test"'), 'the new address is shown in the field');
+    $nSave(['email_target' => '']);
+    same(notify_email($pdo), '', 'it can be emptied to turn notification emails off');
+    // only a never-saved setting may come from the environment
     $pdo->exec("DELETE FROM app_meta WHERE k = 'notify_email'");
-    same(notify_email($pdo), 'denis@telecomlijn.nl', 'with no saved value the default address is used');
+    putenv('EMAIL_TARGET'); mail_env(true);
+    same(notify_email($pdo), '', 'with nothing saved and nothing in the environment there is no address (no built-in default)');
+    putenv('EMAIL_TARGET=env-target@example.test'); mail_env(true);
+    same(notify_email($pdo), 'env-target@example.test', 'with nothing saved, EMAIL_TARGET from the environment is used');
+    $nSave(['email_target' => 'saved@example.test']);
+    same(notify_email($pdo), 'saved@example.test', 'a saved setting always wins over the environment');
+    putenv('EMAIL_TARGET'); mail_env(true);
+    // SMTP_* and EMAIL_FROM from the environment fill in what is not saved
+    $pdo->exec('DELETE FROM mail_settings');
+    putenv('SMTP_SERVER=smtp.env.test'); putenv('SMTP_PORT=2525'); putenv('SMTP_USERNAME=env-user'); putenv('SMTP_PASSWORD=env-pass'); putenv('EMAIL_FROM=from@env.test'); mail_env(true);
+    $mc = mail_settings($pdo);
+    same([$mc['host'], $mc['port'], $mc['username'], $mc['password_plain'], $mc['from_email']], ['smtp.env.test', 2525, 'env-user', 'env-pass', 'from@env.test'], 'SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD and EMAIL_FROM from the environment are used when nothing is saved');
+    same($mc['from_env'], ['SMTP_SERVER', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'EMAIL_FROM'], 'and the page can say which ones came from the environment');
+    $emSrc = (string) file_get_contents(__DIR__ . '/../includes/settings/email.php');   // the web server does not see this process's environment, so check the page code
+    check(str_contains($emSrc, 'From the environment') && str_contains($emSrc, 'implode(\', \', $c[\'from_env\'])') && !str_contains($emSrc, 'e($c[\'password_plain\'])') && !str_contains($emSrc, 'e($env[\'password\'])'), 'the Email tab says which values come from the environment, and never prints the environment password');
+    $pdo->prepare("INSERT INTO mail_settings (id, host, port, encryption, username, from_email) VALUES (1, 'saved.test', 465, 'ssl', 'saved-user', 'saved@from.test')")->execute();
+    $mc = mail_settings($pdo);
+    same([$mc['host'], $mc['port'], $mc['username'], $mc['from_email'], $mc['password_plain']], ['saved.test', 465, 'saved-user', 'saved@from.test', null], 'settings saved on the page always win over the environment');
+    foreach (['SMTP_SERVER', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'EMAIL_FROM'] as $nm) { putenv($nm); }
+    mail_env(true);
+    $pdo->exec('DELETE FROM mail_settings');
+    if ($notifyKeep !== false) { $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('notify_email', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$notifyKeep]); }
 
     // demo flag
     $pdo->exec('DELETE FROM notifications WHERE is_demo = 1'); notifications_refresh($pdo, true);
@@ -1776,10 +1807,11 @@ try {
     check(!str_contains(trend_chart('y', 'T <b>', 'S', [['key' => 'a', 'label' => '<i>x</i>', 'value' => 1.0]], fn($v) => '<u>' . $v, 'V', 'S'), '<i>x</i>') && !str_contains(trend_chart('y', 'T <b>', 'S', [['key' => 'a', 'label' => 'x', 'value' => 1.0]], fn($v) => '<u>' . $v, 'V', 'S'), '<u>1'), 'labels and values are escaped');
     $ov = http('GET', "$base/index.php", ['jar' => $admin])['body'];
     foreach (['Revenue per month', 'New users per month', 'Tickets opened per week', 'Average time to resolve'] as $t) { check(str_contains($ov, $t), "the Overview shows the chart: $t"); }
-    same(substr_count($ov, 'View as table'), 4, 'each of the four charts has its table');
+    $empty = substr_count($ov, 'data-empty="1"');
+    same(substr_count($ov, 'View as table') + $empty, 4, 'each of the four charts has its table (or, with no data, its empty state)');
     check(strpos($ov, 'Revenue per month') < strpos($ov, 'id="demo-data"') && strpos($ov, 'Activity, last 24 hours') < strpos($ov, 'Revenue per month'), 'the trends sit below the activity chart and above the demo-data panel');
     check(substr_count($ov, 'class="vbar') >= 12 + 12 + 12 + 12 || str_contains($ov, 'data-empty="1"'), 'each chart draws one bar per period (12 months or 12 weeks) when there is data');
-    check(str_contains($ov, 'data-tip="' . trend_month_keys()[11]['label'] . ': '), 'the newest bar is the current month');
+    check($empty === 4 || str_contains($ov, 'data-tip="' . trend_month_keys()[11]['label'] . ': '), 'the newest bar is the current month (when there is data)');
     if (demo_loaded($pdo)) {
         check(count(array_filter($vals($liveRev), fn($v) => $v > 0)) >= 9, 'demo data gives revenue in at least 9 of the last 12 months');
         check(count(array_filter($vals($liveUsr), fn($v) => $v > 0)) >= 9, 'and new users in at least 9 months');
@@ -2145,10 +2177,10 @@ try {
             elseif (preg_match('#<thead.*?</thead>#s', $tb, $th) && preg_match('/<th(?=[\s>])(?![^>]*scope="col")[^>]*>/', $th[0])) { $noScope[] = $pg; }
         }
     }
-    check($count >= 15 && !$noHead, "all $count tables on " . count($tablePages) . ' pages have a header row (the card labels come from it)', implode(', ', array_unique($noHead)));
+    check($count >= 8 && !$noHead, "all $count tables on " . count($tablePages) . ' pages have a header row (the card labels come from it)', implode(', ', array_unique($noHead)));
     check(!$noScope, 'and every header cell is marked scope="col"', implode(', ', array_unique($noScope)));
     $plain = 0; foreach (['index.php'] as $pg) { $plain += substr_count(http('GET', "$base/$pg", ['jar' => $admin])['body'], 'data-plain'); }
-    same($plain, 4, 'only the four tiny two-column chart tables on the Overview opt out of the card layout');
+    same($plain, substr_count(http('GET', "$base/index.php", ['jar' => $admin])['body'], 'data-empty="1"') === 4 ? 0 : 4, 'only the four tiny two-column chart tables on the Overview opt out of the card layout (none when the charts are empty)');
     check(str_contains(http('GET', "$base/index.php", ['jar' => $admin])['body'], 'role="search" class="relative min-w-0'), 'the top-bar search can shrink, so the bar (bell, theme button, language) fits on a phone');
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();

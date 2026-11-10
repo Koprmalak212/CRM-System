@@ -17,7 +17,9 @@ function tab_handle(PDO $pdo, array $admin): void
         $fromEmail = trim((string) ($_POST['from_email'] ?? ''));
         $fromName = mail_clean_line((string) ($_POST['from_name'] ?? ''));
         $base = rtrim(trim((string) ($_POST['base_url'] ?? '')), '/');
+        $target = trim((string) ($_POST['email_target'] ?? ''));
         $err = [];
+        if ($target !== '' && (!filter_var($target, FILTER_VALIDATE_EMAIL) || mb_strlen($target) > 190)) { $err[] = 'The address notifications go to is not a valid email address (leave it empty to turn notification emails off).'; }
         if ($host !== '' && !preg_match('/^[A-Za-z0-9]([A-Za-z0-9.-]{0,188}[A-Za-z0-9])?$/', $host)) { $err[] = 'The mail server name is not valid.'; }
         if ($port < 1 || $port > 65535) { $err[] = 'The port must be between 1 and 65535.'; }
         if (!in_array($enc, ['none', 'starttls', 'ssl'], true)) { $err[] = 'Choose how the connection is secured.'; }
@@ -32,6 +34,7 @@ function tab_handle(PDO $pdo, array $admin): void
         $pdo->prepare('INSERT INTO mail_settings (id, host, port, encryption, username, password_enc, from_email, from_name, base_url, updated_at) VALUES (1,?,?,?,?,?,?,?,?,NOW())
             ON DUPLICATE KEY UPDATE host = VALUES(host), port = VALUES(port), encryption = VALUES(encryption), username = VALUES(username), password_enc = VALUES(password_enc), from_email = VALUES(from_email), from_name = VALUES(from_name), base_url = VALUES(base_url), updated_at = VALUES(updated_at)')
             ->execute([$host, $port, $enc, $user, $enc_pw, $fromEmail, $fromName !== '' ? $fromName : 'Telecomlijn Admin', $base]);
+        $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('notify_email', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$target]);
         log_activity('warning', 'Email settings saved', $host !== '' ? $host . ':' . $port : '(no SMTP server)');   // never the password
         flash($host !== '' ? 'Email settings saved. Use "Send a test email" to check them.' : 'Saved. Without a mail server, messages are only recorded in the outbox.');
         return;
@@ -63,22 +66,25 @@ function tab_render(PDO $pdo, array $admin): void
 {
     $c = mail_settings($pdo);
     $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
-    $hasPw = !empty($c['password_enc']);
+    $hasPw = !empty($c['password_enc']) || $c['password_plain'] !== null;
     $rows = $pdo->query('SELECT id, kind, to_email, subject, body, status, error, created_at FROM mail_outbox ORDER BY id DESC LIMIT 50')->fetchAll();
     $count = (int) $pdo->query('SELECT COUNT(*) FROM mail_outbox')->fetchColumn();
     ?>
 <div class="grid gap-6 lg:grid-cols-2">
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="smtp-h">
     <h2 id="smtp-h" class="text-lg font-bold tracking-tight">Email / SMTP</h2>
+    <?php if ($c['from_env']): ?><p role="status" class="mt-3 rounded-xl bg-butter-100 px-4 py-3 text-sm"><strong class="text-butter">From the environment:</strong> <span class="notranslate"><?= e(implode(', ', $c['from_env'])) ?></span> are taken from environment variables or <code class="notranslate">includes/config.local.php</code> because nothing is saved here for them. Saving this form takes over.</p><?php endif; ?>
+    <p class="mt-2 text-xs text-soft">The grey names next to each field (<code class="notranslate">SMTP_SERVER</code>, <code class="notranslate">SMTP_PORT</code>, <code class="notranslate">SMTP_USERNAME</code>, <code class="notranslate">SMTP_PASSWORD</code>, <code class="notranslate">EMAIL_FROM</code>, <code class="notranslate">EMAIL_TARGET</code>) can also be set as environment variables or as keys in <code class="notranslate">includes/config.local.php</code>. What is saved on this page always wins.</p>
     <p class="mt-1 text-sm text-soft">For real delivery enter the details of an email account (SMTP) from your provider. Left blank, nothing is sent: password-reset and invitation links appear in the outbox below instead, so they can be copied by hand. The password is stored encrypted.</p>
     <form method="post" class="mt-5 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="save">
-      <div class="sm:col-span-2"><label for="host" class="text-sm font-semibold">Mail server</label><input id="host" name="host" maxlength="190" value="<?= e($c['host']) ?>" placeholder="smtp.example.com" autocomplete="off" class="<?= $field ?> notranslate"></div>
-      <div><label for="port" class="text-sm font-semibold">Port</label><input id="port" name="port" inputmode="numeric" maxlength="5" value="<?= (int) $c['port'] ?>" class="<?= $field ?>"></div>
+      <div class="sm:col-span-2"><label for="host" class="text-sm font-semibold">Mail server <code class="font-mono text-xs font-normal text-soft">SMTP_SERVER</code></label><input id="host" name="host" maxlength="190" value="<?= e($c['host']) ?>" placeholder="smtp.example.com" autocomplete="off" class="<?= $field ?> notranslate"></div>
+      <div><label for="port" class="text-sm font-semibold">Port <code class="font-mono text-xs font-normal text-soft">SMTP_PORT</code></label><input id="port" name="port" inputmode="numeric" maxlength="5" value="<?= (int) $c['port'] ?>" class="<?= $field ?>"></div>
       <div><label for="encryption" class="text-sm font-semibold">Security</label><select id="encryption" name="encryption" class="<?= $field ?>"><?php foreach (['starttls' => 'STARTTLS (port 587)', 'ssl' => 'SSL/TLS (port 465)', 'none' => 'None (not recommended)'] as $k => $l): ?><option value="<?= $k ?>" <?= $c['encryption'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
-      <div><label for="username" class="text-sm font-semibold">User name</label><input id="username" name="username" maxlength="190" value="<?= e($c['username']) ?>" autocomplete="off" class="<?= $field ?> notranslate"></div>
-      <div><label for="password" class="text-sm font-semibold">Password</label><input id="password" name="password" type="password" autocomplete="new-password" maxlength="512" placeholder="<?= $hasPw ? '••••••••  (saved, leave empty to keep)' : '' ?>" class="<?= $field ?>"></div>
-      <div><label for="from_email" class="text-sm font-semibold">Sender address</label><input id="from_email" name="from_email" type="email" maxlength="190" value="<?= e($c['from_email']) ?>" placeholder="no-reply@telecomlijn.nl" class="<?= $field ?>"></div>
+      <div><label for="username" class="text-sm font-semibold">User name <code class="font-mono text-xs font-normal text-soft">SMTP_USERNAME</code></label><input id="username" name="username" maxlength="190" value="<?= e($c['username']) ?>" autocomplete="off" class="<?= $field ?> notranslate"></div>
+      <div><label for="password" class="text-sm font-semibold">Password <code class="font-mono text-xs font-normal text-soft">SMTP_PASSWORD</code></label><input id="password" name="password" type="password" autocomplete="new-password" maxlength="512" placeholder="<?= $hasPw ? '••••••••  (saved, leave empty to keep)' : '' ?>" class="<?= $field ?>"></div>
+      <div><label for="from_email" class="text-sm font-semibold">Sender address <code class="font-mono text-xs font-normal text-soft">EMAIL_FROM</code></label><input id="from_email" name="from_email" type="email" maxlength="190" value="<?= e($c['from_email']) ?>" placeholder="no-reply@telecomlijn.nl" class="<?= $field ?>"></div>
       <div><label for="from_name" class="text-sm font-semibold">Sender name</label><input id="from_name" name="from_name" maxlength="80" value="<?= e($c['from_name']) ?>" class="<?= $field ?>"></div>
+      <div class="sm:col-span-2"><label for="email_target" class="text-sm font-semibold">Send notifications to <code class="font-mono text-xs font-normal text-soft">EMAIL_TARGET</code></label><input id="email_target" name="email_target" type="email" maxlength="190" value="<?= e(notify_email($pdo)) ?>" placeholder="alerts@example.com" class="<?= $field ?> notranslate"><p class="mt-1 text-xs text-soft">Overdue invoices, failed backups, services that are down and urgent tickets are emailed here. Leave empty to turn those emails off (the bell still works).</p></div>
       <div class="sm:col-span-2"><label for="base_url" class="text-sm font-semibold">Site address used in links <span class="font-normal text-soft">(required on a real server)</span></label><input id="base_url" name="base_url" maxlength="190" value="<?= e($c['base_url']) ?>" placeholder="https://admin.telecomlijn.nl" class="<?= $field ?> notranslate"><p class="mt-1 text-xs text-soft">Links in emails always use this address, never the one in the request, so nobody can make a reset email point to another site. On localhost it can stay empty.</p></div>
       <div class="flex flex-wrap gap-3 sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button></div>
     </form>

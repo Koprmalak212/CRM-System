@@ -338,7 +338,6 @@ CREATE TABLE IF NOT EXISTS notifications (
   KEY idx_notif_created (created_at),
   KEY idx_notif_read (read_at)
 ) ENGINE=InnoDB;
-INSERT IGNORE INTO app_meta (k, v) VALUES ('notify_email', 'denis@telecomlijn.nl');
 
 -- Stage 7: two-factor sign-in. The secret is stored encrypted (AES-256-GCM, the app key); totp_last_step stops a code being used twice.
 ALTER TABLE admins ADD COLUMN totp_secret_enc TEXT NULL, ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN totp_last_step BIGINT UNSIGNED NULL;
