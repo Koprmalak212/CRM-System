@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'That password is too easy to guess. Do not use your username or a common word.';
     } else {
         $pdo->prepare('UPDATE admins SET password_hash = ?, must_change_password = 0 WHERE id = ?')->execute([hash_password($new), $admin['id']]);
+        bump_session_epoch($pdo, (int) $admin['id']);   // other devices are signed out
         session_regenerate_id(true);
         unset($_SESSION['csrf']);
         $_SESSION['admin']['must_change'] = false;

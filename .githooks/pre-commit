@@ -1,0 +1,7 @@
+#!/bin/sh
+# Optional: runs the whole test suite before every commit. Turn it on with:  git config core.hooksPath .githooks
+# Needs Apache and MariaDB running (the suite signs in over HTTP). Skip once with:  git commit --no-verify
+php=/c/xampp/php/php.exe
+[ -x "$php" ] || php=php
+out=$("$php" tests/run.php 2>&1); echo "$out" | tail -n 4
+echo "$out" | grep -q " 0 failed" || { echo "Tests failed: commit stopped."; exit 1; }

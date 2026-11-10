@@ -17,7 +17,9 @@ function reset_lookup(PDO $pdo, string $token): ?array
 }
 
 $token = (string) ($_POST['token'] ?? $_GET['token'] ?? '');
-$row = reset_lookup($pdo, $token);
+$locked = token_locked($pdo);
+$row = $locked ? null : reset_lookup($pdo, $token);
+if (!$row && !$locked && $token !== '' && $token !== 'used') { token_fail($pdo); }   // guessing at links is counted and eventually locked
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $row) {
@@ -48,7 +50,7 @@ public_head('Choose a new password');
 ?>
 <?php if (!$row): ?>
     <h1 class="text-3xl font-bold tracking-tight">This link does not work</h1>
-    <p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]">The reset link is not valid, has expired or was already used. Ask for a new one.</p>
+    <p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= $locked ? 'Too many wrong links from your connection. Wait ' . TOKEN_WINDOW_MINUTES . ' minutes and try again.' : 'The reset link is not valid, has expired or was already used. Ask for a new one.' ?></p>
     <p class="mt-6 text-sm"><a href="forgot.php" class="font-semibold underline decoration-lime decoration-2 underline-offset-4">Send a new reset link</a> · <a href="login.php" class="font-semibold underline decoration-lime decoration-2 underline-offset-4">Sign in</a></p>
 <?php else: ?>
     <h1 class="text-3xl font-bold tracking-tight">Choose a new password</h1>

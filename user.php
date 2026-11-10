@@ -25,7 +25,7 @@ if (!$u) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    if (($_POST['action'] ?? '') === 'note') { notes_handle_post($pdo, 'user', $id, 'user.php?id=' . $id); }
+    if (str_starts_with((string) ($_POST['action'] ?? ''), 'note')) { notes_handle_post($pdo, 'user', $id, 'user.php?id=' . $id); }
     if (($_POST['action'] ?? '') === 'company') {
         $cid = (int) ($_POST['company_id'] ?? 0);
         $target = $cid > 0 ? company_find($pdo, $cid) : null;

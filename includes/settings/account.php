@@ -53,6 +53,21 @@ function tab_handle_2fa(PDO $pdo, array $admin, string $action): void
 
 function tab_handle(PDO $pdo, array $admin): void
 {
+    if (($_POST['action'] ?? '') === 'optin') {
+        $on = ($_POST['optin'] ?? '') === '1' ? 1 : 0;
+        $pdo->prepare('UPDATE admins SET notify_optin = ? WHERE id = ?')->execute([$on, $admin['id']]);
+        log_activity('info', 'Notification emails preference', $on ? 'on' : 'off', (string) $admin['username']);
+        flash($on ? 'You will also get notification emails at ' . $admin['email'] . '.' : 'You will no longer get notification emails (the bell still works).');
+        return;
+    }
+    if (($_POST['action'] ?? '') === 'require2fa') {
+        if (!is_admin()) { deny_access('settings:require2fa'); }
+        $on = ($_POST['require'] ?? '') === '1' ? '1' : '0';
+        $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('require_2fa_admins', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$on]);
+        log_activity('warning', 'Two-step requirement changed', $on === '1' ? 'required for admins' : 'optional');
+        flash($on === '1' ? 'Admins now have to use two-step sign-in. Anyone without it is taken to set it up.' : 'Two-step sign-in is optional again.');
+        return;
+    }
     if (str_starts_with((string) ($_POST['action'] ?? ''), '2fa_')) { tab_handle_2fa($pdo, $admin, (string) $_POST['action']); return; }
     $current = substr((string) ($_POST['current'] ?? ''), 0, 1024);
     $new = substr((string) ($_POST['new'] ?? ''), 0, 1024);
@@ -70,6 +85,7 @@ function tab_handle(PDO $pdo, array $admin): void
         flash('The new password and its confirmation do not match.', 'bad');
     } else {
         $pdo->prepare('UPDATE admins SET password_hash = ?, must_change_password = 0 WHERE id = ?')->execute([hash_password($new), $admin['id']]);
+        bump_session_epoch($pdo, (int) $admin['id']);   // other devices are signed out
         session_regenerate_id(true);
         unset($_SESSION['csrf']);
         log_activity('warning', 'Changed password', $admin['username']);
@@ -138,10 +154,25 @@ function tab_render(PDO $pdo, array $admin): void
     <?php endif; ?>
   </section>
 
+  <?php $opt = (int) $pdo->query('SELECT notify_optin FROM admins WHERE id = ' . (int) $admin['id'])->fetchColumn() === 1; ?>
+  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="op-h">
+    <h2 id="op-h" class="text-lg font-bold tracking-tight">Email me notifications</h2>
+    <p class="mt-1 text-sm text-soft">Get the same notification emails (overdue invoices, failed backups, services down, urgent tickets) at your own address, <span class="notranslate"><?= e($admin['email']) ?></span>, in addition to the shared address. Now: <strong class="text-ink"><?= $opt ? 'on' : 'off' ?></strong>.</p>
+    <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="optin"><input type="hidden" name="optin" value="<?= $opt ? '0' : '1' ?>">
+      <button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy"><?= $opt ? 'Stop emailing me' : 'Email me too' ?></button></form>
+  </section>
+
   <?php if (is_admin()): ?>
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.03s" aria-labelledby="nt-h">
     <h2 id="nt-h" class="text-lg font-bold tracking-tight">Notification email</h2>
     <p class="mt-1 text-sm text-soft">Where overdue invoices, failed backups, services that are down and urgent tickets are emailed is set together with the mail server, under <a class="underline decoration-lime decoration-2 underline-offset-4" href="settings.php?tab=email">Settings &gt; Email</a> (EMAIL_TARGET).</p>
+  </section>
+  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="rq-h">
+    <h2 id="rq-h" class="text-lg font-bold tracking-tight">Require two-step for admins</h2>
+    <?php $req = (string) $pdo->query("SELECT v FROM app_meta WHERE k = 'require_2fa_admins'")->fetchColumn() === '1'; $adminsWithout = (int) $pdo->query("SELECT COUNT(*) FROM admins WHERE role = 'admin' AND is_active = 1 AND totp_enabled = 0")->fetchColumn(); ?>
+    <p class="mt-1 text-sm text-soft">When on, an admin without two-step sign-in can only open this Account tab until they have set it up. Now: <strong class="text-ink"><?= $req ? 'required' : 'optional' ?></strong>; <?= $adminsWithout ?> active admin<?= $adminsWithout === 1 ? '' : 's' ?> without it.</p>
+    <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="require2fa"><input type="hidden" name="require" value="<?= $req ? '0' : '1' ?>">
+      <button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy"><?= $req ? 'Make it optional' : 'Require it for admins' ?></button></form>
   </section>
   <?php endif; ?>
 

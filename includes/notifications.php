@@ -112,7 +112,7 @@ function notifications_bell(PDO $pdo): string
     else {
         $h .= '<ul class="max-h-[22rem] divide-y divide-line overflow-y-auto">';
         foreach ($rows as $r) {
-            $h .= '<li><a href="' . e($r['link'] !== '' ? $r['link'] : 'notifications.php') . '" class="flex gap-3 px-4 py-3 hover:bg-butter-50"><span class="mt-1.5 h-2 w-2 shrink-0 rounded-full ' . ($r['read_at'] === null ? 'bg-lime' : 'bg-transparent') . '" aria-hidden="true"></span>'
+            $h .= '<li><a href="notifications.php?go=' . (int) $r['id'] . '" class="flex gap-3 px-4 py-3 hover:bg-butter-50"><span class="mt-1.5 h-2 w-2 shrink-0 rounded-full ' . ($r['read_at'] === null ? 'bg-lime' : 'bg-transparent') . '" aria-hidden="true"></span>'
                 . '<span class="min-w-0"><span class="block truncate text-sm font-semibold">' . ($r['read_at'] === null ? '<span class="sr-only">Unread: </span>' : '') . e($r['title']) . '</span><span class="block truncate text-xs text-soft">' . e($r['body']) . '</span><span class="block text-xs text-soft">' . e(ago($r['created_at'])) . '</span></span></a></li>';
         }
         $h .= '</ul>';

@@ -6,6 +6,16 @@ require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
 
+if (isset($_GET['go'])) {   // clicked in the bell or the list: mark it read, then go where it points
+    $g = $pdo->prepare('SELECT id, link FROM notifications WHERE id = ?');
+    $g->execute([(int) $_GET['go']]);
+    if ($n = $g->fetch()) {
+        notifications_mark_read($pdo, (int) $n['id']);
+        redirect(preg_match('/^[a-z_]+\.php(\?[A-Za-z0-9_=&%.+-]{0,100})?$/', (string) $n['link']) ? $n['link'] : 'notifications.php');
+    }
+    redirect('notifications.php');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = (string) ($_POST['action'] ?? '');
@@ -48,7 +58,7 @@ page_start('Notifications', 'notifications', 'Things that need attention: overdu
           <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg <?= $isNew ? 'bg-raised text-lime' : 'bg-raised text-soft' ?>"><?= icon(NOTIFY_ICONS[$r['kind']] ?? 'alert') ?></span>
           <div class="min-w-0 flex-1"><p class="font-semibold"><?= $isNew ? '<span class="sr-only">Unread: </span>' : '' ?><?= e($r['title']) ?></p><p class="text-sm text-soft"><?= e($r['body']) ?></p><p class="text-xs text-soft"><?= e(ago($r['created_at'])) ?></p></div>
           <div class="flex gap-2">
-            <?php if ($r['link'] !== ''): ?><a href="<?= e($r['link']) ?>" class="inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold hover:bg-butter-50">Open</a><?php endif; ?>
+            <?php if ($r['link'] !== ''): ?><a href="notifications.php?go=<?= (int) $r['id'] ?>" class="inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold hover:bg-butter-50">Open</a><?php endif; ?>
             <?php if ($isNew): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="read"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>"><input type="hidden" name="qs" value="<?= e(qs($base, ['page' => $page])) ?>"><button class="h-9 rounded-lg border border-line px-3 text-sm font-semibold hover:bg-lime hover:text-navy">Mark read</button></form><?php endif; ?>
           </div>
         </li>

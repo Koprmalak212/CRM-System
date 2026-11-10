@@ -80,7 +80,9 @@ Secrets are deliberately left out:
 C:\xampp\php\php.exe tests/run.php
 ```
 
-900+ checks covering authentication, permissions, rate limiting, the SSRF guards, the encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, the trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast and the phone layout. Results and fixes are also documented in Settings, Tests. Phone and light-mode layout were additionally checked in a real browser at 360, 768 and 1440 px.
+980+ checks (one file per stage in `tests/parts/`) covering authentication, permissions, rate limiting, the SSRF guards, the encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, the trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast and the phone layout. Results and fixes are also documented in Settings, Tests. Phone and light-mode layout were additionally checked in a real browser at 360, 768 and 1440 px.
+
+An optional pre-commit hook runs the suite before each commit: `git config core.hooksPath .githooks`.
 
 Recurring invoices are created when the site is opened and by `php run_recurring.php` (for a scheduled task on a real server).
 

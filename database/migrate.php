@@ -78,4 +78,8 @@ if (!col_exists($pdo, 'invoices', 'recurring_id')) {
     say('invoices.recurring_id added');
 }
 
+// ---- Follow-up: editable notes, per-person notification emails
+if (!col_exists($pdo, 'notes', 'edited_at')) { $pdo->exec('ALTER TABLE notes ADD COLUMN edited_at DATETIME NULL'); say('notes.edited_at added'); }
+if (!col_exists($pdo, 'admins', 'notify_optin')) { $pdo->exec('ALTER TABLE admins ADD COLUMN notify_optin TINYINT(1) NOT NULL DEFAULT 0'); say('admins.notify_optin added'); }
+
 echo "Database is up to date.\n";

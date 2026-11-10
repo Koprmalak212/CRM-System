@@ -188,13 +188,15 @@ function mail_notifications_digest(PDO $pdo): int
     if (!$rows) { return 0; }
     require_once __DIR__ . '/notifications.php';
     $to = notify_email($pdo);
+    $recipients = $to !== '' ? [strtolower($to) => $to] : [];
+    foreach ($pdo->query('SELECT email FROM admins WHERE notify_optin = 1 AND is_active = 1')->fetchAll(PDO::FETCH_COLUMN) as $m) { $recipients[strtolower($m)] = $m; }   // people who asked to be mailed too
     $real = array_values(array_filter($rows, fn($r) => !(int) $r['is_demo']));   // demo events are never mailed to a real address
     $base = mail_base_url($pdo);
-    if ($to !== '' && $real) {
+    if ($recipients && $real) {
         $lines = [];
         foreach (array_slice($real, 0, 25) as $r) { $lines[] = '- ' . $r['title'] . "\n  " . $r['body'] . ($base && $r['link'] !== '' ? "\n  " . $base . '/' . $r['link'] : ''); }
         if (count($real) > 25) { $lines[] = '…and ' . (count($real) - 25) . ' more. Open the notifications page to see them all.'; }
-        mail_send($pdo, $to, count($real) === 1 ? 'Telecomlijn Admin: ' . $real[0]['title'] : 'Telecomlijn Admin: ' . count($real) . ' new notifications', "New notifications:\n\n" . implode("\n\n", $lines) . "\n", 'notification');
+        foreach ($recipients as $addr) { mail_send($pdo, $addr, count($real) === 1 ? 'Telecomlijn Admin: ' . $real[0]['title'] : 'Telecomlijn Admin: ' . count($real) . ' new notifications', "New notifications:\n\n" . implode("\n\n", $lines) . "\n", 'notification'); }
     }
     $ids = array_column($rows, 'id');   // handled, sent or skipped: never offered again
     $pdo->exec('UPDATE notifications SET emailed_at = NOW() WHERE id IN (' . implode(',', array_map('intval', $ids)) . ')');

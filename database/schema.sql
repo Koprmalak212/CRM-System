@@ -443,3 +443,7 @@ CREATE TABLE IF NOT EXISTS recurring_invoices (
   CONSTRAINT fk_rec_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 ALTER TABLE invoices ADD COLUMN recurring_id INT UNSIGNED NULL, ADD UNIQUE KEY uq_inv_recurring (recurring_id, issue_date), ADD CONSTRAINT fk_inv_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_invoices(id) ON DELETE SET NULL;
+
+-- Follow-up: notes can be edited (and show it) or deleted by their author or an admin; each person can opt in to notification emails.
+ALTER TABLE notes ADD COLUMN edited_at DATETIME NULL;
+ALTER TABLE admins ADD COLUMN notify_optin TINYINT(1) NOT NULL DEFAULT 0;

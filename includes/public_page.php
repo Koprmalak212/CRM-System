@@ -41,6 +41,23 @@ function public_foot(): void
 <?php
 }
 
+const TOKEN_MAX_FAILS = 10;       // wrong reset or invitation links from one address ...
+const TOKEN_WINDOW_MINUTES = 15;  // ... within this many minutes lock link checking for that address
+
+/** Has this address tried too many wrong reset / invitation links? Counted in the same table as failed sign-ins. */
+function token_locked(PDO $pdo): bool
+{
+    $s = $pdo->prepare("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND username = 'tok:link' AND attempted_at >= ?");
+    $s->execute([client_ip(), date('Y-m-d H:i:s', time() - TOKEN_WINDOW_MINUTES * 60)]);
+    return (int) $s->fetchColumn() >= TOKEN_MAX_FAILS;
+}
+
+function token_fail(PDO $pdo): void
+{
+    $pdo->prepare("INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, 'tok:link', NOW())")->execute([client_ip()]);
+    if (token_locked($pdo)) { log_activity('warning', 'Link guessing locked', 'reset or invitation links', 'anonymous'); }
+}
+
 /** Input classes shared by the public pages. */
 const PUBLIC_FIELD = 'mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[15px] focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 

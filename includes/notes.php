@@ -27,11 +27,42 @@ function note_add(PDO $pdo, string $type, int $id, string $kind, string $body, ?
     return null;
 }
 
-/** Handles the "Add note" form on user.php / company.php. Redirects either way. */
+/** May the signed-in account change this note? Its author, or an admin. */
+function note_can_change(array $note): bool
+{
+    return is_admin() || (string) $note['author'] === (string) ($_SESSION['admin']['username'] ?? '');
+}
+
+/** Handles the add / edit / delete forms on user.php / company.php. Redirects either way. */
 function notes_handle_post(PDO $pdo, string $type, int $id, string $back): never
 {
-    $err = note_add($pdo, $type, $id, (string) ($_POST['kind'] ?? ''), (string) ($_POST['body'] ?? ''));
-    flash($err ?? 'Note added.', $err ? 'error' : 'ok');
+    $action = (string) ($_POST['action'] ?? 'note');
+    if ($action === 'note') {
+        $err = note_add($pdo, $type, $id, (string) ($_POST['kind'] ?? ''), (string) ($_POST['body'] ?? ''));
+        flash($err ?? 'Note added.', $err ? 'error' : 'ok');
+        redirect($back . '#timeline');
+    }
+    $s = $pdo->prepare('SELECT * FROM notes WHERE id = ? AND about_type = ? AND about_id = ?');
+    $s->execute([(int) ($_POST['note_id'] ?? 0), $type, $id]);
+    $note = $s->fetch();
+    if (!$note) { flash('That note no longer exists.', 'error'); redirect($back . '#timeline'); }
+    if (!note_can_change($note)) { deny_access('note:change'); }
+    if ($action === 'note_delete') {
+        $pdo->prepare('DELETE FROM notes WHERE id = ?')->execute([$note['id']]);
+        log_activity('warning', 'Note deleted', $type . ' #' . $id . ' · ' . $note['kind']);
+        flash('Note deleted.');
+    } else {   // note_edit
+        $body = trim(str_replace("\r\n", "\n", (string) ($_POST['body'] ?? '')));
+        $kind = (string) ($_POST['kind'] ?? $note['kind']);
+        if ($body === '') { flash('A note can not be empty. Delete it instead.', 'error'); }
+        elseif (mb_strlen($body) > NOTE_MAX) { flash('A note can be at most ' . NOTE_MAX . ' characters.', 'error'); }
+        elseif (!isset(NOTE_KINDS[$kind])) { flash('Choose what kind of entry this is.', 'error'); }
+        else {
+            $pdo->prepare('UPDATE notes SET body = ?, kind = ?, edited_at = NOW() WHERE id = ?')->execute([$body, $kind, $note['id']]);   // the author and the original time stay
+            log_activity('info', 'Note edited', $type . ' #' . $id . ' · ' . $kind);
+            flash('Note saved.');
+        }
+    }
     redirect($back . '#timeline');
 }
 
@@ -42,10 +73,10 @@ function notes_handle_post(PDO $pdo, string $type, int $id, string $back): never
 function timeline_items(PDO $pdo, string $type, int $id, int $limit = 50): array
 {
     $items = [];
-    $n = $pdo->prepare('SELECT kind, body, author, created_at FROM notes WHERE about_type = ? AND about_id = ? ORDER BY created_at DESC, id DESC LIMIT ' . (int) $limit);
+    $n = $pdo->prepare('SELECT id, kind, body, author, created_at, edited_at FROM notes WHERE about_type = ? AND about_id = ? ORDER BY created_at DESC, id DESC LIMIT ' . (int) $limit);
     $n->execute([$type, $id]);
     foreach ($n->fetchAll() as $r) {
-        $items[] = ['at' => $r['created_at'], 'kind' => $r['kind'], 'title' => NOTE_KINDS[$r['kind']], 'text' => $r['body'], 'by' => $r['author'], 'link' => null];
+        $items[] = ['at' => $r['created_at'], 'kind' => $r['kind'], 'title' => NOTE_KINDS[$r['kind']], 'text' => $r['body'], 'by' => $r['author'], 'link' => null, 'note' => $r];
     }
     if ($type === 'company') {
         $i = $pdo->prepare('SELECT id, number, total_cents, created_at FROM invoices WHERE company_id = ? ORDER BY created_at DESC LIMIT ' . (int) $limit);
@@ -81,12 +112,26 @@ function notes_panel(PDO $pdo, string $type, int $id, string $action): string
         foreach ($items as $it) {
             $dot = in_array($it['kind'], ['invoice', 'ticket'], true) ? 'bg-butter' : 'bg-lime';
             $h .= '<li class="relative"><span class="absolute -left-[1.62rem] top-1.5 h-2.5 w-2.5 rounded-full ' . $dot . '" aria-hidden="true"></span>'
-                . '<div class="flex flex-wrap items-center gap-x-2 text-xs text-soft"><span class="font-semibold text-ink">' . e($it['title']) . '</span><span>' . e(ago($it['at'])) . '</span>' . ($it['by'] !== '' ? '<span>· ' . e($it['by']) . '</span>' : '') . '</div>'
-                . '<p class="mt-1 whitespace-pre-line text-sm">' . ($it['link'] ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="' . e($it['link']) . '">' . e($it['text']) . '</a>' : e($it['text'])) . '</p></li>';
+                . '<div class="flex flex-wrap items-center gap-x-2 text-xs text-soft"><span class="font-semibold text-ink">' . e($it['title']) . '</span><span>' . e(ago($it['at'])) . (!empty($it['note']['edited_at']) ? ' (edited)' : '') . '</span>' . ($it['by'] !== '' ? '<span>· ' . e($it['by']) . '</span>' : '') . '</div>'
+                . '<p class="mt-1 whitespace-pre-line text-sm">' . ($it['link'] ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="' . e($it['link']) . '">' . e($it['text']) . '</a>' : e($it['text'])) . '</p>' . (isset($it['note']) && note_can_change($it['note']) ? note_controls($it['note'], $action, $id) : '') . '</li>';
         }
         $h .= '</ol>';
     } else {
         $h .= '<p class="mt-4 text-sm text-soft">Nothing here yet. Add the first note above.</p>';
     }
     return $h . '</section>';
+}
+
+
+/** "Edit" for a note: a details element with the edit form, and Delete tucked inside it so it takes two steps. */
+function note_controls(array $n, string $action, int $targetId): string
+{
+    $field = 'rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $h = '<details class="mt-1"><summary class="cursor-pointer text-xs font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Edit</summary>';
+    $h .= '<form method="post" action="' . e($action) . '" class="mt-2 grid gap-2 sm:grid-cols-[9rem_1fr_auto] sm:items-start">' . csrf_field() . '<input type="hidden" name="action" value="note_edit"><input type="hidden" name="id" value="' . $targetId . '"><input type="hidden" name="note_id" value="' . (int) $n['id'] . '">';
+    $h .= '<select name="kind" aria-label="Kind" class="h-10 ' . $field . '">';
+    foreach (NOTE_KINDS as $k => $l) { $h .= '<option value="' . $k . '"' . ($n['kind'] === $k ? ' selected' : '') . '>' . e($l) . '</option>'; }
+    $h .= '</select><textarea name="body" rows="2" maxlength="' . NOTE_MAX . '" aria-label="Note text" required class="py-2 ' . $field . '">' . e($n['body']) . '</textarea><button class="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Save</button></form>';
+    $h .= '<form method="post" action="' . e($action) . '" class="mt-2">' . csrf_field() . '<input type="hidden" name="action" value="note_delete"><input type="hidden" name="id" value="' . $targetId . '"><input type="hidden" name="note_id" value="' . (int) $n['id'] . '"><button class="h-9 rounded-lg border border-line px-3 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Delete this note</button></form></details>';
+    return $h;
 }

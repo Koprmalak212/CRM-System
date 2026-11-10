@@ -12,7 +12,7 @@ $id = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
 $c = company_find($pdo, $id) ?? company_not_found();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    if (($_POST['action'] ?? '') === 'note') { notes_handle_post($pdo, 'company', $id, 'company.php?id=' . $id); }
+    if (str_starts_with((string) ($_POST['action'] ?? ''), 'note')) { notes_handle_post($pdo, 'company', $id, 'company.php?id=' . $id); }
     redirect('company.php?id=' . $id);
 }
 
@@ -45,6 +45,7 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
 
 <div class="rise mb-5 flex flex-wrap gap-3">
   <a href="company_edit.php?id=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Edit company</a>
+  <a href="user_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Add user</a>
   <a href="invoice_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a>
 </div>
 

@@ -34,11 +34,7 @@ set_exception_handler(static function (Throwable $e): void {
         http_response_code(500);
         header('Content-Type: text/html; charset=utf-8');
     }
-    echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Something went wrong</title>'
-        . '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0A1226;color:#EEF2FA;font:16px system-ui,sans-serif">'
-        . '<main style="max-width:28rem;padding:2rem"><h1 style="font-size:1.5rem;margin:0 0 .5rem">Something went wrong</h1>'
-        . '<p style="color:#A5B2CF;line-height:1.5">The page could not be shown. Nothing was changed by this request. Try again in a moment, and quote reference <strong>' . $ref . '</strong> if it keeps happening.</p>'
-        . '<p><a href="index.php" style="color:#C7F36B">Back to the dashboard</a></p></main></body></html>';
+    echo plain_page('Something went wrong', 'Something went wrong', 'The page could not be shown. Nothing was changed by this request. Try again in a moment, and quote reference <strong>' . $ref . '</strong> if it keeps happening.', '<p><a href="index.php">Back to the dashboard</a></p>');
     exit;
 });
 
@@ -139,6 +135,14 @@ function db(): PDO
 }
 
 // ---------- Passwords ----------
+/** Ends every other session of this account (they carry the old epoch) and keeps the current one signed in. */
+function bump_session_epoch(PDO $pdo, int $adminId): void
+{
+    $pdo->prepare('UPDATE admins SET session_epoch = session_epoch + 1 WHERE id = ?')->execute([$adminId]);
+    $s = $pdo->prepare('SELECT session_epoch FROM admins WHERE id = ?'); $s->execute([$adminId]);
+    $_SESSION['epoch'] = (int) $s->fetchColumn();
+}
+
 function hash_password(string $plain): string
 {
     return defined('PASSWORD_ARGON2ID')
@@ -185,7 +189,7 @@ function require_login(): array
     }
     // Role and permissions are read fresh on every request, so an admin's change takes effect immediately
     // and a disabled account is signed out at once.
-    $s = db()->prepare('SELECT id, username, email, name, role, perm_integrations, is_active, must_change_password, avatar, session_epoch FROM admins WHERE id = ?');
+    $s = db()->prepare('SELECT id, username, email, name, role, perm_integrations, is_active, must_change_password, avatar, session_epoch, totp_enabled FROM admins WHERE id = ?');
     $s->execute([$_SESSION['admin']['id'] ?? 0]);
     $row = $s->fetch();
     // A password reset raises the person's session epoch: every session that started before it ends here.
@@ -205,6 +209,12 @@ function require_login(): array
         header('Location: change_password.php');
         exit;
     }
+    // Setting "Require two-step sign-in for admins" (Settings > Account): until an admin has turned it on, only their Account tab opens.
+    if ($row['role'] === 'admin' && !(int) $row['totp_enabled'] && (string) db()->query("SELECT v FROM app_meta WHERE k = 'require_2fa_admins'")->fetchColumn() === '1') {
+        $script = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $okPage = in_array($script, ['logout.php', 'change_password.php'], true) || ($script === 'settings.php' && (($_GET['tab'] ?? $_POST['tab'] ?? 'account') === 'account'));
+        if (!$okPage) { flash('Your team requires two-step sign-in for admins. Set it up here to continue.', 'bad'); header('Location: settings.php?tab=account'); exit; }
+    }
     return $_SESSION['admin'];
 }
 
@@ -222,16 +232,21 @@ function integrations_level(): string
 }
 
 /** Stops the request with a 403 page and records the attempt. Use after require_login(). */
+/** A small standalone page (no layout) that follows the system's light or dark setting. */
+function plain_page(string $title, string $heading, string $text, string $extra = ''): string
+{
+    return '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . htmlspecialchars($title, ENT_QUOTES) . '</title>'
+        . '<style nonce="' . csp_nonce() . '">body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0A1226;color:#EEF2FA;font:16px system-ui,sans-serif}p{color:#A5B2CF;line-height:1.5}a{color:#C7F36B}'
+        . '@media (prefers-color-scheme: light){body{background:#F4F6FB;color:#111D36}p{color:#4D5B7A}a{color:#3F6212}}</style>'
+        . '<body><main style="max-width:28rem;padding:2rem"><h1 style="font-size:1.5rem;margin:0 0 .5rem">' . htmlspecialchars($heading, ENT_QUOTES) . '</h1><p>' . $text . '</p>' . $extra . '</main></body></html>';
+}
+
 function deny_access(string $what): never
 {
     try { log_activity('warning', 'Access denied', $what); } catch (Throwable $e) { /* never block the response */ }
     http_response_code(403);
     header('Content-Type: text/html; charset=utf-8');
-    echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>No access</title>'
-        . '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0A1226;color:#EEF2FA;font:16px system-ui,sans-serif">'
-        . '<main style="max-width:28rem;padding:2rem"><h1 style="font-size:1.5rem;margin:0 0 .5rem">You do not have access to this page</h1>'
-        . '<p style="color:#A5B2CF;line-height:1.5">Your account is not allowed to open this. If you need it, ask an admin to grant the permission.</p>'
-        . '<p><a href="index.php" style="color:#C7F36B">Back to the dashboard</a></p></main></body></html>';
+    echo plain_page('No access', 'You do not have access to this page', 'Your account is not allowed to open this. If you need it, ask an admin to grant the permission.', '<p><a href="index.php">Back to the dashboard</a></p>');
     exit;
 }
 
@@ -308,10 +323,7 @@ function enforce_rate_limit(): void
             exit;
         }
         header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Too many requests</title>'
-            . '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0A1226;color:#EEF2FA;font:16px system-ui,sans-serif">'
-            . '<main style="max-width:28rem;padding:2rem"><h1 style="font-size:1.5rem;margin:0 0 .5rem">Slow down a moment</h1>'
-            . '<p style="color:#A5B2CF;line-height:1.5">There have been too many requests from your connection. Wait ' . $retry . ' seconds and try again.</p></main></body></html>';
+        echo plain_page('Too many requests', 'Slow down a moment', 'There have been too many requests from your connection. Wait ' . $retry . ' seconds and try again.');
         exit;
     }
 }

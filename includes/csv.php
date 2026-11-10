@@ -5,7 +5,7 @@ declare(strict_types=1);
 if (!function_exists('company_clean')) { require __DIR__ . '/companies.php'; }
 if (!function_exists('invoice_base_sql')) { require __DIR__ . '/invoices.php'; }
 
-const CSV_TYPES = ['users' => 'Users', 'companies' => 'Companies', 'invoices' => 'Invoices', 'tickets' => 'Tickets'];
+const CSV_TYPES = ['users' => 'Users', 'companies' => 'Companies', 'invoices' => 'Invoices', 'tickets' => 'Tickets', 'logs' => 'Activity log'];
 const CSV_IMPORT_TYPES = ['users' => 'Users', 'companies' => 'Companies'];
 const CSV_MAX_BYTES = 204800;   // 200 KB: Apache refuses whole requests over 256 KB (LimitRequestBody), so stay below that
 const CSV_MAX_ROWS = 1000;
@@ -36,6 +36,8 @@ function csv_export_def(string $type): ?array
             'SELECT t.number, t.customer, COALESCE(c.name, "") company, t.email, t.issue_date, t.due_date, t.subtotal_cents, t.vat_cents, t.total_cents, t.paid_cents, t.balance_cents, t.state FROM (' . invoice_base_sql() . ') t LEFT JOIN companies c ON c.id = t.company_id ORDER BY t.id'],
         'tickets' => [['reference', 'subject', 'company', 'contact', 'status', 'priority', 'assignee', 'created', 'updated'],
             'SELECT t.reference, t.subject, COALESCE(c.name, "") company, COALESCE(u.name, "") contact, t.status, t.priority, COALESCE(a.name, "") assignee, t.created_at, t.updated_at FROM tickets t LEFT JOIN companies c ON c.id = t.company_id LEFT JOIN users u ON u.id = t.user_id LEFT JOIN admins a ON a.id = t.assignee_id ORDER BY t.id'],
+        'logs' => [['time', 'level', 'actor', 'action', 'target', 'ip'],
+            'SELECT created_at, level, actor, action, target, ip FROM activity_logs ORDER BY id'],
         default => null,
     };
 }
