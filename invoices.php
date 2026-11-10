@@ -19,7 +19,7 @@ $per = 15;
 // Date range and search narrow the set; the state chips count inside that range.
 $where = [];
 $args = [];
-if ($q !== '') { $where[] = '(number LIKE ? OR customer LIKE ?)'; array_push($args, "%$q%", "%$q%"); }
+if ($q !== '') { $likeQ = '%' . addcslashes($q, '\\%_') . '%'; $where[] = '(number LIKE ? OR customer LIKE ?)'; array_push($args, $likeQ, $likeQ); }
 if ($from !== '') { $where[] = 'issue_date >= ?'; $args[] = $from; }
 if ($to !== '') { $where[] = 'issue_date <= ?'; $args[] = $to; }
 $wBase = $where ? 'WHERE ' . implode(' AND ', $where) : '';

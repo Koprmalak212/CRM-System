@@ -112,10 +112,10 @@ tailwind.config = {
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>Menu
       </button>
       <button id="menuBtn" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-white/10 lg:hidden" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><?= icon('menu', 'h-5 w-5') ?></button>
-      <form action="users.php" method="get" role="search" class="relative max-w-md flex-1">
-        <label for="gsearch" class="sr-only">Search users</label>
+      <form action="search.php" method="get" role="search" class="relative max-w-md flex-1">
+        <label for="gsearch" class="sr-only">Search everything</label>
         <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-soft"><?= icon('search', 'h-4 w-4') ?></span>
-        <input id="gsearch" name="q" type="search" placeholder="Search users by name or email" class="h-10 w-full rounded-xl border border-line bg-panel pl-10 pr-3 text-sm placeholder:text-soft/80 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+        <input id="gsearch" name="q" type="search" placeholder="Search users, companies, invoices, tickets" class="h-10 w-full rounded-xl border border-line bg-panel pl-10 pr-3 text-sm placeholder:text-soft/80 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
         <a id="teletolliePop" href="teletollie.php" hidden class="creator-pop absolute left-0 top-12 z-50 inline-flex items-center gap-2 rounded-xl bg-butter px-4 py-2.5 text-sm font-bold text-navy shadow-[0_14px_30px_-10px_rgba(0,0,0,.8)] hover:brightness-95">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           Slaat op in het woordenboek

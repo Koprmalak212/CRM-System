@@ -280,6 +280,7 @@ function enforce_rate_limit(): void
     $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
     $rules = [['all', 240, 60]];
     if ($isPost) { $rules[] = ['post', 40, 60]; }
+    if ($script === 'search.php') { $rules[] = ['search', 60, 60]; }   // the heaviest read page: several LIKE queries per request
     if ($script === 'report_download.php') { $rules[] = ['export', 15, 60]; }
     if ($script === 'login.php' && $isPost) { $rules[] = ['login', 20, 60]; }
 
