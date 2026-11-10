@@ -162,3 +162,20 @@ check(str_contains($html, 'id="demo-data"') && str_contains($html, 'system/demo_
 $r = http('GET', "$base/system/demo_data.php", ['jar' => $admin]);
 check($r['code'] === 302, 'system/demo_data.php still loads without errors (a GET goes back to the Overview)', (string) $r['code']);
 if ($flag50 === false) { $pdo->exec("DELETE FROM app_meta WHERE k = 'demo_loaded'"); } else { $pdo->prepare("UPDATE app_meta SET v = ? WHERE k = 'demo_loaded'")->execute([$flag50]); }
+
+section('51. Hardening: CI workflow and a portable pre-commit hook');
+$wf = (string) file_get_contents($root16 . '/.github/workflows/tests.yml');
+check($wf !== '' && str_contains($wf, 'name: tests') && str_contains($wf, 'pull_request') && str_contains($wf, 'branches: [main]'), 'a GitHub Actions workflow runs on pushes to main and on pull requests');
+check(str_contains($wf, 'php8.2') && str_contains($wf, 'php8.2-mysql') && str_contains($wf, 'openssl') && str_contains($wf, 'rewrite'), 'it installs PHP 8.2 with pdo_mysql, checks for openssl, and enables mod_rewrite');
+check(str_contains($wf, 'image: mariadb:') && str_contains($wf, 'MARIADB_ALLOW_EMPTY_ROOT_PASSWORD'), 'it starts a MariaDB service');
+check(str_contains($wf, 'bin/setup.php') && str_contains($wf, 'tests/run.php'), 'it runs bin/setup.php and then tests/run.php');
+check(str_contains($wf, '" 0 failed"') && str_contains($wf, 'exit 1'), 'it fails unless the output contains " 0 failed"');
+check(!preg_match('/^\t/m', $wf) && substr_count($wf, "\n") > 20, 'the workflow file is indented with spaces (YAML does not allow tabs)');
+$hook = (string) file_get_contents($root16 . '/.githooks/pre-commit');
+check(!str_contains($hook, 'xampp') && !str_contains($hook, 'C:/') && str_contains($hook, 'PHP_BIN') && str_contains($hook, 'tests/run.php') && str_contains($hook, ' 0 failed'), 'the pre-commit hook has no hard-coded XAMPP path: it uses php from the PATH or PHP_BIN, and still demands " 0 failed"');
+$p = proc_open(['sh', '-n', $root16 . '/.githooks/pre-commit'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp);
+$err = stream_get_contents($pp[2]); $rc = proc_close($p);
+check($rc === 0 || $rc === -1 && $err === '', 'the hook is valid shell (sh -n)', $err);
+$rd = (string) file_get_contents($root16 . '/README.md');
+check(!str_contains($rd, 'img.shields.io/badge/tests-') && str_contains($rd, 'actions/workflows/tests.yml'), 'README shows the workflow badge, not a typed-in test count');
+check(!preg_match('/\b1,126\b/', $rd), 'and no longer states a fixed number of checks');

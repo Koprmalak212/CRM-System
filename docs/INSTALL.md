@@ -105,7 +105,9 @@ C:\xampp\php\php.exe tests\run.php
 
 About 1,100 checks (one file per stage in `tests/parts/`): authentication, permissions, rate limiting, the SSRF guards, encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast, the phone layout, the calendar, and the folder structure (a crawler follows every link and form in the program). Results and fixes are also documented in Settings, Tests.
 
-Apache and MariaDB must be running; the run takes about two minutes. An optional pre-commit hook runs the suite before each commit: `git config core.hooksPath .githooks`.
+Apache and MariaDB must be running; the run takes about two minutes. An optional pre-commit hook runs the suite before each commit: `git config core.hooksPath .githooks` (it uses `php` from the PATH, or `PHP_BIN`).
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the suite on every push and pull request: PHP 8.2 with `pdo_mysql` and `openssl`, a MariaDB service, Apache with `mod_rewrite` (the suite checks the `.htaccess` rules), `php bin/setup.php --demo`, then `php tests/run.php`. The job fails unless the output contains ` 0 failed`.
 
 ## Putting it on a network
 
