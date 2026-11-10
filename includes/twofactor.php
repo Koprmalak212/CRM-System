@@ -162,12 +162,14 @@ function tfa_clear(PDO $pdo, string $username): void
 }
 
 /** Signs the person in: the same session set-up for the password step (no 2FA) and for the code step. */
-function login_complete(PDO $pdo, array $row): never
+function login_complete(PDO $pdo, array $row, string $to = 'index.php'): never
 {
     session_regenerate_id(true);
     unset($_SESSION['csrf'], $_SESSION['pending_2fa']);   // fresh token for the new session
     $_SESSION['admin'] = ['id' => (int) $row['id'], 'username' => $row['username'], 'email' => $row['email'], 'name' => $row['name'], 'must_change' => (bool) $row['must_change_password']];
     $_SESSION['started'] = $_SESSION['last_seen'] = time();
+    $ep = $pdo->prepare('SELECT session_epoch FROM admins WHERE id = ?'); $ep->execute([(int) $row['id']]);
+    $_SESSION['epoch'] = (int) $ep->fetchColumn();
     log_activity('info', 'Signed in', 'dashboard');
-    redirect($_SESSION['admin']['must_change'] ? 'change_password.php' : 'index.php');
+    redirect($_SESSION['admin']['must_change'] ? 'change_password.php' : $to);
 }

@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/mailer.php';
+
+const INVITE_VALID_DAYS = 3;
 const PERM_LABELS = ['none' => 'No access', 'view' => 'View only', 'manage' => 'Can manage'];
 
 function temp_password(): string
@@ -51,6 +54,44 @@ function tab_handle(PDO $pdo, array $admin): void
         return;
     }
 
+    if ($action === 'invite') {
+        $username = strtolower(trim((string) ($_POST['username'] ?? '')));
+        $name = trim((string) ($_POST['name'] ?? ''));
+        $email = trim((string) ($_POST['email'] ?? ''));
+        $role = ($_POST['role'] ?? 'user') === 'admin' ? 'admin' : 'user';
+        $perm = in_array($_POST['perm'] ?? '', ['none', 'view', 'manage'], true) ? $_POST['perm'] : 'none';
+        if ($role === 'admin') { $perm = 'manage'; }
+        $errors = [];
+        if (!preg_match('/^[a-z0-9._-]{3,30}$/', $username)) { $errors[] = 'The username needs 3 to 30 characters: letters, digits, dots, dashes or underscores.'; }
+        if ($name === '' || mb_strlen($name) > 80) { $errors[] = 'Enter the person\'s name (up to 80 characters).'; }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190) { $errors[] = 'Enter a valid email address.'; }
+        $base = mail_base_url($pdo);
+        if ($base === null) { $errors[] = 'Set the site address in Settings > Email first: the invitation contains a link to it.'; }
+        if (!$errors) {
+            $s = $pdo->prepare('SELECT COUNT(*) FROM admins WHERE username = ? OR email = ?');
+            $s->execute([$username, $email]);
+            if ((int) $s->fetchColumn() > 0) { $errors[] = 'That username or email address is already in use.'; }
+        }
+        if ($errors) { flash(implode(' ', $errors), 'bad'); return; }
+        $pdo->prepare('DELETE FROM invitations WHERE (email = ? OR username = ?) AND used_at IS NULL')->execute([$email, $username]);   // a new invitation replaces an open one
+        $token = bin2hex(random_bytes(32));
+        $pdo->prepare('INSERT INTO invitations (email, username, name, role, perm_integrations, token_hash, invited_by, expires_at, created_at) VALUES (?,?,?,?,?,?,?, NOW() + INTERVAL ' . INVITE_VALID_DAYS . ' DAY, NOW())')
+            ->execute([$email, $username, $name, $role, $perm, hash('sha256', $token), (string) $admin['username']]);
+        [$status, , $note] = mail_send($pdo, $email, 'You are invited to Telecomlijn Admin',
+            "Hello " . $name . ",\n\n" . ($admin['name'] ?? 'An admin') . " invited you to Telecomlijn Admin as " . $username . ". Open this link within " . INVITE_VALID_DAYS . " days to choose your password:\n\n"
+            . $base . '/invite.php?token=' . $token . "\n\nThe link works once. After that you can also add a second sign-in step (an authenticator app) under Settings > Account.\n", 'invite');
+        log_activity('warning', 'Invitation sent', $username . ' · ' . $role . ' · ' . $status);
+        flash($status === 'sent' ? 'Invitation sent to ' . $email . '.' : ($status === 'recorded' ? 'Invitation created for ' . $email . '. No mail server is set up, so copy the link from Settings > Email > Outbox.' : 'The invitation was created but the email failed: ' . $note . ' Open Settings > Email > Outbox to copy the link.'), $status === 'failed' ? 'bad' : 'ok');
+        return;
+    }
+
+    if ($action === 'revoke_invite') {
+        $pdo->prepare('DELETE FROM invitations WHERE id = ? AND used_at IS NULL')->execute([$id]);
+        log_activity('warning', 'Invitation withdrawn', '#' . $id);
+        flash('The invitation was withdrawn. Its link no longer works.');
+        return;
+    }
+
     $target = $load($pdo, $id);
     if (!$target) { flash('That account no longer exists.', 'bad'); return; }
     $isSelf = (int) $target['id'] === (int) $admin['id'];
@@ -92,7 +133,7 @@ function tab_handle(PDO $pdo, array $admin): void
     if ($action === 'reset_password') {
         if ($isSelf) { flash('Change your own password from the Account tab.', 'bad'); return; }
         $pw = temp_password();
-        $pdo->prepare('UPDATE admins SET password_hash = ?, must_change_password = 1 WHERE id = ?')->execute([hash_password($pw), $id]);
+        $pdo->prepare('UPDATE admins SET password_hash = ?, must_change_password = 1, session_epoch = session_epoch + 1 WHERE id = ?')->execute([hash_password($pw), $id]);
         $_SESSION['temp_pw'] = ['username' => $target['username'], 'password' => $pw, 'kind' => 'reset'];
         log_activity('warning', 'Password reset by admin', $target['username']);
         flash('A new temporary password was set for ' . $target['name'] . '. Copy it now: it will not be shown again.');
@@ -106,6 +147,7 @@ function tab_render(PDO $pdo, array $admin): void
     $small = 'h-9 rounded-lg border border-line bg-panel px-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $btn = 'pressable inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold hover:bg-white/5';
     $members = $pdo->query('SELECT * FROM admins ORDER BY role = \'admin\' DESC, name')->fetchAll();
+    $invites = $pdo->query('SELECT id, email, username, name, role, expires_at, created_at FROM invitations WHERE used_at IS NULL AND expires_at > NOW() ORDER BY id DESC')->fetchAll();
     $temp = $_SESSION['temp_pw'] ?? null;
     unset($_SESSION['temp_pw']);
     ?>
@@ -167,6 +209,29 @@ function tab_render(PDO $pdo, array $admin): void
     <p class="text-sm text-soft sm:col-span-2">A temporary password is generated and shown once. The person must replace it at first sign-in.</p>
     <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Create account</button></div>
   </form>
+</section>
+<section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.08s" aria-labelledby="inv-h">
+  <h2 id="inv-h" class="text-lg font-bold tracking-tight">Invite by email</h2>
+  <p class="mt-1 text-sm text-soft">The person gets a link, chooses their own password and can then turn on two-step sign-in. The link works once and expires after <?= INVITE_VALID_DAYS ?> days. No temporary password is involved.</p>
+  <form method="post" class="mt-4 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="invite">
+    <div><label for="i-name" class="text-sm font-semibold">Full name</label><input id="i-name" name="name" maxlength="80" required class="<?= $field ?> mt-1.5"></div>
+    <div><label for="i-user" class="text-sm font-semibold">Username</label><input id="i-user" name="username" maxlength="30" autocomplete="off" required class="<?= $field ?> mt-1.5 notranslate"></div>
+    <div><label for="i-email" class="text-sm font-semibold">Email</label><input id="i-email" name="email" type="email" maxlength="190" required class="<?= $field ?> mt-1.5"></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label for="i-role" class="text-sm font-semibold">Role</label><select id="i-role" name="role" class="<?= $field ?> mt-1.5"><option value="user">User</option><option value="admin">Admin</option></select></div>
+      <div><label for="i-perm" class="text-sm font-semibold">Integrations</label><select id="i-perm" name="perm" class="<?= $field ?> mt-1.5"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div>
+    </div>
+    <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Send the invitation</button></div>
+  </form>
+  <?php if ($invites): ?>
+    <h3 class="mt-6 text-sm font-bold">Waiting to be accepted</h3>
+    <ul class="mt-2 divide-y divide-line text-sm">
+      <?php foreach ($invites as $iv): ?>
+        <li class="flex flex-wrap items-center justify-between gap-3 py-2.5"><span class="min-w-0"><span class="font-semibold"><?= e($iv['name']) ?></span> <span class="text-soft notranslate"><?= e($iv['email']) ?> · <?= e($iv['username']) ?> · <?= $iv['role'] === 'admin' ? 'admin' : 'user' ?> · expires <?= e(date('j M, H:i', strtotime($iv['expires_at']))) ?></span></span>
+          <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="revoke_invite"><input type="hidden" name="id" value="<?= (int) $iv['id'] ?>"><button class="<?= $btn ?> hover:bg-[#FFD3CC] hover:text-[#7E160A]">Withdraw</button></form></li>
+      <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
 </section>
 <?php
 }

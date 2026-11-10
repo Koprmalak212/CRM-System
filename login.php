@@ -13,6 +13,7 @@ const LOGIN_MAX_PER_IP = 15;      // failures from one IP across any usernames
 const DUMMY_HASH = '$argon2id$v=19$m=65536,t=4,p=1$WjRTTktmdmxua2Jic1gxZQ$2Y/LbzlvVhqHaFctMmqLPXh1xrfIdUYfKACfWc7VIRs';   // equalises timing for unknown users
 
 $error = '';
+$notice = !empty($_GET['reset']) ? 'Your password was changed. Sign in with the new password.' : '';
 if (!empty($_GET['locked'])) { $error = 'Too many failed attempts. Wait ' . LOGIN_WINDOW_MINUTES . ' minutes and try again.'; }
 if (!empty($_SESSION['expired'])) {
     $error = 'You were signed out because the session was idle too long. Sign in again to continue.';
@@ -119,6 +120,9 @@ tailwind.config = { theme: { extend: {
       <h2 class="text-3xl font-bold tracking-tight">Sign in</h2>
       <p class="mt-2 text-[15px] text-soft">Use your admin account to continue.</p>
 
+      <?php if ($notice !== ''): ?>
+        <p role="status" class="mt-6 rounded-xl bg-lime px-4 py-3 text-sm font-semibold text-navy"><?= e($notice) ?></p>
+      <?php endif; ?>
       <?php if ($error): ?>
         <p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p>
       <?php endif; ?>
@@ -132,6 +136,8 @@ tailwind.config = { theme: { extend: {
              class="mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[15px] focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
 
       <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy shadow-[0_6px_18px_-8px_rgba(199,243,107,.6)] transition hover:brightness-95 active:translate-y-px">Sign in</button>
+
+      <p class="mt-4 text-center text-sm"><a href="forgot.php" class="font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Forgot password?</a></p>
 
       <?php if ($showDemo): ?>
       <p class="mt-6 rounded-xl bg-butter px-4 py-3 text-sm text-navy">Demo account: <strong class="font-semibold">admin</strong> / <strong class="font-semibold">admin</strong>.</p>

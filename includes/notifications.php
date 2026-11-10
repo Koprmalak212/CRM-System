@@ -65,6 +65,8 @@ function notifications_refresh(PDO $pdo, bool $force = false): int
         $new += notify_add($pdo, 'ticket_urgent', 'ticket-urgent:' . $r['id'], 'Urgent ticket ' . $r['reference'], $r['subject'], 'ticket.php?id=' . $r['id'], (bool) $r['is_demo']) ? 1 : 0;
     }
     $pdo->exec('DELETE FROM notifications WHERE created_at < NOW() - INTERVAL ' . NOTIFY_KEEP_DAYS . ' DAY');
+    require_once __DIR__ . '/mailer.php';
+    try { mail_notifications_digest($pdo); mail_purge($pdo); } catch (Throwable $e) { error_log('Notification email failed: ' . $e->getMessage()); }   // email trouble must never break a page
     return $new;
 }
 

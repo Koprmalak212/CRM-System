@@ -94,7 +94,7 @@ function badge(string $status): string
         'failed' => ['bad', 'Failed'], 'suspended' => ['bad', 'Suspended'], 'error' => ['bad', 'Error'],
         'up' => ['ok', 'Up'], 'slow' => ['warn', 'Slow'], 'down' => ['bad', 'Down'], 'unknown' => ['info', 'Not checked yet'], 'admin' => ['ok', 'Admin'], 'user' => ['info', 'User'],
         'paid' => ['ok', 'Paid'], 'overdue' => ['bad', 'Overdue'], 'due' => ['wait', 'Due soon'], 'open' => ['info', 'Open'],
-        'in_progress' => ['wait', 'In progress'], 'waiting' => ['wait', 'Waiting'], 'resolved' => ['ok', 'Resolved'], 'closed' => ['info', 'Closed'], 'low' => ['info', 'Low'], 'normal' => ['info', 'Normal'], 'high' => ['warn', 'High'], 'urgent' => ['bad', 'Urgent'],
+        'sent' => ['ok', 'Sent'], 'recorded' => ['wait', 'Recorded'], 'in_progress' => ['wait', 'In progress'], 'waiting' => ['wait', 'Waiting'], 'resolved' => ['ok', 'Resolved'], 'closed' => ['info', 'Closed'], 'low' => ['info', 'Low'], 'normal' => ['info', 'Normal'], 'high' => ['warn', 'High'], 'urgent' => ['bad', 'Urgent'],
         'critical' => ['bad', 'Critical'], 'flagged' => ['bad', 'Flagged'], 'outage' => ['bad', 'Outage'],
     ];
     [$tone, $label] = $map[$status] ?? ['info', ucfirst($status)];

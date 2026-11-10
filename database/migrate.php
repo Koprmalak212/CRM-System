@@ -66,4 +66,10 @@ if (!col_exists($pdo, 'admins', 'totp_enabled')) {
     say('admins.totp_* added');
 }
 
+// ---- Stage 8: session epoch on admins
+if (!col_exists($pdo, 'admins', 'session_epoch')) {
+    $pdo->exec('ALTER TABLE admins ADD COLUMN session_epoch INT UNSIGNED NOT NULL DEFAULT 0');
+    say('admins.session_epoch added');
+}
+
 echo "Database is up to date.\n";

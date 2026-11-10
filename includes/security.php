@@ -185,9 +185,11 @@ function require_login(): array
     }
     // Role and permissions are read fresh on every request, so an admin's change takes effect immediately
     // and a disabled account is signed out at once.
-    $s = db()->prepare('SELECT id, username, email, name, role, perm_integrations, is_active, must_change_password, avatar FROM admins WHERE id = ?');
+    $s = db()->prepare('SELECT id, username, email, name, role, perm_integrations, is_active, must_change_password, avatar, session_epoch FROM admins WHERE id = ?');
     $s->execute([$_SESSION['admin']['id'] ?? 0]);
     $row = $s->fetch();
+    // A password reset raises the person's session epoch: every session that started before it ends here.
+    if ($row && (int) $row['is_active'] && (int) ($_SESSION['epoch'] ?? 0) !== (int) $row['session_epoch']) { $row = false; }
     if (!$row || !(int) $row['is_active']) {
         $_SESSION = ['expired' => true];
         session_regenerate_id(true);
@@ -280,6 +282,8 @@ function enforce_rate_limit(): void
     $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
     $rules = [['all', 240, 60]];
     if ($isPost) { $rules[] = ['post', 40, 60]; }
+    if ($script === 'forgot.php' && $isPost) { $rules[] = ['reset', 5, 60]; }
+    if (in_array($script, ['reset.php', 'invite.php'], true) && $isPost) { $rules[] = ['token', 10, 60]; }
     if ($script === 'search.php') { $rules[] = ['search', 60, 60]; }   // the heaviest read page: several LIKE queries per request
     if (in_array($script, ['report_download.php', 'export.php'], true)) { $rules[] = ['export', 15, 60]; }   // downloads of personal data share one small budget
     if ($script === 'import.php' && $isPost) { $rules[] = ['import', 10, 60]; }

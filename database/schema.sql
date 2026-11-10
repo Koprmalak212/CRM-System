@@ -351,3 +351,61 @@ CREATE TABLE IF NOT EXISTS admin_recovery_codes (
   KEY idx_rc_admin (admin_id, code_hash),
   CONSTRAINT fk_rc_admin FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Stage 8: email, password reset and invitations.
+-- Settings > Email: one row (id = 1). The SMTP password is stored encrypted. Left blank until someone enters it.
+CREATE TABLE IF NOT EXISTS mail_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  host VARCHAR(190) NOT NULL DEFAULT '',
+  port SMALLINT UNSIGNED NOT NULL DEFAULT 587,
+  encryption ENUM('none','starttls','ssl') NOT NULL DEFAULT 'starttls',
+  username VARCHAR(190) NOT NULL DEFAULT '',
+  password_enc TEXT NULL,
+  from_email VARCHAR(190) NOT NULL DEFAULT '',
+  from_name VARCHAR(80) NOT NULL DEFAULT 'Telecomlijn Admin',
+  base_url VARCHAR(190) NOT NULL DEFAULT '',
+  updated_at DATETIME NULL
+) ENGINE=InnoDB;
+-- Every message the system sends or tries to send. On a computer without a mail server this is where it can be read.
+CREATE TABLE IF NOT EXISTS mail_outbox (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  kind VARCHAR(20) NOT NULL DEFAULT 'other',
+  to_email VARCHAR(190) NOT NULL,
+  subject VARCHAR(190) NOT NULL,
+  body MEDIUMTEXT NOT NULL,
+  status ENUM('recorded','sent','failed') NOT NULL DEFAULT 'recorded',
+  error VARCHAR(200) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sent_at DATETIME NULL,
+  KEY idx_mail_created (created_at)
+) ENGINE=InnoDB;
+-- Password-reset links: only the hash of the random token is stored, valid for one hour, usable once.
+CREATE TABLE IF NOT EXISTS password_resets (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT UNSIGNED NOT NULL,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  ip VARCHAR(45) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_reset_admin (admin_id, created_at),
+  CONSTRAINT fk_reset_admin FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+-- Invitations to join the team: the person opens the link, picks a password and an account is created with the role and permission set here.
+CREATE TABLE IF NOT EXISTS invitations (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(190) NOT NULL,
+  username VARCHAR(30) NOT NULL,
+  name VARCHAR(80) NOT NULL,
+  role ENUM('admin','user') NOT NULL DEFAULT 'user',
+  perm_integrations ENUM('none','view','manage') NOT NULL DEFAULT 'none',
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  invited_by VARCHAR(60) NOT NULL DEFAULT '',
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_inv_email (email)
+) ENGINE=InnoDB;
+-- Raised when a password is reset, so every other signed-in session of that person ends.
+ALTER TABLE admins ADD COLUMN session_epoch INT UNSIGNED NOT NULL DEFAULT 0;
