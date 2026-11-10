@@ -17,8 +17,8 @@ Everything needed to run, update and test the system. For what the system does, 
    C:\xampp\php\php.exe bin\setup.php
    ```
 
-   Add `--demo` to also load fake demo data. If the database already exists the script refuses to run; `--reset` rebuilds it (your Kuma connection, API keys and endpoints are kept) and `--reset --wipe-all` removes those too.
-3. Open <http://localhost/Websites/test/> and sign in with `admin` / `admin`. **Change this password before using the system for anything real.**
+   The script prints a **random first password for the `admin` account, once**. Write it down: it is stored only as a hash, and you must choose a new password at the first sign-in. Add `--demo` for a trial install with fake demo data; that install keeps the well-known demo account `admin` / `admin` (the sign-in page shows a hint while it is unchanged), so never use `--demo` for real data. If the database already exists the script refuses to run; `--reset` rebuilds it (your Kuma connection, API keys and endpoints are kept) and `--reset --wipe-all` removes those too.
+3. Open <http://localhost/Websites/test/>, sign in as `admin` with the password the script printed, and choose your own password when asked. (A demo install: `admin` / `admin`, for trying only.)
 
 An existing database is brought up to date, keeping its data, with `C:\xampp\php\php.exe database\migrate.php`. It runs as root, can be repeated safely, and also migrates the old `users.company` text into companies.
 
