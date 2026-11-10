@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/invoices.php';
+require __DIR__ . '/includes/trends.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -205,6 +206,8 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
     </ul>
   </section>
 </div>
+
+<?= trends_section($pdo) ?>
 
 <?php if (is_admin()):
   $dc = demo_counts($pdo, 1);

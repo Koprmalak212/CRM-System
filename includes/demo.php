@@ -138,7 +138,7 @@ function demo_seed(PDO $pdo): array
             $uid = !empty($uByCo[$co]) && mt_rand(0, 100) < 80 ? demo_pick($uByCo[$co]) : null;
             $st = demo_weighted(['open' => 22, 'in_progress' => 22, 'waiting' => 14, 'resolved' => 24, 'closed' => 18]);
             $pr = demo_weighted(['low' => 18, 'normal' => 50, 'high' => 22, 'urgent' => 10]);
-            $age = mt_rand(2 * 3600, 90 * 86400);
+            $age = mt_rand(2 * 3600, 83 * 86400);   // inside the 12 weeks the ticket charts show
             $upd = mt_rand(0, max(0, $age - 600));
             $done = in_array($st, ['resolved', 'closed'], true) ? demo_ts($upd) : null;
             $tIns->execute(['TMP-D' . $i, $co, $uid, demo_pick($subjects), demo_pick($descs), $st, $pr, $adminIds && mt_rand(0, 100) < 75 ? demo_pick($adminIds) : null, 'admin', demo_ts($age), demo_ts($upd), $done]);
@@ -265,6 +265,26 @@ function demo_seed(PDO $pdo): array
             } elseif ($paid === 'partial') {
                 $payIns->execute([$iid, (int) (round($total * 0.5 / 100) * 100), $method, $day(-max(0, $issueAgo - 4)), 'PAY-' . mt_rand(100000, 999999), $day(-max(0, $issueAgo - 4)) . ' 14:00:00']);
             }
+        }
+
+        // ----- A year of history for the trend charts: older invoices, all paid, spread over the last 12 months
+        for ($i = 0; $i < 70; $i++) {
+            $co = demo_pick($customers);
+            $issueAgo = mt_rand(125, 360);
+            $lines = [];
+            foreach ((array) array_rand($catalog, mt_rand(1, 3)) as $k) {
+                $qty = str_contains($catalog[$k][0], 'per user') ? mt_rand(3, 24) : (str_contains($catalog[$k][0], 'phone') ? mt_rand(2, 10) : 1);
+                $lines[] = [$catalog[$k][0], $qty, $catalog[$k][1]];
+            }
+            $sub = 0;
+            foreach ($lines as $l) { $sub += (int) round($l[1] * $l[2]); }
+            $vat = (int) round($sub * 0.21);
+            $issue = $day(-$issueAgo);
+            $invIns->execute(['DEMO-' . date('Y', strtotime($issue)) . '-H' . str_pad((string) ($i + 1), 4, '0', STR_PAD_LEFT), $co['id'], $co['name'], $co['email'], $co['address'], $issue, $issue, date('Y-m-d', strtotime($issue . ' +14 days')), 21, $sub, $vat, $sub + $vat, '', $issue . ' 09:00:00']);
+            $iid = (int) $pdo->lastInsertId();
+            foreach ($lines as $l) { $itemIns->execute([$iid, $l[0], $l[1], $l[2]]); }
+            $paidAgo = max(0, $issueAgo - mt_rand(3, 25));
+            $payIns->execute([$iid, $sub + $vat, demo_pick(['iDEAL', 'Bank transfer', 'Bank transfer', 'Direct debit', 'Credit card']), $day(-$paidAgo), 'PAY-' . mt_rand(100000, 999999), $day(-$paidAgo) . ' 14:00:00']);
         }
 
         // ----- Example endpoints (real checks, but tagged so they can be removed with the rest)

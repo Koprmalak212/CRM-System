@@ -66,6 +66,10 @@ tailwind.config = {
   /* Layout safety nets: grid children may shrink below their content, and scroll boxes contain their own hidden labels */
   main .grid > * { min-width: 0; }
   .overflow-x-auto { position: relative; }
+  /* Hovering a chart bar uses the cursor-following tooltip from motion.js (it reads data-tip); a keyboard user gets the same text on focus */
+  .vbar { position: relative; }
+  .vbar:focus-visible { z-index: 5; outline-offset: 0; }
+  .vbar:focus-visible::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #EEF2FA; color: #111D36; padding: 3px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; }
   .bell-btn::-webkit-details-marker { display: none; }
   .bell-ic { transform-origin: 50% 0; }
   @keyframes bell-ring { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 30% { transform: rotate(-12deg); } 45% { transform: rotate(8deg); } 60% { transform: rotate(-5deg); } 75% { transform: rotate(2deg); } }
