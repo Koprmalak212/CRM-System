@@ -10,10 +10,12 @@ if (PHP_SAPI !== 'cli') {
     exit('Run this from the command line: php bin/setup.php');
 }
 
-const DB_HOST = '127.0.0.1';
+// The database administrator used once, to create the database and the limited app account. XAMPP's default (root, no password) is used
+// unless you set SETUP_DB_USER and SETUP_DB_PASS (and SETUP_DB_HOST). The database must run on this machine: the app account is created for 127.0.0.1 and localhost.
+define('DB_HOST', getenv('SETUP_DB_HOST') ?: '127.0.0.1');
 const DB_NAME = 'ops_console';
-const DB_USER = 'root';
-const DB_PASS = '';
+define('DB_USER', getenv('SETUP_DB_USER') ?: 'root');
+define('DB_PASS', getenv('SETUP_DB_PASS') !== false ? (string) getenv('SETUP_DB_PASS') : '');
 const ADMIN_USERNAME = 'admin';
 const ADMIN_EMAIL = 'admin@telecomlijn.test';
 require __DIR__ . '/../includes/modules/passwords.php';

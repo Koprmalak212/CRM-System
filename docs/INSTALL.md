@@ -122,6 +122,84 @@ Apache and MariaDB must be running; the run takes about two minutes. An optional
 
 GitHub Actions (`.github/workflows/tests.yml`) runs the suite on every push and pull request: PHP 8.2 with `pdo_mysql` and `openssl`, a MariaDB service, Apache with `mod_rewrite` (the suite checks the `.htaccess` rules), `php bin/setup.php --demo`, then `php tests/run.php`. The job fails unless the output contains ` 0 failed`.
 
+## Linux, Apache and MariaDB (production)
+
+The examples are for Debian or Ubuntu with the project in `/var/www/crm`; any other path works, because every link is relative to the folder the project is served from.
+
+**1. Packages**
+
+```
+sudo apt install apache2 libapache2-mod-php8.2 php8.2-cli php8.2-mysql php8.2-curl php8.2-mbstring mariadb-server
+sudo a2enmod rewrite headers
+```
+
+PHP needs `pdo_mysql`, `openssl`, `curl` and `mbstring` (`openssl`, `ctype` and `filter` are part of the standard Debian PHP package). `php -m` lists what is loaded. Argon2id password hashing is used when PHP has it (the default build does) and bcrypt otherwise.
+
+**2. Apache.** `.htaccess` is part of the security (closed folders, the HTTP to HTTPS redirect, the old-address redirects), so the site folder must allow overrides. A virtual host:
+
+```
+<VirtualHost *:80>
+    ServerName crm.example.com
+    DocumentRoot /var/www/crm
+    <Directory /var/www/crm>
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+```
+
+Check it with `curl -I http://crm.example.com/includes/core/bootstrap.php`: it must answer 403.
+
+**3. Database and first install.** On Debian the MariaDB `root` user signs in through the socket and has no password for TCP, which is what XAMPP's defaults assume. Create an administrator for the install, run setup with it, and drop it afterwards:
+
+```
+sudo mariadb -e "CREATE USER 'installer'@'127.0.0.1' IDENTIFIED BY 'a-long-temporary-password'; GRANT ALL ON *.* TO 'installer'@'127.0.0.1' WITH GRANT OPTION;"
+sudo -u www-data SETUP_DB_USER=installer SETUP_DB_PASS='a-long-temporary-password' php bin/setup.php
+sudo mariadb -e "DROP USER 'installer'@'127.0.0.1';"
+```
+
+`bin/setup.php` prints the first admin password once. It also creates the limited `ops_console_app` account (select, insert, update and delete only) and writes its password to `includes/config.local.php`. Later schema updates run `database/migrate.php` the same way, with `MIGRATE_DB_USER` and `MIGRATE_DB_PASS`. The database must run on the same machine as the web server.
+
+**4. Permissions.** The web server's user (`www-data`) must be able to write the runtime folder and read the config, and nobody else should:
+
+```
+sudo chown -R www-data:www-data /var/www/crm/storage
+sudo chmod 750 /var/www/crm/storage
+sudo chown www-data:www-data /var/www/crm/includes/config.local.php
+sudo chmod 640 /var/www/crm/includes/config.local.php
+```
+
+**5. Scheduled jobs.** Add the cron lines from "Scheduled jobs" above to the crontab of `www-data` (`sudo crontab -u www-data -e`): the retention purge is the only thing that deletes expired data.
+
+**6. HTTPS.** Get a certificate, for example with Let's Encrypt:
+
+```
+sudo apt install certbot python3-certbot-apache
+sudo certbot --apache -d crm.example.com
+```
+
+Once the site is served over HTTPS the program does the rest by itself: `.htaccess` sends plain HTTP to HTTPS (only `localhost` and private network addresses such as 10.x and 192.168.x stay on HTTP), the session cookie becomes `Secure` with the `__Host-` prefix, and `Strict-Transport-Security` is sent. Open the firewall for 80 and 443 only (`sudo ufw allow 'Apache Full'`), never for 3306.
+
+### Behind a reverse proxy or load balancer
+
+The program deliberately reads the visitor's address from `REMOTE_ADDR` only and ignores the `X-Forwarded-For` header, because that header is typed by the client unless a proxy you control sets it. Behind a proxy `REMOTE_ADDR` is the proxy's address, so **every user would share one rate-limit bucket (240 requests a minute) and one sign-in lockout counter**. Fix it with `mod_remoteip`, naming only the proxies you control:
+
+```
+sudo a2enmod remoteip
+# /etc/apache2/conf-available/remoteip.conf  (then: sudo a2enconf remoteip && sudo systemctl reload apache2)
+RemoteIPHeader X-Forwarded-For
+RemoteIPInternalProxy 10.0.0.5
+# a whole network: RemoteIPInternalProxy 10.0.0.0/24
+```
+
+Never trust a wide range such as `0.0.0.0/0`: anyone could then pick the address the limiter sees. If the proxy ends HTTPS and talks plain HTTP to Apache, also tell PHP that the visitor used HTTPS (this is what turns on the secure cookie and the HSTS header), again only for requests that come from the proxy:
+
+```
+SetEnvIf X-Forwarded-Proto "https" HTTPS=on
+```
+
+After this, `curl -I https://crm.example.com/auth/login.php` should show a `Set-Cookie: __Host-ops_console` with `Secure`, and the activity log should show the visitors' own addresses.
+
 ## Putting it on a network
 
 See `docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt`, section 9, for the go-live checklist. For a private network: give the PC a fixed address, allow ports 80 and 443 only from the local subnet in Windows Firewall, keep MariaDB bound to `127.0.0.1`, and never forward a port on the router.

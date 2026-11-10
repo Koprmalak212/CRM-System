@@ -13,7 +13,8 @@ declare(strict_types=1);
  */
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 
-$pdo = new PDO('mysql:host=127.0.0.1;dbname=' . (getenv('MIGRATE_DB') ?: 'ops_console') . ';charset=utf8mb4', 'root', '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+// Administrator account: XAMPP's root without a password, or MIGRATE_DB_USER / MIGRATE_DB_PASS / MIGRATE_DB_HOST (the same names as in docs/INSTALL.md)
+$pdo = new PDO('mysql:host=' . (getenv('MIGRATE_DB_HOST') ?: '127.0.0.1') . ';dbname=' . (getenv('MIGRATE_DB') ?: 'ops_console') . ';charset=utf8mb4', getenv('MIGRATE_DB_USER') ?: 'root', getenv('MIGRATE_DB_PASS') !== false ? (string) getenv('MIGRATE_DB_PASS') : '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $pdo->exec("SET time_zone = '" . date('P') . "'");
 
 function col_exists(PDO $p, string $t, string $c): bool

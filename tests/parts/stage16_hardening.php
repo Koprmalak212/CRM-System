@@ -221,3 +221,33 @@ if (is_file($bin52)) {
     check(true, 'Node tooling is not installed here: the app.css freshness check is skipped (CI builds it)');
 }
 check(str_contains((string) file_get_contents($root16 . '/includes/core/security.php'), "style-src 'self' 'unsafe-inline'") && str_contains((string) file_get_contents($root16 . '/includes/core/security.php'), 'script-src \'self\' \'nonce-'), 'the policy is documented as it is: scripts need the nonce, style-src keeps unsafe-inline because style attributes remain');
+
+section('53. Hardening: production documentation and the decisions behind it');
+$inst53 = (string) file_get_contents($root16 . '/docs/INSTALL.md');
+foreach (['Linux, Apache and MariaDB (production)', 'sudo a2enmod rewrite headers', 'php8.2-mysql', 'AllowOverride All', 'chown -R www-data:www-data /var/www/crm/storage', 'chmod 640', 'certbot --apache',
+          'Behind a reverse proxy', 'mod_remoteip', 'RemoteIPHeader X-Forwarded-For', 'RemoteIPInternalProxy', 'share one rate-limit bucket', 'SetEnvIf X-Forwarded-Proto', 'crontab -u www-data'] as $needle) {
+    check(str_contains($inst53, $needle), "docs/INSTALL.md covers: $needle");
+}
+$kuma53 = (string) file_get_contents($root16 . '/includes/modules/kuma.php');
+check(str_contains($kuma53, 'DECISION, on purpose') && str_contains($kuma53, 'private') && str_contains($kuma53, 'loopback') && str_contains($kuma53, 'admin-only') && str_contains($kuma53, '169.254.169.254'), 'kuma_ip_blocked() carries a comment: private and loopback are allowed on purpose, the feature is admin-only, link-local stays blocked');
+// the claim made in the proxy note: the program ignores X-Forwarded-For
+$pdo->exec("DELETE FROM login_attempts WHERE username = 'zz.xff53'"); $pdo->exec('DELETE FROM rate_limits');
+$jar53 = tempnam(sys_get_temp_dir(), 'x5');
+$pg = http('GET', "$base/auth/login.php", ['jar' => $jar53]);
+http('POST', "$base/auth/login.php", ['jar' => $jar53, 'headers' => ['X-Forwarded-For: 203.0.113.99'], 'body' => http_build_query(['csrf' => csrf_from($pg['body']), 'username' => 'zz.xff53', 'password' => 'not-the-password-1'])]);
+$ip53 = $pdo->query("SELECT ip FROM login_attempts WHERE username = 'zz.xff53' ORDER BY id DESC LIMIT 1")->fetchColumn();
+check($ip53 !== false && $ip53 !== '203.0.113.99', 'the program ignores a client-supplied X-Forwarded-For (the recorded address is ' . var_export($ip53, true) . ')');
+$pdo->exec("DELETE FROM login_attempts WHERE username = 'zz.xff53'"); @unlink($jar53);
+// database administrator from the environment: the override is really used
+$envRun = function (array $extra) use ($root16) {
+    $p = proc_open([PHP_BINARY, $root16 . '/database/migrate.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp, $root16, array_merge(getenv(), $extra));
+    $o = stream_get_contents($pp[1]) . stream_get_contents($pp[2]);
+    return [proc_close($p), $o];
+};
+[$rc, $o] = $envRun([]);
+check($rc === 0 && str_contains($o, 'up to date'), 'database/migrate.php runs with the XAMPP defaults (root, no password)', trim(substr($o, -150)));
+[$rc, $o] = $envRun(['MIGRATE_DB_USER' => 'no_such_admin_53', 'MIGRATE_DB_PASS' => 'x']);
+check($rc !== 0, 'and uses MIGRATE_DB_USER / MIGRATE_DB_PASS when they are set (a wrong account is refused)', (string) $rc);
+$su53 = (string) file_get_contents($root16 . '/bin/setup.php');
+check(str_contains($su53, "getenv('SETUP_DB_USER')") && str_contains($su53, "getenv('SETUP_DB_PASS')") && str_contains($su53, "getenv('SETUP_DB_HOST')"), 'bin/setup.php reads SETUP_DB_USER, SETUP_DB_PASS and SETUP_DB_HOST');
+check(str_contains($inst53, 'SETUP_DB_USER=installer') && str_contains($inst53, 'MIGRATE_DB_USER'), 'and the install guide shows how to use them');
