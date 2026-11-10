@@ -22,31 +22,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $q = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
 $role = in_array($_GET['role'] ?? '', ['admin', 'editor', 'support', 'viewer'], true) ? $_GET['role'] : '';
 $status = in_array($_GET['status'] ?? '', ['active', 'pending', 'suspended'], true) ? $_GET['status'] : '';
-$company = mb_substr(trim((string) ($_GET['company'] ?? '')), 0, 120);
-$sorts = ['name' => 'name', 'company' => 'company', 'role' => 'role', 'status' => 'status', 'last_seen' => 'last_seen', 'logins' => 'logins'];
-$sort = $sorts[$_GET['sort'] ?? ''] ?? 'last_seen';
+$company = max(0, (int) ($_GET['company'] ?? 0));
+$companyQs = $company > 0 ? $company : '';
+$sorts = ['name' => 'u.name', 'company' => 'c.name', 'role' => 'u.role', 'status' => 'u.status', 'last_seen' => 'u.last_seen', 'logins' => 'u.logins'];
+$sortKey = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'last_seen';
+$sort = $sortKey;
 $dir = ($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
 $per = 15;
 
 $where = [];
 $args = [];
-if ($q !== '') { $where[] = '(name LIKE ? OR email LIKE ? OR company LIKE ?)'; $args[] = "%$q%"; $args[] = "%$q%"; $args[] = "%$q%"; }
-if ($company !== '') { $where[] = 'company = ?'; $args[] = $company; }
-if ($role !== '') { $where[] = 'role = ?'; $args[] = $role; }
-if ($status !== '') { $where[] = 'status = ?'; $args[] = $status; }
+if ($q !== '') { $like = '%' . addcslashes($q, '\%_') . '%'; $where[] = '(u.name LIKE ? OR u.email LIKE ? OR c.name LIKE ?)'; $args[] = $like; $args[] = $like; $args[] = $like; }
+if ($company > 0) { $where[] = 'u.company_id = ?'; $args[] = $company; }
+if ($role !== '') { $where[] = 'u.role = ?'; $args[] = $role; }
+if ($status !== '') { $where[] = 'u.status = ?'; $args[] = $status; }
 $w = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
-$cnt = $pdo->prepare("SELECT COUNT(*) FROM users $w");
+$cnt = $pdo->prepare("SELECT COUNT(*) FROM users u LEFT JOIN companies c ON c.id = u.company_id $w");
 $cnt->execute($args);
 $total = (int) $cnt->fetchColumn();
 $page = min($page, max(1, (int) ceil($total / $per)));
-$rows = $pdo->prepare("SELECT * FROM users $w ORDER BY $sort $dir, id DESC LIMIT $per OFFSET " . (($page - 1) * $per));
+$rows = $pdo->prepare("SELECT u.*, c.name AS company_name FROM users u LEFT JOIN companies c ON c.id = u.company_id $w ORDER BY {$sorts[$sortKey]} $dir, u.id DESC LIMIT $per OFFSET " . (($page - 1) * $per));
 $rows->execute($args);
 $rows = $rows->fetchAll();
 
-$companyList = $pdo->query("SELECT DISTINCT company FROM users WHERE company <> '' ORDER BY company")->fetchAll(PDO::FETCH_COLUMN);
-$base = ['q' => $q, 'role' => $role, 'status' => $status, 'company' => $company, 'sort' => $sort, 'dir' => $dir];
+$companyList = $pdo->query('SELECT id, name FROM companies ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR);
+$base = ['q' => $q, 'role' => $role, 'status' => $status, 'company' => $companyQs, 'sort' => $sort, 'dir' => $dir];
 $counts = $pdo->query('SELECT status, COUNT(*) n FROM users GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
 
 page_start('Users', 'users', 'Every account on the platform. Search, filter and suspend from here.');
@@ -54,7 +56,7 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
 ?>
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Status filter">
   <?php foreach (['' => 'All', 'active' => 'Active', 'pending' => 'Pending', 'suspended' => 'Suspended'] as $k => $label): $on = $status === $k; ?>
-    <a href="<?= e(qs(['q' => $q, 'role' => $role, 'company' => $company], ['status' => $k])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
+    <a href="<?= e(qs(['q' => $q, 'role' => $role, 'company' => $companyQs], ['status' => $k])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
        class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>">
       <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
     </a>
@@ -74,10 +76,10 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     <label class="sr-only" for="company">Company</label>
     <select id="company" name="company" class="<?= $field ?> max-w-[16rem]">
       <option value="">All companies</option>
-      <?php foreach ($companyList as $c): ?><option value="<?= e($c) ?>" <?= $company === $c ? 'selected' : '' ?>><?= e($c) ?></option><?php endforeach; ?>
+      <?php foreach ($companyList as $cid => $cname): ?><option value="<?= (int) $cid ?>" <?= $company === (int) $cid ? 'selected' : '' ?>><?= e($cname) ?></option><?php endforeach; ?>
     </select>
     <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
-    <?php if ($q !== '' || $role !== '' || $status !== '' || $company !== ''): ?><a href="users.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
+    <?php if ($q !== '' || $role !== '' || $status !== '' || $company > 0): ?><a href="users.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </form>
 
   <div class="overflow-x-auto">
@@ -102,7 +104,7 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
                 <div class="min-w-0"><a href="user.php?id=<?= (int) $u['id'] ?>" class="block truncate font-semibold underline-offset-4 hover:text-lime hover:underline focus-visible:underline"><?= e($u['name']) ?></a><p class="truncate text-soft"><?= e($u['email']) ?></p></div>
               </div>
             </td>
-            <td class="px-4 py-3"><?php if ($u['company'] !== ''): ?><a href="<?= e(qs([], ['company' => $u['company']])) ?>" class="underline-offset-4 hover:underline"><?= e($u['company']) ?></a><?php else: ?><span class="text-soft">Not set</span><?php endif; ?></td>
+            <td class="px-4 py-3"><?php if ($u['company_id'] !== null): ?><a href="company.php?id=<?= (int) $u['company_id'] ?>" class="underline-offset-4 hover:underline"><?= e($u['company_name']) ?></a><?php else: ?><span class="text-soft">Not set</span><?php endif; ?></td>
             <td class="px-4 py-3 capitalize"><?= e($u['role']) ?></td>
             <td class="px-4 py-3"><?= badge($u['status']) ?></td>
             <td class="px-4 py-3 text-soft"><?= e(ago($u['last_seen'])) ?></td>

@@ -98,7 +98,7 @@ page_start($inv['number'], 'invoices', $inv['customer']);
       <div>
         <h2 id="doc-h" class="sr-only">Invoice <?= e($inv['number']) ?></h2>
         <p class="text-sm text-soft">Billed to</p>
-        <p class="text-lg font-bold"><?= e($inv['customer']) ?></p>
+        <p class="text-lg font-bold"><?php if ($inv['company_id'] !== null): ?><a href="company.php?id=<?= (int) $inv['company_id'] ?>" class="underline decoration-lime decoration-2 underline-offset-4"><?= e($inv['customer']) ?></a><?php else: ?><?= e($inv['customer']) ?><?php endif; ?></p>
         <p class="text-sm text-soft"><?= e($inv['email']) ?></p>
         <?php if ($inv['customer_address'] !== ''): ?><p class="text-sm text-soft"><?= e($inv['customer_address']) ?></p><?php else: ?><p class="text-sm font-semibold text-[#FF9C8C]">Customer address missing. Dutch invoices must show it.</p><?php endif; ?>
       </div>

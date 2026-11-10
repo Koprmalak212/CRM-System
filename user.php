@@ -1,13 +1,14 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+require __DIR__ . '/includes/companies.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
 $id = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
 
 $load = function () use ($pdo, $id): ?array {
-    $s = $pdo->prepare('SELECT * FROM users WHERE id = ?');
+    $s = $pdo->prepare('SELECT u.*, c.name AS company FROM users u LEFT JOIN companies c ON c.id = u.company_id WHERE u.id = ?');
     $s->execute([$id]);
     return $s->fetch() ?: null;
 };
@@ -22,6 +23,15 @@ if (!$u) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    if (($_POST['action'] ?? '') === 'company') {
+        $cid = (int) ($_POST['company_id'] ?? 0);
+        $target = $cid > 0 ? company_find($pdo, $cid) : null;
+        if ($cid > 0 && !$target) { flash('That company does not exist.', 'error'); redirect('user.php?id=' . $id); }
+        $pdo->prepare('UPDATE users SET company_id = ? WHERE id = ?')->execute([$target ? $cid : null, $id]);
+        log_activity('info', $target ? 'User moved to company' : 'User removed from company', $u['name'] . ($target ? ' · ' . $target['name'] : ''));
+        flash($target ? $u['name'] . ' now belongs to ' . $target['name'] . '.' : $u['name'] . ' no longer has a company.');
+        redirect('user.php?id=' . $id);
+    }
     $to = ($_POST['to'] ?? '') === 'suspended' ? 'suspended' : 'active';
     $pdo->prepare('UPDATE users SET status = ? WHERE id = ?')->execute([$to, $id]);
     log_activity($to === 'suspended' ? 'warning' : 'info', $to === 'suspended' ? 'Suspended account' : 'Reactivated account', $u['name']);
@@ -41,9 +51,9 @@ $logs->execute([$u['email'], $u['name'], $u['name']]);
 $logs = $logs->fetchAll();
 
 $mates = [];
-if ($u['company'] !== '') {
-    $m = $pdo->prepare('SELECT id, name, role, status FROM users WHERE company = ? AND id <> ? ORDER BY name LIMIT 12');
-    $m->execute([$u['company'], $id]);
+if ($u['company_id'] !== null) {
+    $m = $pdo->prepare('SELECT id, name, role, status FROM users WHERE company_id = ? AND id <> ? ORDER BY name LIMIT 12');
+    $m->execute([$u['company_id'], $id]);
     $mates = $m->fetchAll();
 }
 
@@ -52,7 +62,7 @@ $fields = [
     'Full name' => e($u['name']),
     'Email' => '<a class="underline decoration-lime decoration-2 underline-offset-4 break-all" href="mailto:' . e($u['email']) . '">' . e($u['email']) . '</a>',
     'Phone' => $u['phone'] !== '' ? '<span class="notranslate">' . e($u['phone']) . '</span>' : $none,
-    'Company' => $u['company'] !== '' ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="users.php?company=' . urlencode($u['company']) . '">' . e($u['company']) . '</a>' : $none,
+    'Company' => $u['company_id'] !== null ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="company.php?id=' . (int) $u['company_id'] . '">' . e($u['company']) . '</a>' : $none,
     'Job title' => $u['job_title'] !== '' ? e($u['job_title']) : $none,
     'Country' => e($u['country']),
     'Role' => '<span class="capitalize">' . e($u['role']) . '</span>',
@@ -64,7 +74,7 @@ $fields = [
     'User ID' => '#' . (int) $u['id'],
 ];
 
-page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' · ' : '') . ($u['company'] !== '' ? $u['company'] : 'No company set'));
+page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' · ' : '') . ($u['company_id'] !== null ? $u['company'] : 'No company set'));
 ?>
 <nav class="rise mb-4 text-sm" aria-label="Breadcrumb"><a href="users.php" class="inline-flex items-center gap-1 font-semibold underline decoration-lime decoration-2 underline-offset-4">&larr; All users</a></nav>
 
@@ -73,7 +83,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
   <div class="min-w-0 flex-1">
     <p class="text-xl font-bold"><?= e($u['name']) ?></p>
     <p class="mt-1 text-soft break-all"><?= e($u['email']) ?></p>
-    <div class="mt-3 flex flex-wrap items-center gap-2"><?= badge($u['status']) ?><span class="rounded-full border border-line px-3 py-1 text-xs font-semibold capitalize"><?= e($u['role']) ?></span><?php if ($u['company'] !== ''): ?><span class="rounded-full border border-line px-3 py-1 text-xs font-semibold"><?= e($u['company']) ?></span><?php endif; ?></div>
+    <div class="mt-3 flex flex-wrap items-center gap-2"><?= badge($u['status']) ?><span class="rounded-full border border-line px-3 py-1 text-xs font-semibold capitalize"><?= e($u['role']) ?></span><?php if ($u['company_id'] !== null): ?><a href="company.php?id=<?= (int) $u['company_id'] ?>" class="rounded-full border border-line px-3 py-1 text-xs font-semibold hover:bg-butter-50"><?= e($u['company']) ?></a><?php endif; ?></div>
   </div>
   <form method="post"><?= csrf_field() ?>
     <input type="hidden" name="id" value="<?= $id ?>">
@@ -98,7 +108,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
   </section>
 
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="co">
-    <h2 id="co" class="text-base font-bold">Colleagues at <?= $u['company'] !== '' ? e($u['company']) : 'their company' ?></h2>
+    <h2 id="co" class="text-base font-bold">Colleagues at <?= $u['company_id'] !== null ? e($u['company']) : 'their company' ?></h2>
     <?php if ($mates): ?>
       <ul class="mt-4 divide-y divide-line">
         <?php foreach ($mates as $m): ?>
@@ -106,8 +116,12 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
         <?php endforeach; ?>
       </ul>
     <?php else: ?>
-      <p class="mt-3 text-sm text-soft"><?= $u['company'] !== '' ? 'No other users from this company yet.' : 'No company is set for this user.' ?></p>
+      <p class="mt-3 text-sm text-soft"><?= $u['company_id'] !== null ? 'No other users from this company yet.' : 'No company is set for this user.' ?></p>
     <?php endif; ?>
+    <form method="post" class="mt-5 border-t border-line pt-4"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="company">
+      <label for="company_id" class="text-sm font-semibold">Company</label>
+      <div class="mt-1.5 flex gap-2"><select id="company_id" name="company_id" class="h-10 min-w-0 flex-1 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"><option value="0">No company</option><?php foreach ($pdo->query('SELECT id, name FROM companies ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR) as $cid => $cname): ?><option value="<?= (int) $cid ?>" <?= (int) $u['company_id'] === (int) $cid ? 'selected' : '' ?>><?= e($cname) ?></option><?php endforeach; ?></select>
+        <button class="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Save</button></div></form>
   </section>
 
   <section class="rise rounded-2xl border border-line bg-panel shadow-panel lg:col-span-2" aria-labelledby="cn">

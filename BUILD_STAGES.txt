@@ -92,8 +92,9 @@ Needs
              is down (Uptime Kuma / endpoint checks), urgent ticket opened.
   Pages      a bell with an unread count in the top bar and a small dropdown, plus
              notifications.php (all, mark read, mark all read).
-  Email      optional: if an address is set in Settings, the same events are also sent by
-             email through the mailer built in Stage 8 (so this part is finished there).
+  Email      the notification address in Settings is pre-filled with denis@telecomlijn.nl
+             (can be changed there). The same events are also sent by email to it through
+             the mailer built in Stage 8 (so this part is finished there).
   Tests      each event type, no duplicates, mark as read, reduced-motion safe bell.
 
 STAGE 7  Two-factor sign-in for staff accounts                                 (suggestion 7)
@@ -118,7 +119,9 @@ STAGE 8  Email, password reset and invitations                                 (
 -----------------------------------------------------------------------------------------------
 Needs
   Mailer     includes/mailer.php: sends with PHP mail() (or SMTP settings if you enter them)
-             and records every message in a mail outbox table. XAMPP has no mail server by
+             and records every message in a mail outbox table. Settings gets an "Email /
+             SMTP" section (host, port, user, password, from address), left blank for now;
+             you fill it in yourself later. The password is stored encrypted. XAMPP has no mail server by
              default, so on localhost the outbox page (admins only) is where you read the
              message and copy the link. Real delivery needs an SMTP account from you.
   Reset      "Forgot password?" on the login page, forgot.php, reset.php. Tokens are random,
@@ -144,8 +147,10 @@ STAGE 10  Recurring invoices and PDF invoices                                (su
 -----------------------------------------------------------------------------------------------
 Needs
   PDF        invoice_pdf.php?id=: a PDF made by our own small PDF writer (no library),
-             Telecomlijn details, company, line items, BTW, IBAN placeholder, "Download PDF"
-             button on every invoice.
+             Telecomlijn details, company, line items, BTW, "Download PDF" button on every
+             invoice. Settings gets "Company details" fields for IBAN and BTW number, left
+             blank for now; you fill them in yourself later. While blank, the PDF leaves
+             those lines out instead of showing fake numbers.
   Recurring  recurring_invoices (company, description, amount, BTW, every month / quarter /
              year, next date, active). recurring.php to add, pause and delete. Due ones are
              created automatically when the site is opened (at most once per run per
@@ -188,7 +193,11 @@ SUGGESTED ORDER (follows the dependencies above)
   -> 11 Light mode -> 12 Phone tables
   Stages 7 and 8 can swap places; 11 and 12 should stay last.
 
-THINGS I NEED FROM YOU LATER (not blocking)
-  - Stage 8: an SMTP account (host, port, user, password) if you want real emails sent.
-  - Stage 10: your real IBAN and BTW number to replace the placeholders on invoices.
-  - Stage 6: the email address that should receive notifications.
+SETTINGS YOU FILL IN YOURSELF LATER (not blocking, left blank on purpose)
+  - Stage 8: SMTP account (host, port, user, password) under Settings > Email, for real
+    emails. Until then messages are only recorded in the outbox.
+  - Stage 10: IBAN and BTW number under Settings > Company details. Until then they are
+    left off the PDF invoices.
+
+ALREADY DECIDED
+  - Stage 6: notification email address is denis@telecomlijn.nl (pre-filled in Settings).

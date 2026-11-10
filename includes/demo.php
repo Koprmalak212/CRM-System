@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 /** Tables that carry the is_demo tag, in the order they are shown to the admin. */
 const DEMO_TABLES = [
-    'users' => 'Users', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
+    'companies' => 'Companies', 'users' => 'Users', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
     'payments' => 'Payments', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
@@ -58,12 +58,37 @@ function demo_seed(PDO $pdo): array
     mt_srand(2026);
     $pdo->beginTransaction();
     try {
+        // ----- Companies (fake details; the KvK and VAT numbers are made up)
+        $companyData = [
+            ['Nova Accountants', 'Coolsingel 40', '3011 AD', 'Rotterdam', '71230411', 'novaaccountants'],
+            ['Lijnbaan Logistics', 'Lijnbaan 25', '3012 EP', 'Rotterdam', '71230422', 'lijnbaanlogistics'],
+            ['Brouwer & Zonen', 'Westblaak 12', '3012 KC', 'Rotterdam', '71230433', 'brouwerzonen'],
+            ['Rhine Valley Software', 'Kruiskade 31', '3012 EH', 'Rotterdam', '71230444', 'rhinevalley'],
+            ['Atlas Verzekeringen', 'Hofplein 20', '3032 AC', 'Rotterdam', '71230455', 'atlasverzekeringen'],
+            ['Polder Energie', 'Maasboulevard 8', '3063 NS', 'Rotterdam', '71230466', 'polderenergie'],
+            ['Zuiderzee Foods', 'Delftsestraat 15', '3013 AE', 'Rotterdam', '71230477', 'zuiderzeefoods'],
+            ['Delta Medical Group', 'Mathenesserlaan 90', '3023 GN', 'Rotterdam', '71230488', 'deltamedical'],
+            ['Tulp Design Studio', 'Oudedijk 114', '3061 AG', 'Rotterdam', '71230499', 'tulpdesign'],
+            ['Kade Bouw BV', 'Westzeedijk 345', '3015 AA', 'Rotterdam', '71230510', 'kadebouw'],
+            ['Meridian Telecom Partners', 'Blaak 34', '3011 TA', 'Rotterdam', '71230521', 'meridiantelecom'],
+            ['Eurobridge Trading', 'Wilhelminakade 91', '3072 AP', 'Rotterdam', '71230532', 'eurobridge'],
+            ['Vonk Installatietechniek', 'Schiedamseweg 60', '3025 AE', 'Rotterdam', '71230543', 'vonkinstallatie'],
+            ['Noordlicht Media', 'Noordplein 3', '3034 KC', 'Rotterdam', '71230554', 'noordlichtmedia'],
+        ];
+        $coIns = $pdo->prepare("INSERT INTO companies (name, address, postcode, city, country, kvk, vat_number, email, phone, website, notes, is_demo) VALUES (?,?,?,?,'Netherlands',?,?,?,?,?,?,1)");
+        $companies = [];   // name => company row
+        foreach ($companyData as $n => [$cname, $street, $pc, $city, $kvk, $slug]) {
+            $mail = 'info@' . $slug . '.test';
+            $coIns->execute([$cname, $street, $pc, $city, $kvk, 'NL' . substr($kvk, 0, 8) . '1B01', $mail, '010 ' . mt_rand(200, 499) . ' ' . mt_rand(1000, 9999), 'https://www.' . $slug . '.test', $n % 4 === 0 ? 'Prefers invoices by email. Contact the office manager for changes.' : '']);
+            $companies[$cname] = ['id' => (int) $pdo->lastInsertId(), 'name' => $cname, 'email' => $mail, 'address' => $street . ', ' . $pc . ' ' . $city];
+        }
+
         // ----- Users
         $first = ['Amara','Liam','Noor','Mateo','Priya','Jonas','Ines','Kofi','Elena','Tariq','Sofia','Hugo','Mei','Dario','Lena','Omar','Zoe','Felix','Aisha','Ravi','Clara','Nico','Yara','Ethan','Maja','Idris','Freya','Luca','Hana','Theo'];
         $last = ['Okafor','Visser','Haddad','Alvarez','Nair','Berg','Costa','Mensah','Petrov','Rahman','Rossi','Martin','Chen','Ferri','Weber','Khalil','Brooks','Hartman','Siddiqui','Patel','Dubois','Janssen','Farouk','Novak','Larsen','Bakker','Moreau','Silva','Sato','Dijkstra'];
         $countries = ['Netherlands','Germany','Belgium','France','Spain','Italy','Poland','Sweden','Portugal','Ireland'];
-        $ins = $pdo->prepare('INSERT IGNORE INTO users (name, email, role, status, country, logins, last_seen, created_at, company, job_title, phone, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)');
-        $companies = ['Nova Accountants','Lijnbaan Logistics','Brouwer & Zonen','Rhine Valley Software','Atlas Verzekeringen','Polder Energie','Zuiderzee Foods','Delta Medical Group','Tulp Design Studio','Kade Bouw BV','Meridian Telecom Partners','Eurobridge Trading','Vonk Installatietechniek','Noordlicht Media'];
+        $ins = $pdo->prepare('INSERT IGNORE INTO users (name, email, role, status, country, logins, last_seen, created_at, company_id, job_title, phone, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)');
+        $companyIds = array_column($companies, 'id');
         $titles = ['Office manager','IT manager','Finance lead','Operations director','Account manager','Network engineer','Customer success','Owner','Project coordinator','System administrator'];
         $used = [];
         for ($i = 0; $i < 72; $i++) {
@@ -76,7 +101,7 @@ function demo_seed(PDO $pdo): array
             $seen = $status === 'pending' ? $created : mt_rand(30, 20 * 86400);
             if ($status === 'active' && mt_rand(0, 100) < 55) { $seen = mt_rand(20, 6 * 3600); }
             $seen = min($seen, $created);
-            $ins->execute([$f . ' ' . $l, $email, demo_weighted(['viewer' => 40, 'editor' => 28, 'support' => 20, 'admin' => 12]), $status, demo_pick($countries), $status === 'pending' ? 0 : mt_rand(3, 900), demo_ts($seen), demo_ts($created), demo_pick($companies), demo_pick($titles), '+31 6 ' . mt_rand(1000, 9999) . ' ' . mt_rand(1000, 9999)]);
+            $ins->execute([$f . ' ' . $l, $email, demo_weighted(['viewer' => 40, 'editor' => 28, 'support' => 20, 'admin' => 12]), $status, demo_pick($countries), $status === 'pending' ? 0 : mt_rand(3, 900), demo_ts($seen), demo_ts($created), demo_pick($companyIds), demo_pick($titles), '+31 6 ' . mt_rand(1000, 9999) . ' ' . mt_rand(1000, 9999)]);
         }
         $userIds = $pdo->query('SELECT id FROM users WHERE is_demo = 1')->fetchAll(PDO::FETCH_COLUMN);
 
@@ -152,21 +177,13 @@ function demo_seed(PDO $pdo): array
         }
 
         // ----- Invoices and payments (numbers use their own DEMO- prefix so they can never collide with real ones)
-        $customers = [
-            ['Bakkerij De Gouden Korst B.V.', 'finance@goudenkorst.test'], ['Studio Noord Architecten', 'admin@studionoord.test'],
-            ['Van der Meer Advocaten', 'office@vandermeer-advocaten.test'], ['Havenlogistiek Rotterdam B.V.', 'boekhouding@havenlogistiek.test'],
-            ['Tandartspraktijk Smile', 'info@tandartssmile.test'], ['Kuiper & Zonen Installatie', 'facturen@kuiperzonen.test'],
-            ['Fysio Centrum West', 'balie@fysiowest.test'], ['Delta Webshop B.V.', 'ap@deltawebshop.test'],
-            ['Maasstad Makelaars', 'administratie@maasstadmakelaars.test'], ['Groenhart Tuinontwerp', 'hallo@groenhart.test'],
-            ['Zuidplein Fietsen', 'kantoor@zuidpleinfietsen.test'], ['Nova Accountants', 'finance@novaaccountants.test'],
-        ];
-        $addresses = ['Coolsingel 40, 3011 AD Rotterdam', 'Westblaak 12, 3012 KC Rotterdam', 'Lijnbaan 25, 3012 EP Rotterdam', 'Maasboulevard 8, 3063 NS Rotterdam', 'Kruiskade 31, 3012 EH Rotterdam', 'Hofplein 20, 3032 AC Rotterdam', 'Delftsestraat 15, 3013 AE Rotterdam', 'Mathenesserlaan 90, 3023 GN Rotterdam'];
+        $customers = array_values($companies);   // every demo invoice is billed to one of the demo companies
         $catalog = [
             ['Business fiber 1 Gbps (monthly)', 14900], ['Business fiber 10 Gbps (monthly)', 59900], ['VoIP seat, 3CX (per user per month)', 950],
             ['085 business number (monthly)', 500], ['Managed firewall (monthly)', 8900], ['DDoS protection (monthly)', 3900],
             ['WhatsApp Business integration (monthly)', 2500], ['Installation and configuration', 24500], ['Yealink desk phone', 7900],
         ];
-        $invIns = $pdo->prepare('INSERT INTO invoices (number, customer, email, customer_address, supply_date, issue_date, due_date, vat_rate, subtotal_cents, vat_cents, total_cents, notes, created_at, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)');
+        $invIns = $pdo->prepare('INSERT INTO invoices (number, company_id, customer, email, customer_address, supply_date, issue_date, due_date, vat_rate, subtotal_cents, vat_cents, total_cents, notes, created_at, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)');
         $itemIns = $pdo->prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES (?,?,?,?)');
         $payIns = $pdo->prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, reference, created_at, is_demo) VALUES (?,?,?,?,?,?,1)');
         $day = static fn(int $n): string => date('Y-m-d', strtotime(($n >= 0 ? '+' : '') . $n . ' days'));
@@ -182,7 +199,7 @@ function demo_seed(PDO $pdo): array
         }
         usort($plan, fn($a, $b) => $b[0] <=> $a[0]);
         foreach ($plan as $n => [$issueAgo, $terms, $paid]) {
-            [$cust, $mail] = demo_pick($customers);
+            $co = demo_pick($customers);
             $lines = [];
             foreach ((array) array_rand($catalog, mt_rand(1, 3)) as $k) {
                 $qty = str_contains($catalog[$k][0], 'per user') ? mt_rand(3, 24) : (str_contains($catalog[$k][0], 'phone') ? mt_rand(2, 10) : 1);
@@ -194,7 +211,7 @@ function demo_seed(PDO $pdo): array
             $total = $sub + $vat;
             $issue = $day(-$issueAgo);
             $due = date('Y-m-d', strtotime($issue . ' +' . $terms . ' days'));
-            $invIns->execute(['DEMO-' . date('Y') . '-' . str_pad((string) ($n + 1), 4, '0', STR_PAD_LEFT), $cust, $mail, demo_pick($addresses), $issue, $issue, $due, 21, $sub, $vat, $total, '', $issue . ' 09:00:00']);
+            $invIns->execute(['DEMO-' . date('Y') . '-' . str_pad((string) ($n + 1), 4, '0', STR_PAD_LEFT), $co['id'], $co['name'], $co['email'], $co['address'], $issue, $issue, $due, 21, $sub, $vat, $total, '', $issue . ' 09:00:00']);
             $iid = (int) $pdo->lastInsertId();
             foreach ($lines as $l) { $itemIns->execute([$iid, $l[0], $l[1], $l[2]]); }
             $method = demo_pick(['iDEAL', 'Bank transfer', 'Bank transfer', 'Direct debit', 'Credit card']);
@@ -230,13 +247,16 @@ function demo_remove(PDO $pdo): array
         $pdo->exec('DELETE FROM connections WHERE is_demo = 1');
         $pdo->exec('DELETE FROM users WHERE is_demo = 1');
         $pdo->exec('DELETE FROM invoices WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = invoices.id AND p.is_demo = 0)');
+        // a demo company stays while a real user or a kept invoice still points at it
+        $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id)');
         $pdo->exec('DELETE FROM monitored_endpoints WHERE is_demo = 1');
         $pdo->exec('DELETE FROM services WHERE is_demo = 1');
         $pdo->exec('DELETE FROM reports WHERE is_demo = 1');
         $pdo->exec('DELETE FROM backups WHERE is_demo = 1');
         $pdo->exec('DELETE FROM activity_logs WHERE is_demo = 1');
         $keptInvoices = (int) $pdo->query('SELECT COUNT(*) FROM invoices WHERE is_demo = 1')->fetchColumn();
-        demo_set_flag($pdo, $keptInvoices > 0);
+        $keptCompanies = (int) $pdo->query('SELECT COUNT(*) FROM companies WHERE is_demo = 1')->fetchColumn();
+        demo_set_flag($pdo, $keptInvoices > 0 || $keptCompanies > 0);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) { $pdo->rollBack(); }
@@ -245,5 +265,5 @@ function demo_remove(PDO $pdo): array
     $after = demo_counts($pdo, 1);
     $deleted = [];
     foreach ($before as $t => $n) { $deleted[$t] = $n - $after[$t]; }
-    return ['deleted' => $deleted, 'kept_invoices' => $keptInvoices];
+    return ['deleted' => $deleted, 'kept_invoices' => $keptInvoices, 'kept_companies' => $keptCompanies];
 }

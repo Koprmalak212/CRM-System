@@ -248,5 +248,28 @@ CREATE TABLE kuma_heartbeats (
   KEY idx_important (important, at)
 ) ENGINE=InnoDB;
 
--- Company details for each user (shown in the Users list and on the user's own page).
-ALTER TABLE users ADD COLUMN company VARCHAR(120) NOT NULL DEFAULT '', ADD COLUMN job_title VARCHAR(80) NOT NULL DEFAULT '', ADD COLUMN phone VARCHAR(40) NOT NULL DEFAULT '', ADD KEY idx_company (company);
+-- Job title and phone for each user (shown on the user's own page).
+ALTER TABLE users ADD COLUMN job_title VARCHAR(80) NOT NULL DEFAULT '', ADD COLUMN phone VARCHAR(40) NOT NULL DEFAULT '';
+
+-- Stage 1: companies as their own section. Users and invoices point at a company.
+-- (Everything below uses IF NOT EXISTS so database/migrate.php can apply it to a live database; see that file for the ALTERs.)
+CREATE TABLE IF NOT EXISTS companies (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  address VARCHAR(160) NOT NULL DEFAULT '',
+  postcode VARCHAR(12) NOT NULL DEFAULT '',
+  city VARCHAR(80) NOT NULL DEFAULT '',
+  country VARCHAR(60) NOT NULL DEFAULT 'Netherlands',
+  kvk VARCHAR(12) NOT NULL DEFAULT '',
+  vat_number VARCHAR(20) NOT NULL DEFAULT '',
+  email VARCHAR(190) NOT NULL DEFAULT '',
+  phone VARCHAR(40) NOT NULL DEFAULT '',
+  website VARCHAR(190) NOT NULL DEFAULT '',
+  notes VARCHAR(1000) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_company_name (name),
+  KEY idx_company_kvk (kvk)
+) ENGINE=InnoDB;
+ALTER TABLE users ADD COLUMN company_id INT UNSIGNED NULL, ADD KEY idx_user_company (company_id), ADD CONSTRAINT fk_user_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT;
+ALTER TABLE invoices ADD COLUMN company_id INT UNSIGNED NULL, ADD KEY idx_inv_company (company_id), ADD CONSTRAINT fk_inv_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL;

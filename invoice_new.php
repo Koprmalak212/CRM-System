@@ -2,18 +2,29 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/invoices.php';
+require __DIR__ . '/includes/companies.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
 
 $errors = [];
 $old = [
-    'customer' => '', 'email' => '', 'address' => '', 'supply_date' => '', 'issue_date' => date('Y-m-d'), 'terms' => '14', 'vat' => '21', 'notes' => '',
+    'company_id' => 0, 'customer' => '', 'email' => '', 'address' => '', 'supply_date' => '', 'issue_date' => date('Y-m-d'), 'terms' => '14', 'vat' => '21', 'notes' => '',
     'items' => [['description' => '', 'qty' => '1', 'price' => '']],
 ];
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($pre = company_find($pdo, (int) ($_GET['company'] ?? 0)))) {
+    // opened from a company page: fill in the customer fields from the company
+    $old['company_id'] = (int) $pre['id'];
+    $old['customer'] = $pre['name'];
+    $old['email'] = $pre['email'];
+    $old['address'] = company_address_line($pre);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    $old['company_id'] = (int) ($_POST['company_id'] ?? 0);
+    if ($old['company_id'] > 0 && !company_find($pdo, $old['company_id'])) { $errors[] = 'That company does not exist.'; $old['company_id'] = 0; }
     $old['customer'] = trim((string) ($_POST['customer'] ?? ''));
     $old['email'] = trim((string) ($_POST['email'] ?? ''));
     $old['address'] = trim((string) ($_POST['address'] ?? ''));
@@ -63,8 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $number = next_invoice_number($pdo);
         $pdo->beginTransaction();
         try {
-            $pdo->prepare('INSERT INTO invoices (number, customer, email, customer_address, supply_date, issue_date, due_date, vat_rate, subtotal_cents, vat_cents, total_cents, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW())')
-                ->execute([$number, $old['customer'], $old['email'], $old['address'], $old['supply_date'] !== '' ? $old['supply_date'] : $old['issue_date'], $old['issue_date'], $due, (int) $old['vat'], $sub, $vatC, $sub + $vatC, mb_substr($old['notes'], 0, 255)]);
+            $pdo->prepare('INSERT INTO invoices (number, company_id, customer, email, customer_address, supply_date, issue_date, due_date, vat_rate, subtotal_cents, vat_cents, total_cents, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())')
+                ->execute([$number, $old['company_id'] > 0 ? $old['company_id'] : null, $old['customer'], $old['email'], $old['address'], $old['supply_date'] !== '' ? $old['supply_date'] : $old['issue_date'], $old['issue_date'], $due, (int) $old['vat'], $sub, $vatC, $sub + $vatC, mb_substr($old['notes'], 0, 255)]);
             $id = (int) $pdo->lastInsertId();
             $ins = $pdo->prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES (?,?,?,?)');
             foreach ($items as $it) { $ins->execute([$id, $it[0], $it[1], $it[2]]); }
@@ -80,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $known = $pdo->query('SELECT customer, email FROM invoices GROUP BY customer, email ORDER BY customer')->fetchAll();
+$companies = $pdo->query('SELECT * FROM companies ORDER BY name')->fetchAll();
 page_start('New invoice', 'invoices', 'Add the customer and the lines to bill. The due date follows from the payment terms.');
 $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
@@ -96,7 +108,10 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
   <div class="space-y-6">
     <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="cust-h">
       <h2 id="cust-h" class="text-lg font-bold tracking-tight">Customer</h2>
-      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+ <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div class="sm:col-span-2"><label for="company_id" class="text-sm font-semibold">Company <span class="font-normal text-soft">(optional: fills in the fields below)</span></label>
+          <select id="company_id" name="company_id" class="<?= $field ?> mt-1.5"><option value="0">Not linked to a company</option>
+            <?php foreach ($companies as $co): ?><option value="<?= (int) $co['id'] ?>" data-name="<?= e($co['name']) ?>" data-email="<?= e($co['email']) ?>" data-address="<?= e(company_address_line($co)) ?>" <?= $old['company_id'] === (int) $co['id'] ? 'selected' : '' ?>><?= e($co['name']) ?></option><?php endforeach; ?></select></div>
         <div><label for="customer" class="text-sm font-semibold">Customer name</label>
           <input id="customer" name="customer" list="customers" value="<?= e($old['customer']) ?>" autocomplete="off" required class="<?= $field ?> mt-1.5">
           <datalist id="customers"><?php foreach ($known as $k): ?><option value="<?= e($k['customer']) ?>" data-email="<?= e($k['email']) ?>"></option><?php endforeach; ?></datalist></div>
@@ -204,6 +219,10 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
   document.getElementById('customer').addEventListener('change', function (e) {
     var o = document.querySelector('#customers option[value="' + CSS.escape(e.target.value) + '"]'), em = document.getElementById('email');
     if (o && !em.value) em.value = o.dataset.email;
+  });
+  document.getElementById('company_id').addEventListener('change', function (e) {
+    var o = e.target.selectedOptions[0]; if (!o || !o.dataset.name) return;
+    document.getElementById('customer').value = o.dataset.name; document.getElementById('email').value = o.dataset.email; document.getElementById('address').value = o.dataset.address;
   });
   recalc(); due();
 })();
