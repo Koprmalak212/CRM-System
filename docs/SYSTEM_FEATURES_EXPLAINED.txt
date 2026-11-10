@@ -1,0 +1,696 @@
+===============================================================================
+ TELECOMLIJN CRM-SYSTEM
+ DETAILED FEATURE EXPLANATION
+===============================================================================
+
+Version of this document: 10 November 2026
+
+This document explains, page by page, what every part of the system does,
+how to use it and how the parts connect. It is written for the people who use
+and manage the system. Security and legal matters are in the separate
+document SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt.
+
+Contents
+   1. Basic ideas (who is who, how the pages fit together)
+   2. Signing in, signing out, first steps
+   3. The layout (sidebar, top bar, bell, themes, language)
+   4. Overview (dashboard)
+   5. Users (customer people)
+   6. Companies
+   7. Notes and the activity timeline
+   8. Tickets
+   9. Calendar and appointments
+  10. Invoices, payments, PDF and recurring invoices
+  11. Global search
+  12. CSV export and import
+  13. Notifications and email
+  14. Connections
+  15. Uptime and endpoint checks
+  16. Reports
+  17. Backups
+  18. Activity logs
+  19. Settings (all tabs)
+  20. Team management
+  21. Privacy pages
+  22. Demo data
+  23. Daily and background jobs
+  24. Worked examples (typical days)
+  25. Words used in the system
+  26. Things the system does not do
+
+
+===============================================================================
+1. BASIC IDEAS
+===============================================================================
+
+Two kinds of people exist in the system. Keep them apart:
+
+  STAFF (also called "team members" or "admins")
+    The people who sign in and work in the system. Each has an account with a
+    password, a role (admin or user) and an integrations permission.
+
+  USERS (customer users)
+    The people who work at your customer companies. They are records in the
+    database: a name, an email address, a role (admin, editor, support or
+    viewer, which describes their role at the customer), a country, a status
+    and a company. They do NOT sign in and cannot see the system.
+
+How the data connects:
+
+  Company --< Users                 a company has many people
+  Company --< Invoices              invoices belong to a company (and name a
+                                    customer contact)
+  Company --< Appointments          the calendar items
+  Company or User --< Notes         notes can be about either
+  Company or User --< Tickets       a ticket is about a person and/or a company
+  Ticket --< Comments               the discussion on one ticket
+  Invoice --< Lines and Payments
+
+Everything that is created, changed or deleted is also written to the
+activity log, and shown in the timeline of the person or company it concerns.
+
+
+===============================================================================
+2. SIGNING IN, SIGNING OUT, FIRST STEPS
+===============================================================================
+
+Sign in (login.php)
+  Enter username (or email) and password. After 5 wrong tries for one name,
+  or 15 from one address, sign-in is paused for 15 minutes.
+  If you have two-step sign-in switched on you then enter a 6-digit code from
+  your authenticator app, or one of your recovery codes.
+  You are signed out automatically after 30 minutes of inactivity, or after
+  8 hours in total. A message tells you why.
+
+Forgot your password (forgot.php)
+  Enter your email address. If an account exists you receive a link that works
+  for one hour and one time. The page gives the same answer whether or not the
+  address exists. Choosing a new password signs you out everywhere else.
+  Until an email server is set up (Settings > Email), the message is not
+  delivered but stored in the outbox on that tab, where an admin can open it.
+
+First sign-in with a temporary password
+  When an admin creates your account with a temporary password you must choose
+  your own password straight away (change_password.php).
+
+Invitation (invite.php)
+  An admin can invite you by email instead. You open the link, choose a
+  password and your account is ready.
+
+Sign out
+  Use the sign-out button; the session ends at once.
+
+Passwords must have 12 to 256 characters and may not contain your username or
+email. A long sentence is better than a short complicated word.
+
+
+===============================================================================
+3. THE LAYOUT
+===============================================================================
+
+Sidebar
+  Overview, Users, Companies, Calendar, Tickets, Connections, Uptime,
+  Invoices, Reports, Backups and Activity logs, with Settings reached from
+  its own link. It pops out when you
+  hover, and can be pinned open with the pin button; the choice is remembered
+  in your browser. On a phone it becomes a menu.
+
+Top bar
+  - The search box (see 11).
+  - The notification bell with the unread count (see 13).
+  - The language selector (see below).
+  - The light / dark switch. By default it follows your computer's setting.
+  - The sign-out button.
+
+Language
+  The language selector uses Google Translate. The first time you pick a
+  language you are asked for permission, because the page text is sent to
+  Google. Nothing is sent before you agree. You can withdraw the permission in
+  the footer.
+
+Phones and small screens
+  Below 640 px wide, tables become stacked cards (one card per row, each value
+  with its label) so you never scroll sideways. The calendar month grid is
+  hidden on phones and the agenda list is shown instead.
+
+Tables everywhere
+  Most lists have search, filters (usually as pills above the table), sortable
+  column headers (click once to sort, again to reverse) and pages.
+
+Status badges
+  Colours always come with words (for example "Overdue", "Done"), so meaning
+  never depends on colour alone.
+
+
+===============================================================================
+4. OVERVIEW (index.php)
+===============================================================================
+
+The first page after sign-in.
+
+  - Health: whether the main parts (database, monitoring, backups) are fine.
+  - Key numbers: customers, new users in the last 30 days, open tickets,
+    invoices that need attention.
+  - Trend charts, each with a table underneath for screen readers:
+      * Revenue per month
+      * New users per month
+      * Tickets opened per week
+      * Time to resolve tickets
+  - Demo data panel (admins): load or remove fake data (see 22).
+
+Numbers on this page are always calculated from the real records at the
+moment you open it.
+
+
+===============================================================================
+5. USERS (users.php, user.php, user_new.php)
+===============================================================================
+
+Users list
+  Shows name, company, role, status, last seen and number of logins.
+  - Search by name or email.
+  - Filter by status (active, pending, suspended), role and company.
+  - Sort by name, company, role, status, last seen or logins.
+  - "Clear filters" resets everything.
+  - Add user opens the new-user form.
+
+New user (user_new.php)
+  Name, email (must be unique), role, country, company (picked from your
+  companies, or left empty) and status.
+
+User page (user.php)
+  Everything about one person in one place:
+  - Details with edit, and suspend / activate.
+  - Their company (link to it).
+  - Notes and the timeline (see 7).
+  - Their tickets with a button to open a new one for them.
+  - "Appointments of <company>": the upcoming appointments of their company,
+    with the ones where they are the contact marked "You are the contact".
+  - Invoices where they are the contact.
+  - Their connections (sessions).
+
+Suspending
+  A suspended user stays in the system but is marked suspended everywhere. Use
+  it instead of deleting when a person leaves a customer but history matters.
+
+Deleting
+  Possible after a confirmation. Tickets of that person remain; appointments
+  remain and only lose their contact.
+
+
+===============================================================================
+6. COMPANIES (companies.php, company.php, company_edit.php)
+===============================================================================
+
+Companies list
+  Name, location, KvK number, number of users, open invoices and open tickets.
+  Search, sort and pages as usual.
+
+Company form
+  Name, address, postcode, city, country, KvK number, VAT (BTW) number, email,
+  phone, website and notes. Fields are cleaned (spaces, length) when saved.
+
+Company page
+  - Details and the address as it appears on invoices.
+  - The people who work there, with a link to add one.
+  - Invoices of that company, with a button to create one with the company
+    already filled in.
+  - Open tickets of the company.
+  - Notes and timeline.
+  - Upcoming appointments, with a button to add one and a link to download
+    them all as an .ics file.
+
+Deleting a company
+  Needs a confirmation. It is refused while real invoices are linked to it,
+  because invoices must be kept. People of the company stay but lose the
+  company link; appointments of the company are deleted with it.
+
+
+===============================================================================
+7. NOTES AND THE ACTIVITY TIMELINE
+===============================================================================
+
+Where
+  On every user page and every company page.
+
+Notes
+  Pick a kind (Note, Call, Email or Meeting), type up to 2000 characters and
+  save. Each note shows who wrote it and when. You can edit it (it then shows
+  "edited") or delete it after a confirmation.
+
+Timeline
+  Notes and system events (ticket opened, invoice created, appointment
+  added, and so on) in one list, newest first, so you can see the whole story
+  of a customer in one glance.
+
+Tip
+  Write facts and agreements, not opinions. Do not put sensitive personal
+  details (health, religion, ID numbers) in notes.
+
+
+===============================================================================
+8. TICKETS (tickets.php, ticket.php, ticket_new.php)
+===============================================================================
+
+A ticket is one support case.
+
+Fields
+  Title, description, the contact (a user), the company (filled in from the
+  contact), priority (Low, Normal, High, Urgent), status (Open, In progress,
+  Waiting, Resolved, Closed) and an assignee (the staff member responsible).
+
+Tickets list
+  - Filter by status, priority, assignee and company, and search by text.
+  - Sort by newest, priority, status or last update.
+  - Badges show priority and status.
+
+Ticket page
+  - Details you can edit (status, priority, assignee).
+  - The comment thread: add comments; each shows author and time.
+  - Links to the contact person and the company.
+  - Closing or resolving records the time, which feeds the "time to resolve"
+    chart on the Overview.
+
+Urgent tickets
+  A ticket with priority Urgent creates a notification (the bell) and an
+  email once.
+
+New ticket
+  From the Tickets page, or from a user or company page with the person or
+  company already filled in.
+
+
+===============================================================================
+9. CALENDAR AND APPOINTMENTS
+===============================================================================
+
+Calendar page (calendar.php)
+  - A month grid, Monday first. Appointments appear on the day they happen;
+    one that lasts several days appears on every day. A busy day shows three
+    and "+N more".
+  - Previous, next and "today" buttons; invalid months fall back to this
+    month.
+  - A company filter to see one customer's appointments only.
+  - Clicking a day starts a new appointment on that date.
+  - Below the grid, the agenda lists every appointment of the month with time,
+    company, contact, place and status. On a phone only the agenda is shown.
+  - Download as .ics for any calendar app.
+
+Appointment form (appointment_edit.php)
+  Company (required), contact person (optional, must work at that company),
+  title, location, notes, start and end (an appointment may last up to 14
+  days) and status (Scheduled, Done, Cancelled).
+  Impossible dates are refused.
+
+Edit and delete
+  Open an appointment to edit it. Cancelling keeps it in the calendar; deleting
+  asks for confirmation and removes it.
+
+Who sees what
+  The calendar and the appointment forms are for staff. Customer users do not
+  sign in. What a "user" sees is a panel on their own page (and the company
+  page) in the dashboard, so staff can answer "what is planned with this
+  customer?" quickly:
+  - Upcoming appointments of the person's company, not cancelled ones.
+  - The ones where they are the contact are marked "You are the contact".
+  - A colleague at the same company sees the appointment without the mark.
+  - A person at another company, or without a company, sees none of them.
+
+.ics export (calendar_ics.php)
+  One appointment, or all of a company's appointments from 30 days ago on, as
+  a file that opens in Outlook, Google Calendar, Apple Calendar and others.
+  Times are local times; special characters are safe.
+
+
+===============================================================================
+10. INVOICES, PAYMENTS, PDF AND RECURRING INVOICES
+===============================================================================
+
+Invoices list (invoices.php)
+  - Summary tiles: open amount, overdue amount, collected in the last 30 days.
+  - Filters: by state (open, due soon, overdue, paid) and by date range.
+  - Search by number, customer or email; sort by the column headers.
+
+New invoice (invoice_new.php)
+  - Pick a company (fills in name and address) or type a customer.
+  - Send-to email, customer address, issue date, an optional supply date,
+    payment terms (which set the due date), VAT rate and notes.
+  - Lines: description, quantity, unit price. Totals are calculated by the
+    server in whole cents: subtotal, VAT and total.
+  - The invoice number is created automatically and is unique.
+
+Invoice page (invoice.php)
+  - All details and lines.
+  - Record a payment: amount, method (iDEAL, Bank transfer, Credit card,
+    Direct debit), date, reference. When payments cover the total, the invoice
+    shows as paid; partial payments leave it open.
+  - Download PDF.
+
+Statuses
+  Open (not yet due), Due soon (due within 7 days), Overdue (past the due date and
+  not paid), Paid.
+
+PDF (invoice_pdf.php)
+  A professional layout made inside the system (no outside service). It
+  shows your supplier details, the customer, lines, VAT and total, the due
+  date, and payment details. Your BTW number and IBAN come from
+  Settings > Company details; if they are empty they are simply left off.
+
+Recurring invoices (recurring.php)
+  For fixed monthly, quarterly or yearly work.
+  - Create a schedule: company, description, amount, VAT, frequency (Month,
+    Quarter, Year), first date, payment term.
+  - The list shows the next date and the two after it, so you can check the
+    pattern.
+  - Pause or resume. Periods that passed while a schedule was paused are
+    skipped, not billed afterwards.
+  - Invoices are created by the daily job (run_recurring.php, see 23). Never
+    twice for the same period, even if the job runs twice.
+  - A generated invoice is an ordinary invoice that you can open, send and
+    record payments on.
+
+
+===============================================================================
+11. GLOBAL SEARCH (search.php)
+===============================================================================
+
+Type in the search box on any page and press Enter. Results are grouped:
+Users, Companies, Invoices, Tickets, each with the matching text and a link.
+Characters like % and _ are searched literally, so searching "50%" finds
+"50%". Searches that are too frequent are slowed down.
+
+(There are two hidden surprises in the search box. They are left for you to
+find.)
+
+
+===============================================================================
+12. CSV EXPORT AND IMPORT (admin only)
+===============================================================================
+
+Export (export.php)
+  Download Users, Companies, Invoices, Tickets or Activity logs as CSV
+  (UTF-8, opens correctly in Excel). Available from the list pages and from
+  the logs page. Every export is logged.
+
+Import (import.php)
+  Upload a CSV of Users or Companies (up to 200 KB and 1000 rows).
+  - Rows that already exist (same email or company name) are skipped.
+  - Rows with problems are not imported; a list shows the row and the reason.
+  - A summary tells you how many were added, skipped and rejected.
+  Tip: export first to get the right column layout, and test with a few rows.
+
+Safety
+  Cells beginning with = + - @ are made harmless so a spreadsheet cannot run
+  them as formulas.
+
+
+===============================================================================
+13. NOTIFICATIONS AND EMAIL
+===============================================================================
+
+The bell
+  Shows the number of unread notifications. The system checks for new events
+  about every three minutes while you work. Events:
+  - An invoice became overdue.
+  - A backup failed.
+  - A monitored service went down.
+  - A ticket was set to Urgent.
+  Each event appears once. Clicking a notification opens the related page and
+  marks it read. The notifications page lists them all and can mark all read.
+  Notifications older than 90 days disappear.
+
+Notification emails
+  The same events are emailed once, to:
+  - the notification address (Settings > Email, EMAIL_TARGET), and
+  - each staff member who ticked "email me notifications" in Settings >
+    Account.
+
+Email settings (Settings > Email) - fill these in yourself
+  SMTP_SERVER    the address of your mail server
+  SMTP_PORT      usually 587 (STARTTLS) or 465 (SSL)
+  SMTP_USERNAME  the mail account
+  SMTP_PASSWORD  its password (stored encrypted)
+  EMAIL_FROM     the sender address shown to receivers
+  EMAIL_TARGET   where notification emails go
+  Also: the website address used in links inside emails. The same names can be
+  set as environment variables. What you save on the page wins.
+  The button "Send a test email" sends a message to your own address to check
+  the settings.
+
+Outbox
+  Every email is recorded first (recipient, subject, text, status Recorded,
+  Sent or Failed) and kept 30 days. Without an email server nothing is sent
+  and the outbox is where you read reset and invitation links while testing.
+
+
+===============================================================================
+14. CONNECTIONS (connections.php)
+===============================================================================
+
+A list of sessions and devices: user, IP address, device, location, protocol
+(HTTPS, WebSocket, SSH), traffic, start time and status (active, idle,
+flagged). Filter by status, sort by name, address, status, start or traffic.
+Use it to spot odd access, such as a flagged connection from an unexpected
+country.
+
+
+===============================================================================
+15. UPTIME AND ENDPOINT CHECKS
+===============================================================================
+
+Uptime (uptime.php)
+  A status page in the style of Uptime Kuma: each service with its current
+  state (up, slow, down), recent history bars and response time, and an
+  overall banner.
+  The data comes from your Uptime Kuma server. Connect it in Settings > Kuma
+  API Key (address and key). A service that goes down triggers a
+  notification. Heartbeat history is kept 30 days.
+
+Endpoint checks (monitoring_uptime.php, check_endpoints.php)
+  Your own checks of web addresses: add an address, the method (GET or HEAD)
+  and the expected answer. The system calls it on a schedule and records up,
+  slow or down with the time taken. Addresses that point to internal or
+  private networks are refused on purpose.
+
+
+===============================================================================
+16. REPORTS (reports.php)
+===============================================================================
+
+A list of reports with title, type, author, time and status (Ready, Running,
+Failed, Scheduled). Ready reports download as CSV. At the moment the report
+content is example data, so use the Invoices and Overview pages for real
+figures and the CSV export for real data.
+
+
+===============================================================================
+17. BACKUPS (backups.php)
+===============================================================================
+
+A log of backup jobs: name, type (full, incremental, database), status
+(completed, running, failed), size, duration and location. A tile counts the
+failures of the last 7 days. A failed backup creates a notification. The page
+records and shows backups; the backup files themselves are made by your server
+tools and should be tested by restoring them.
+
+
+===============================================================================
+18. ACTIVITY LOGS (logs.php)
+===============================================================================
+
+The audit trail: time, level (info, warning, error, critical), who, what,
+target and IP address.
+  - Search and filter by level.
+  - Export as CSV (admin).
+  - Clear entries older than a chosen number of months (admin); this too is
+    logged.
+  - Entries are removed automatically after 12 months by the daily job.
+Typical uses: who changed this? who exported the list? why was an account
+locked?
+
+
+===============================================================================
+19. SETTINGS (settings.php)
+===============================================================================
+
+Account (everyone)
+  - Change your password.
+  - Two-step sign-in: scan the QR code or enter the key in an authenticator
+    app, confirm with a code, and save your 10 recovery codes. Turn it off
+    again with your password and a code.
+  - "Email me notifications" opt-in.
+  - Admins: the switch "Require two-step for all admins".
+
+Integrations (permission needed)
+  Health checks of your own services, and API keys that let other tools read
+  the health status. Keys are masked. Viewing a full key needs the "manage"
+  permission and is logged. The tab only shows for people with an
+  integrations permission.
+
+Team & access (admins) - see 20.
+
+Company details (admins)
+  Your own company name, address, KvK, BTW number and IBAN for PDF invoices.
+  The IBAN is checked for correctness before saving.
+
+Email (admins)
+  The SMTP settings, notification address and the outbox (see 13).
+
+Kuma API Key (admins)
+  Server address and key of Uptime Kuma, with a "Test connection" button.
+
+Tests
+  The documented list of every test and fix, with result (pass, fixed, open,
+  info), what was checked and notes. Useful as proof of quality and for
+  finding open points. New entries can be added by hand.
+
+
+===============================================================================
+20. TEAM MANAGEMENT (Settings > Team, admins)
+===============================================================================
+
+  - Add a team member: name, username, email, role, integrations permission.
+    Either set a temporary password (shown once on screen) or send an
+    invitation by email.
+  - Roles:
+      admin  everything, including settings, team, import, export, clearing
+             logs
+      user   daily work (users, companies, tickets, notes, calendar,
+             invoices, search); no team, settings or bulk tools
+  - Integrations permission: none, view or manage.
+  - Disable or enable an account. A disabled account cannot sign in and open
+    sessions end.
+  - Reset password: sets a new temporary password and signs the person out
+    everywhere.
+  - Reset two-step: for a colleague who lost their phone.
+  - The system always keeps at least one active admin.
+
+
+===============================================================================
+21. PRIVACY PAGES
+===============================================================================
+
+Privacy policy (privacybeleid.php)
+  The public text of how the organisation handles personal data.
+
+Privacy requests (privacy.php, staff)
+  1. Enter the email address of the person asking.
+  2. See what is held: user record, sessions, activity-log entries and
+     invoices.
+  3. Download it as JSON (right of access).
+  4. For erasure, tick that you checked their identity and press Anonymise.
+     The name, email and country are replaced, sessions are deleted and the
+     person's name in the log is replaced. Invoices are kept for the legally
+     required 7 years.
+  Notes, tickets and appointments are not yet part of this tool; check them
+  by hand (see the security and compliance document).
+
+
+===============================================================================
+22. DEMO DATA
+===============================================================================
+
+Overview > Demo data panel (admins).
+  "Load demo data" fills the system with fake companies, people, tickets,
+  notes, invoices, appointments, connections and reports so you can try or show
+  everything. Every fake record is tagged, so "Remove demo data" deletes only
+  them; real records are never touched, and a demo company that has a real
+  record attached is kept. Do not leave demo data in a live system.
+
+
+===============================================================================
+23. DAILY AND BACKGROUND JOBS
+===============================================================================
+
+Set these up in the Windows Task Scheduler (or cron on Linux):
+
+  purge.php          daily. Deletes expired data: log entries over 12 months,
+                     login attempts, rate-limit counters, monitoring history
+                     over 30 days, invoices over 7 years.
+                     php C:\xampp\htdocs\Websites\test\purge.php
+  run_recurring.php  daily. Creates the recurring invoices that are due.
+                     php C:\xampp\htdocs\Websites\test\run_recurring.php
+  check_endpoints.php  every minute; runs the endpoint checks that are due.
+  kuma_poll.php      every minute; keeps the Uptime history continuous when
+                     nobody has the page open.
+
+purge.php, run_recurring.php, check_endpoints.php and kuma_poll.php all refuse to run from a browser.
+
+
+===============================================================================
+24. WORKED EXAMPLES
+===============================================================================
+
+A. A customer calls with a problem
+   1. Search the person's name. Open their page.
+   2. Add a note of kind "Call" with what was said.
+   3. Press "New ticket" on their page; set priority and assign it.
+   4. If a visit is needed, add an appointment (their company and them as
+      contact) from the panel on their page.
+
+B. Monthly invoicing
+   1. Invoices > New invoice, pick the company, add lines, save.
+   2. Open it, download the PDF, send it.
+   3. When money arrives, record the payment. Overdue invoices show on the
+      Overview and in the bell.
+   4. For the same amount every month, create a recurring invoice once.
+
+C. Planning a week
+   1. Calendar. Filter on a company if needed.
+   2. Click a day to add an appointment; fill company, contact, place.
+   3. Download the company's .ics and open it in your own calendar.
+
+D. A colleague starts
+   1. Settings > Team > Add team member; choose Invite by email.
+   2. They open the link, choose a password, and turn on two-step.
+
+E. A customer asks what you hold about them
+   1. Privacy requests: enter their email, check the result, download the JSON.
+   2. Check notes, tickets and appointments by hand (not yet automatic).
+   3. Answer within one month.
+
+F. Something looks wrong
+   1. Activity logs: search the person or action.
+   2. Connections: look for flagged sessions.
+   3. Settings > Team: disable the account and reset the password if needed.
+
+
+===============================================================================
+25. WORDS USED IN THE SYSTEM
+===============================================================================
+
+  Admin       staff role with full rights (also a customer-user role label;
+              context tells which)
+  Agenda      the list view of appointments
+  Anonymise   replace personal details so a person can no longer be identified
+  BTW         Dutch VAT
+  Bell        the notification icon in the top bar
+  CSRF token  the hidden code in forms that proves the form came from the
+              system
+  Epoch       counter used to end old sessions after a password change
+  .ics        calendar file format
+  KvK         Dutch chamber of commerce number
+  Outbox      the record of every email, sent or not
+  Recovery code  one-time code for two-step sign-in when your phone is lost
+  Session     a signed-in period in one browser
+  SMTP        the protocol for sending email
+  TOTP        the time-based 6-digit code of an authenticator app
+  Two-step    sign-in with password plus a code
+
+
+===============================================================================
+26. THINGS THE SYSTEM DOES NOT DO
+===============================================================================
+
+  - Customers cannot sign in or see anything themselves (no portal).
+  - It does not send invoices by email by itself; you download the PDF and
+    send it (email is used for notifications, reset links and invitations).
+  - It does not take online payments; payments are recorded by hand.
+  - It does not synchronise with Teamleader or any other ticket system yet.
+  - Reports are example data at the moment.
+  - It does not make backups itself; it records them.
+  - It does not have an app; the web pages work on phones.
+
+===============================================================================
+ END OF DOCUMENT
+===============================================================================

@@ -1,0 +1,613 @@
+===============================================================================
+ TELECOMLIJN CRM-SYSTEM
+ FEATURE GUIDE, SECURITY MEASURES AND LEGAL COMPLIANCE
+===============================================================================
+
+Version of this document: 10 November 2026
+Covers: the whole application as it stands in the repository (PHP 8.2,
+MariaDB, Tailwind CSS, XAMPP).
+
+IMPORTANT, READ THIS FIRST
+--------------------------
+This document explains what the software does and how it is built. Section 5
+and 6 explain how the software supports the law (mainly the GDPR / AVG, the
+Dutch fiscal retention rules and the ePrivacy / cookie rules). It is a
+technical description written by the developer side. It is NOT legal advice
+and it is not a certification. Laws are met by the organisation running the
+system (policies, contracts, training, how it is hosted), not by code alone.
+Section 7 lists honestly what the software does NOT yet cover. Have a lawyer
+or your data protection officer (functionaris gegevensbescherming) review
+sections 5 to 7 before you rely on them.
+
+Contents
+  1. What the system is
+  2. Security that applies to the whole system
+  3. Every feature, what it does and how it is secured
+  4. Data stored, where, and how long
+  5. How the system supports the law
+  6. Duties that stay with the organisation
+  7. Known gaps and recommended next steps
+  8. Testing and evidence
+  9. Setting up safely (checklist for going live)
+
+
+===============================================================================
+1. WHAT THE SYSTEM IS
+===============================================================================
+
+An internal CRM and admin dashboard for Telecomlijn. Staff (the "admins" and
+"team members") sign in and manage the customers of Telecomlijn:
+
+  - Companies (customer organisations)
+  - Users (the people who work at those companies; they are RECORDS, they do
+    not sign in to this system)
+  - Tickets, notes, a calendar of appointments, invoices, reports, backups,
+    connections, uptime monitoring, activity logs
+
+Two different kinds of people exist and the difference matters for privacy:
+
+  STAFF ACCOUNTS ("admins" table)
+    People who sign in. They have a role (admin or user), an integrations
+    permission (none, view, manage) and optional two-step sign-in.
+
+  CUSTOMER USERS ("users" table)
+    People at customer companies. Held as records for service delivery.
+    They have no password and no login. They cannot see anything in the
+    system themselves.
+
+The interface is available in light and dark mode, works on phones (tables
+become stacked cards below 640 px) and respects "reduced motion" settings.
+
+
+===============================================================================
+2. SECURITY THAT APPLIES TO THE WHOLE SYSTEM
+===============================================================================
+
+2.1 Sign-in and passwords
+  - Every staff password is stored only as a hash, never as text. The
+    algorithm is Argon2id (bcrypt cost 12 is the fallback only when the PHP
+    build lacks Argon2id). A test checks the database for any password that
+    is not a hash and fails if it finds one.
+  - Hashes are upgraded automatically at the next sign-in when the algorithm
+    settings change (password_needs_rehash).
+  - The sign-in always performs a hash check, even for an unknown username,
+    so response time does not reveal which usernames exist.
+  - Password rules (new, reset, invitation, change): 12 to 256 characters,
+    and it may not contain the username or email. Passwords are never
+    written to logs, outbox, URLs or the database in readable form.
+  - A temporary password (created by an admin for a new team member) is
+    shown once. Only its hash is stored. While it is passed to the next page
+    it is encrypted inside the session (AES-256-GCM), and the user is forced
+    to change it at first sign-in.
+  - Changing or resetting a password ends every other open session of that
+    account (a "session epoch" counter is raised), so a stolen session does
+    not survive a password change.
+  - Password reset and invitation links: 256-bit random token, only an HMAC
+    hash of it is stored, valid one hour, single use. Wrong links from one IP
+    address are limited (10 failures per 15 minutes) so links cannot be
+    guessed. The "forgot password" page gives the same answer whether or not
+    the address exists, so it cannot be used to discover accounts.
+
+2.2 Two-step sign-in (stage 7)
+  - Authenticator-app codes (TOTP, RFC 6238, 6 digits, 30 seconds), written
+    without third-party libraries. One step of clock drift is allowed.
+  - The shared secret is stored encrypted (AES-256-GCM). 10 recovery codes
+    are shown once and stored only as hashes; each works once.
+  - Wrong codes are rate limited: 5 per account and 15 per IP address in 15
+    minutes, then locked.
+  - Admins can require two-step for all admin accounts (setting "Require
+    two-step for admins"), and an admin can reset the two-step of a team
+    member who lost their device. That reset is logged.
+
+2.3 Sessions
+  - Cookie: HttpOnly (no JavaScript access), SameSite=Lax, Secure over HTTPS,
+    and the "__Host-" prefix over HTTPS (bound to this exact host).
+  - Session id is renewed at sign-in, password change and 2FA completion
+    (prevents session fixation).
+  - Sessions end after 30 minutes without activity and after 8 hours in total.
+  - Sign-out destroys the session.
+
+2.4 Brute-force and abuse protection
+  - Sign-in: at most 5 failures per username per IP and 15 per IP in 15
+    minutes, then locked for the window. Stored in the database, so it
+    survives restarts and cannot be bypassed by dropping the cookie.
+  - Per-IP rate limits (fixed window, database-backed) on forms and
+    downloads, e.g. search, export, import, password reset requests.
+  - Imports are capped (200 KB, 1000 rows). Apache refuses request bodies
+    over 256 KB.
+
+2.5 Protection against web attacks
+  - SQL injection: every query uses PDO prepared statements. LIKE searches
+    escape wildcard characters so they are searched literally.
+  - Cross-site scripting (XSS): all output goes through an escaping function.
+    A Content-Security-Policy with a per-request nonce blocks inline scripts
+    that carry no nonce and blocks loading code from unknown hosts.
+  - CSRF (forged requests): every form that changes data carries a random
+    token that is checked on the server; cookies are SameSite.
+  - Clickjacking: X-Frame-Options DENY and a frame-ancestors rule.
+  - Other headers: X-Content-Type-Options nosniff, Referrer-Policy
+    same-origin, Permissions-Policy (camera, microphone, geolocation, payment
+    and USB switched off), Cross-Origin-Opener-Policy, HSTS (one year) over
+    HTTPS, and the PHP version header is removed.
+  - SSRF (server tricked into calling internal addresses): outbound checks
+    (endpoint checks and the Uptime Kuma link) refuse private, loopback and
+    link-local addresses.
+  - CSV injection: exported and imported cells that start with = + - @ are
+    neutralised so spreadsheets do not run them as formulas.
+  - Open redirects: notification links only redirect to local .php pages.
+  - File access: Apache denies direct access to .md, .sql, .log, .json,
+    .env, .ini, .bak files, config.local.php, setup.php and the build file.
+    (The database dump files are blocked by their .sql extension.)
+
+2.6 Secrets at rest
+  - API keys and other secrets (SMTP password, Kuma API key, 2FA secrets) are
+    stored encrypted with AES-256-GCM using a key derived from a secret kept
+    outside the web-readable data. They are shown masked; "reveal" actions
+    are logged. Secrets can also be supplied by environment variables so they
+    never touch the database.
+  - Database account used by the web application can only SELECT, INSERT,
+    UPDATE and DELETE. It cannot change the structure (CREATE, ALTER, DROP).
+    Structural changes run through database/migrate.php with a separate
+    administrator account.
+
+2.7 Roles and permissions
+  - admin: everything, including team, settings, import, export, log clearing.
+  - user: normal daily work (companies, users, tickets, notes, calendar,
+    invoices, search). Admin-only pages refuse them on the server (hiding a
+    button is never the only protection).
+  - Integrations permission (none / view / manage) controls who may see or
+    change API keys and external connections.
+  - The built-in "admin" account is treated as the initial owner account;
+    additional people get their own named accounts so actions are traceable.
+
+2.8 Audit trail
+  - Important actions are written to the activity log (who, what, target,
+    IP address, time): sign-ins and failures, password and 2FA changes,
+    creating and deleting records, exports, imports, key reveals, setting
+    changes, anonymisations. Every record also appears in the history
+    (timeline) of the person or company it concerns.
+
+2.9 Error handling
+  - Users see short themed error pages without stack traces, paths or SQL.
+    Details are written to the server error log only.
+
+
+===============================================================================
+3. EVERY FEATURE, WHAT IT DOES AND HOW IT IS SECURED
+===============================================================================
+
+3.1 OVERVIEW (index.php)
+  What: Health of the system, key numbers (users, open tickets, invoices),
+  trend charts (revenue, new users, tickets per week, time to resolve) each
+  with a data table version, and a panel to load or remove demo data.
+  Security: sign-in required; numbers are computed server side with prepared
+  queries. Demo data is tagged (is_demo) so removing it can never touch real
+  records. Charts have a text/table alternative (accessibility).
+
+3.2 COMPANIES (companies.php, company.php, company_edit.php)
+  What: Customer organisations with address, KvK number and VAT number, plus
+  their users, invoices, tickets, notes and appointments in one page.
+  Security: input is cleaned and length limited; edits are CSRF protected and
+  logged; deleting a company asks for confirmation, and is refused when real
+  invoices are attached (financial records are protected). Appointments of a
+  deleted company are removed with it.
+
+3.3 USERS (users.php, user.php, user_new.php)
+  What: People at customer companies: name, email, role, country, company,
+  status; linked to tickets, notes, appointments, invoices.
+  Security: sign-in; validated email; unique email; CSRF; changes and
+  deletions logged. No password is stored for these people because they do
+  not sign in. See section 5 for the privacy tools that apply to them.
+
+3.4 NOTES AND TIMELINE (includes/notes.php)
+  What: Notes (call, meeting, email, general) on every user and company, in a
+  combined timeline with system events. Notes can be edited ("edited" mark)
+  and deleted.
+  Security: length capped; escaped on output; edit and delete need the CSRF
+  token and sign-in; every change is logged. Do not put sensitive categories
+  of data in free text notes (see section 6).
+
+3.5 TICKETS (tickets.php, ticket.php, ticket_new.php)
+  What: Support tickets with status (open, in progress, waiting, resolved, closed),
+  priority (low to urgent), assignee, contact, comment thread, filters and
+  sorting. Urgent tickets raise a notification.
+  Security: server-side validation of every field against fixed lists;
+  assignee must be an active staff account; CSRF on all changes; comments are
+  escaped; changes logged and shown in the timeline.
+
+3.6 CALENDAR (calendar.php, appointment_edit.php, calendar_ics.php)
+  What: Appointments linked to a company and optionally one of its people:
+  title, location, notes, start, end (max 14 days) and status (scheduled,
+  done, cancelled). Month grid (Monday first), agenda list, company filter,
+  and .ics download for any calendar app. A company page and the page of each
+  person show the upcoming appointments of that company; the person who is
+  the contact is marked "You are the contact".
+  Security: sign-in required for every page and for the .ics download; saves
+  need the CSRF token; dates are read strictly (impossible dates and years
+  outside 2000 to 2100 are refused); the contact must belong to the company;
+  .ics output escapes commas, semicolons and line breaks so text cannot
+  inject calendar fields; titles are escaped on screen. Deleting a person
+  keeps the appointment and only clears the contact. Customer users do NOT
+  sign in, so "users see their company's appointments" means staff see them
+  on the person's page. A customer portal would need its own login (see 7).
+
+3.7 INVOICES AND PAYMENTS (invoices.php, invoice_new.php, invoice.php)
+  What: Invoices with lines, VAT, due date, status (open, due, overdue,
+  paid), payments, a company picker, PDF download and recurring invoices.
+  Security: amounts are stored as whole cents (no rounding errors); totals
+  are recomputed on the server; VAT rate and numbers validated; invoice
+  numbers unique; deleting is limited because of the 7 year retention duty.
+
+3.8 PDF INVOICES (includes/pdf.php, invoice_pdf.php)
+  What: Invoice PDF made by a built-in PDF writer (no external service, so no
+  customer data leaves the server). Supplier details come from Settings >
+  Company details (BTW number, IBAN); empty fields are left off.
+  Security: text is escaped for the PDF format; sign-in required; the IBAN is
+  validated with the mod-97 check before saving.
+
+3.9 RECURRING INVOICES (recurring.php, run_recurring.php)
+  What: Schedules (month, quarter, year) that create invoices automatically;
+  a preview shows the next three dates. Run from a scheduled task.
+  Security: a database lock prevents two runs at once, and a unique key on
+  (schedule, issue date) means an invoice is never created twice for one
+  period. The run script only works from the command line.
+
+3.10 GLOBAL SEARCH (search.php)
+  What: One search box across users, companies, invoices and tickets, results
+  grouped by type.
+  Security: prepared statements, wildcard escaping, rate limited, results
+  escaped.
+
+3.11 CSV EXPORT AND IMPORT (export.php, import.php, includes/csv.php)
+  What: Download users, companies, invoices, tickets and logs as CSV;
+  import users and companies. Duplicates are skipped and bad rows are listed
+  with the reason.
+  Security: admin only; CSRF; rate limited; size and row caps; UTF-8 with
+  BOM; formula injection neutralised both ways; every export and import is
+  logged (a bulk export is a data-protection event, so it is traceable).
+
+3.12 NOTIFICATIONS (notifications.php, includes/notifications.php)
+  What: A bell with unread count for overdue invoices, failed backups,
+  services that are down and urgent tickets. Each event is stored once
+  (de-duplicated) and emailed once to the notification address
+  (Settings > Email > EMAIL_TARGET) and to staff who opted in.
+  Security: opening a notification marks it read and redirects only to local
+  pages; the email address is a setting, not hard-coded; staff must opt in
+  to receive mail; notifications older than 90 days are deleted.
+
+3.13 EMAIL (includes/mailer.php, Settings > Email)
+  What: An own SMTP client. Settings SMTP_SERVER, SMTP_PORT, SMTP_USERNAME,
+  SMTP_PASSWORD, EMAIL_FROM, EMAIL_TARGET (also readable from environment
+  variables). Every message is first written to the outbox (kept 30 days);
+  if no SMTP server is set, mail stays in the outbox, which also makes local
+  testing safe.
+  Security: SMTP password stored encrypted; header injection blocked (line
+  breaks removed from addresses and subjects); TLS used when the server
+  offers it; the outbox is visible only to admins.
+
+3.14 PASSWORD RESET AND INVITATIONS (forgot.php, reset.php, invite.php)
+  What: Self-service reset by email link; admins can invite a new member by
+  email so no password ever has to be passed on.
+  Security: see 2.1 (hashed single-use links, rate limits, identical answers,
+  other sessions ended after a reset).
+
+3.15 TEAM AND SETTINGS (settings.php and includes/settings/*)
+  What: Tabs for Account (password, two-step, email opt-in, require two-step),
+  Integrations, Team (add, disable, change role, reset password or two-step,
+  invite), Company details, Email, Uptime Kuma, and Tests (the documented
+  test log).
+  Security: tabs are permission checked on the server; role changes and
+  resets are logged; an admin cannot lock out the last admin; secrets are
+  masked.
+
+3.16 CONNECTIONS, REPORTS, BACKUPS, LOGS
+  Connections: sessions and devices with IP address.
+  Reports: CSV downloads built from the report's database id (no file path is
+  taken from the request, so there is nothing to traverse); sign-in required;
+  spreadsheet formula injection neutralised. The report contents are demo
+  figures at the moment.
+  Backups: backup records and a failure notification.
+  Activity logs (logs.php): search, filter, export and clear by age (admin).
+  Security: sign-in; admin only where data is sensitive; actions logged; log
+  entries are deleted automatically after 12 months (see 4).
+
+3.17 UPTIME (uptime.php, monitoring_uptime.php, kuma_api.php, kuma_poll.php)
+  What: Status page in the style of Uptime Kuma, fed from the Kuma API, plus
+  endpoint checks of your own services.
+  Security: API key stored encrypted; outbound calls pass the SSRF guard;
+  results older than 30 days are deleted.
+
+3.18 PRIVACY TOOLS (privacy.php, privacybeleid.php, purge.php)
+  What: A privacy-policy page, a page to look up what is held about an email
+  address, download it as JSON (right of access / portability), and
+  anonymise a user (right to erasure), plus the daily retention job.
+  Security: sign-in; CSRF; anonymisation needs an identity-check
+  confirmation box; the action is logged. Details in section 5.
+
+3.19 LANGUAGE TOGGLE (includes/translate.php)
+  What: Optional page translation with Google Translate.
+  Security and law: NOTHING is sent to Google until the user clicks "Allow".
+  The consent is stored in the browser and can be withdrawn from the footer.
+  The consent text says that page text (including names, emails and IP
+  addresses) goes to Google and may be processed outside the EU.
+
+3.20 LOOK AND FEEL (theme, motion, cards)
+  What: Light and dark theme, phone layout, spring motion that stops with
+  "reduced motion", pop-out sidebar. Two hidden easter eggs in the search bar.
+  Security and accessibility: text colours were measured against the WCAG
+  contrast rules in both themes; semantic headings, labels, focus styles and
+  ARIA roles on the stacked table cards. All scripts and styles obey the CSP.
+
+3.21 DEMO DATA (includes/demo.php, demo_data.php)
+  What: Optional fake companies, users, tickets, invoices and appointments
+  for demonstrations.
+  Security and law: clearly marked as fake (is_demo), removed with one click
+  without touching real data. Do not load demo data into a live system that
+  is shown to customers.
+
+
+===============================================================================
+4. DATA STORED, WHERE AND HOW LONG
+===============================================================================
+
+All data lives in one MariaDB database on the server that runs the system.
+Nothing is sent to third parties except: email through the SMTP server you
+configure, the Uptime Kuma server you configure, and Google Translate only
+after the user consents.
+
+  Data                         Personal data inside              Kept
+  ---------------------------  --------------------------------  ------------
+  Staff accounts               name, username, email, password   while active
+                               hash, 2FA secret (encrypted)
+  Customer users               name, email, role, country,       while the
+                               company link                      relationship
+                                                                 lasts, until
+                                                                 erased
+  Companies                    company data, KvK, VAT, address   while a client
+  Notes, tickets, comments     free text, may name people        until deleted
+  Appointments                 title, place, notes, contact      until deleted
+  Invoices and payments        customer name, address, email     7 years, then
+                                                                 deleted by the
+                                                                 purge job
+  Connections (sessions)       IP address, device, place         until ended
+  Activity log                 account/email, action, IP, time   12 months
+  Login attempts / rate limits IP address, username typed        24 h / 1 h
+  Notifications                event text                        90 days
+  Email outbox                 recipient, subject, body          30 days
+  Uptime heartbeats and checks service names, status             30 days
+  Reset / invitation tokens    HMAC hash only                    1 hour
+  Browser storage              theme, sidebar, translate         in the browser
+                               consent
+
+The retention job (purge.php) is run once a day from the Windows Task
+Scheduler: php C:\xampp\htdocs\Websites\test\purge.php. If it is not
+scheduled, the "keep for X" promises above are NOT kept automatically.
+(Some of the short-lived tables are also cleaned while the system is used.)
+
+
+===============================================================================
+5. HOW THE SYSTEM SUPPORTS THE LAW
+===============================================================================
+
+The mapping below shows which legal duty each technical measure supports.
+"AVG" is the Dutch name of the GDPR.
+
+5.1 Security of processing, AVG art. 32 and art. 5(1)(f)
+  The law asks for "appropriate technical and organisational measures".
+  Supported by: hashed passwords (Argon2id), encryption of stored secrets,
+  HTTPS-only cookies and HSTS, two-step sign-in, role-based access, lockout
+  and rate limiting, CSRF/XSS/SQL injection protection, a least-privilege
+  database account, session limits, audit log, backups.
+  Evidence: the automated test suite (about 1,075 checks) and the test log
+  in Settings > Tests.
+
+5.2 Data protection by design and by default, AVG art. 25
+  - Minimal data: customer users have no password or login; the system holds
+    no payment card data, no BSN, no health data.
+  - Defaults: staff are not emailed unless they opt in; translation off until
+    consent; demo data off; secrets masked; recorded email is not delivered
+    until an SMTP server is set.
+
+5.3 Lawfulness and purpose, AVG art. 5 and 6
+  The processing register (docs/verwerkingsregister.md) lists each activity,
+  its purpose and its legal basis: contract performance for customer users
+  and invoices (6(1)(b)), legal obligation for invoices (6(1)(c)), legitimate
+  interest for security logs and sessions (6(1)(f)), consent for translation
+  (6(1)(a)).
+
+5.4 Storage limitation, AVG art. 5(1)(e)
+  Automatic deletion by the daily retention job (section 4). Invoices are kept
+  7 years because of the fiscal retention duty (fiscale bewaarplicht, AWR art.
+  52 and the Dutch VAT act) and then removed together with the customer data.
+
+5.5 Rights of the data subject, AVG art. 12 to 22
+  - Access (art. 15) and portability (art. 20): privacy.php finds a person by
+    email and downloads what is held as JSON.
+  - Erasure (art. 17): privacy.php anonymises a customer user: name, email and
+    country are replaced, open sessions and their IP addresses are deleted,
+    and the person's name in the activity log is replaced. Invoices are kept
+    for the 7 years because the law requires it (art. 17(3)(b)); the page
+    says so.
+  - Rectification (art. 16): users can be edited by staff at any time.
+  - Objection and restriction: handled by staff by suspending a user.
+  - The law gives one month to answer a request. The system records requests
+    in the log; the deadline itself is a process duty (section 6).
+
+5.6 Consent and cookies, ePrivacy (Telecommunicatiewet art. 11.7a) and AVG
+  art. 7
+  - The portal sets only strictly necessary cookies (session) and functional
+    browser storage (theme, sidebar). No analytics, marketing or social
+    trackers are used.
+  - The only optional item (Google Translate) uses opt-in consent that is as
+    easy to withdraw as to give, and nothing is sent before consent.
+  - All cookies and storage keys are listed in the processing register.
+
+5.7 Breach handling, AVG art. 33 and 34
+  - The audit log, session list and login attempts help detect and scope a
+    breach. docs/datalekprocedure.md describes the steps: judge the risk,
+    report to the Autoriteit Persoonsgegevens within 72 hours when required,
+    inform the people concerned when the risk is high, and record every
+    breach.
+
+5.8 Accountability, AVG art. 5(2) and art. 30
+  - Processing register, breach procedure, privacy policy page, audit log
+    and a documented test log provide the evidence trail.
+
+5.9 Transfers outside the EU, AVG chapter V
+  - By default nothing leaves the EU through the system. Google Translate may
+    process outside the EU, which is why it needs consent. The SMTP provider
+    and the hosting location you choose must be assessed by the organisation.
+
+5.10 Dutch fiscal and accounting rules
+  - Invoices carry the data a Dutch VAT invoice needs: supplier details, BTW
+    number (filled in by you), customer, date, unique sequential number, lines,
+    VAT rate and amounts. Amounts are exact (cents). Retention 7 years.
+    Whether an invoice is correct for each situation (reverse charge, exports)
+    is the responsibility of the organisation or its accountant.
+
+5.11 Accessibility
+  - The interface follows WCAG 2.1/2.2 AA practices that were measured:
+    contrast in both themes, labelled fields, keyboard focus, reduced motion,
+    responsive layout, text alternatives for charts. This supports the Dutch
+    and EU accessibility rules; a formal audit would still be needed to claim
+    conformance.
+
+5.12 Payment and card rules (PCI DSS)
+  - Not applicable: the system records payments but never handles card data.
+
+
+===============================================================================
+6. DUTIES THAT STAY WITH THE ORGANISATION
+===============================================================================
+
+The software cannot do these for you:
+
+  1. Answer privacy requests within one month and verify identity first.
+  2. Keep the privacy policy, processing register and breach procedure
+     accurate and review them (they are drafts until a lawyer or DPO signs
+     them off). Appoint a DPO if the law requires one for your organisation.
+  3. Sign processor agreements (verwerkersovereenkomsten) with the hosting
+     provider, the SMTP provider and anyone else who touches the data.
+  4. Run the HTTPS certificate, server updates, firewall and physical or
+     cloud security of the machine. XAMPP as delivered is a development
+     package: before going live, secure it (see section 9).
+  5. Schedule purge.php, run_recurring.php and database backups, and test a
+     restore.
+  6. Train staff: no sensitive categories of data (health, religion, BSN, and
+     so on) in free-text notes, tickets or appointment descriptions; use
+     personal accounts; switch on two-step; sign out on shared computers.
+  7. Remove staff access immediately when someone leaves (disable the
+     account; the session ends at once).
+  8. Report data breaches to the Autoriteit Persoonsgegevens within 72 hours
+     when required.
+  9. Decide and document whether a data protection impact assessment (DPIA)
+     is needed.
+ 10. Check telecom-specific duties (for example the Telecommunicatiewet
+     rules on traffic data and security incidents) with a specialist; they
+     depend on what service Telecomlijn offers.
+ 11. Keep the supplier details (BTW number, IBAN, KvK) filled in and correct.
+
+
+===============================================================================
+7. KNOWN GAPS AND RECOMMENDED NEXT STEPS
+===============================================================================
+
+These are honest limits found while writing this document. None of them is
+hidden in the software, but they matter for compliance.
+
+  A. The privacy tools (access export and erasure) cover the user record,
+     sessions, activity log and invoices. They do NOT yet include the newer
+     features: notes, tickets and ticket comments that mention the person,
+     appointments where they are the contact, and notification or outbox
+     text that contains their email address. Until this is extended, those
+     items must be checked and edited by hand when a request comes in.
+     Recommended: extend privacy.php (export and anonymise) to these tables.
+     (Outbox rows disappear after 30 days, notifications after 90.)
+
+  B. The processing register (docs/verwerkingsregister.md) was written before
+     the notes, tickets, calendar, notifications, email, two-step and
+     recurring-invoice features. It should get new rows for them, with
+     purpose, legal basis and retention.
+
+  C. Tickets, notes and appointments have no automatic retention period. They
+     stay until someone deletes them. Decide a period (for example 2 years
+     after closing) and add it to purge.php, or keep a manual review routine.
+
+  D. The anonymise action keeps a person's invoices for 7 years (legal) but
+     the invoice still carries the name and address as written. This is
+     allowed by art. 17(3)(b), but document it in the policy.
+
+  E. Customer users cannot see their own data or appointments. A customer
+     portal would need its own login, password reset and two-step, and its own
+     privacy review. Not built.
+
+  F. Email is sent during the web request. A slow mail server therefore slows
+     the page, and SMTP login details leave the server if the SMTP server is
+     not on the same network. Use an authenticated, TLS-enabled provider
+     inside the EU and a queue later.
+
+  G. Backups: the system records backup jobs but the backup files themselves,
+     their encryption and their retention are outside the application. Old
+     personal data in backups must also expire.
+
+  H. Passwords of staff are only checked for length and obvious content. A
+     check against a list of breached passwords is a possible upgrade.
+
+  I. No automatic anomaly alert (for example many exports in a short time).
+     The activity log has the data but nobody is notified.
+
+  J. The built-in "admin" account is intentionally outside the scope of
+     the clean-up that was done: give it a unique strong password and switch
+     on two-step before going live. Named accounts should be used for daily
+     work.
+
+  K. The Teamleader (ticket) integration was requested but is not built, so no
+     data goes to Teamleader. When it is added it needs a processor agreement
+     with Teamleader and a new entry in the register.
+
+
+===============================================================================
+8. TESTING AND EVIDENCE
+===============================================================================
+
+  - tests/run.php runs the complete automated suite against a copy of the
+    application: sign-in, lockout, CSRF, permissions, hashing, encryption,
+    every feature's happy paths and misuse (invalid dates, over-long text,
+    foreign companies, forged forms), CSV and .ics edge cases, retention
+    jobs, phone layout rules and design rules. At the last run: 1,075 passed,
+    0 failed.
+  - Settings > Tests lists each test group with what was checked, what went
+    wrong and how it was fixed (entries such as SEC-007, CAL-001 to CAL-004).
+  - Run it with:  C:\xampp\php\php.exe tests\run.php   (about two minutes;
+    Apache and MariaDB must be running).
+  - The automated tests are evidence of intent and regression safety. They do
+    not replace an independent penetration test, which is recommended before
+    exposing the system to the internet.
+
+
+===============================================================================
+9. SETTING UP SAFELY, CHECKLIST FOR GOING LIVE
+===============================================================================
+
+  [ ] Serve only over HTTPS with a valid certificate (the cookie then gets
+      the __Host- prefix and HSTS switches on automatically).
+  [ ] Delete or block setup.php after installing (Apache already denies it).
+  [ ] Change the database root password, create the limited application
+      account, and keep config.local.php outside any public backup.
+  [ ] Give every real person an own account; give the built-in admin a long
+      unique password; switch on "Require two-step for admins".
+  [ ] Fill in Settings > Email (SMTP_SERVER, SMTP_PORT, SMTP_USERNAME,
+      SMTP_PASSWORD, EMAIL_FROM, EMAIL_TARGET) and Settings > Company details
+      (BTW number, IBAN).
+  [ ] Make sure demo data is removed.
+  [ ] Schedule daily:  purge.php  and  run_recurring.php
+  [ ] Schedule database backups; test restoring one; encrypt the backups.
+  [ ] Keep PHP, MariaDB and Apache updated; turn off directory listing;
+      restrict the server firewall to ports 80 and 443.
+  [ ] Review docs/verwerkingsregister.md, docs/datalekprocedure.md and the
+      privacy policy with a lawyer or the DPO.
+  [ ] Close the gaps in section 7 that apply to you.
+
+===============================================================================
+ END OF DOCUMENT
+===============================================================================

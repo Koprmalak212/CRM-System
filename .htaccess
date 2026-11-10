@@ -17,6 +17,6 @@ LimitRequestBody 262144
   Header always unset X-Powered-By
 </IfModule>
 # Never serve docs, SQL, logs, config or the CLI setup script
-<FilesMatch "(^\.|\.(md|sql|log|json|lock|bak|inc|ini|env|yml|yaml)$|^setup\.php$|^BUILD_STAGES\.txt$|^config\.local\.php$)">
+<FilesMatch "(^\.|\.(md|sql|log|json|lock|bak|inc|ini|env|yml|yaml)$|^setup\.php$|^BUILD_STAGES\.txt$|^SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE\.txt$|^SYSTEM_FEATURES_EXPLAINED\.txt$|^config\.local\.php$)">
   Require all denied
 </FilesMatch>
