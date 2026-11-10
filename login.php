@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/translate.php';
+require __DIR__ . '/includes/twofactor.php';
 
 if (!empty($_SESSION['admin'])) redirect('index.php');
 
@@ -12,6 +13,7 @@ const LOGIN_MAX_PER_IP = 15;      // failures from one IP across any usernames
 const DUMMY_HASH = '$argon2id$v=19$m=65536,t=4,p=1$WjRTTktmdmxua2Jic1gxZQ$2Y/LbzlvVhqHaFctMmqLPXh1xrfIdUYfKACfWc7VIRs';   // equalises timing for unknown users
 
 $error = '';
+if (!empty($_GET['locked'])) { $error = 'Too many failed attempts. Wait ' . LOGIN_WINDOW_MINUTES . ' minutes and try again.'; }
 if (!empty($_SESSION['expired'])) {
     $error = 'You were signed out because the session was idle too long. Sign in again to continue.';
     unset($_SESSION['expired']);
@@ -34,21 +36,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ((int) $byIp->fetchColumn() >= LOGIN_MAX_PER_IP || (int) $byUser->fetchColumn() >= LOGIN_MAX_PER_USER) {
         $error = 'Too many failed attempts. Wait ' . LOGIN_WINDOW_MINUTES . ' minutes and try again.';
     } else {
-        $stmt = $pdo->prepare('SELECT id, username, email, name, password_hash, must_change_password FROM admins WHERE (username = ? OR email = ?) AND is_active = 1');
+        $stmt = $pdo->prepare('SELECT id, username, email, name, password_hash, must_change_password, totp_enabled FROM admins WHERE (username = ? OR email = ?) AND is_active = 1');
         $stmt->execute([$user, $user]);
         $row = $stmt->fetch();
         $ok = password_verify($pass, $row['password_hash'] ?? DUMMY_HASH) && $row;   // always hash-check, so timing does not reveal valid usernames
         if ($ok) {
-            session_regenerate_id(true);
-            unset($_SESSION['csrf']);   // fresh token for the new session
-            $_SESSION['admin'] = ['id' => (int) $row['id'], 'username' => $row['username'], 'email' => $row['email'], 'name' => $row['name'], 'must_change' => (bool) $row['must_change_password']];
-            $_SESSION['started'] = $_SESSION['last_seen'] = time();
             if (password_needs_rehash($row['password_hash'], password_algo())) {
                 $pdo->prepare('UPDATE admins SET password_hash = ? WHERE id = ?')->execute([hash_password($pass), $row['id']]);
             }
             $pdo->prepare('DELETE FROM login_attempts WHERE ip = ? AND username = ?')->execute([$ip, $key]);
-            log_activity('info', 'Signed in', 'dashboard');
-            redirect($_SESSION['admin']['must_change'] ? 'change_password.php' : 'index.php');
+            if ((int) $row['totp_enabled'] === 1) {
+                // right password, but this account has two-step sign-in: nobody is signed in until the code step is done
+                session_regenerate_id(true);
+                unset($_SESSION['csrf']);
+                $_SESSION['pending_2fa'] = ['id' => (int) $row['id'], 't' => time()];
+                redirect('login_2fa.php');
+            }
+            login_complete($pdo, $row);
         }
         $pdo->prepare('INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, NOW())')->execute([$ip, $key]);
         $pdo->prepare('DELETE FROM login_attempts WHERE attempted_at < ?')->execute([date('Y-m-d H:i:s', time() - 86400)]);

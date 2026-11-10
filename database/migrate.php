@@ -60,4 +60,10 @@ if (!col_exists($pdo, 'invoices', 'company_id')) {
     say('invoices.company_id added');
 }
 
+// ---- Stage 7: two-factor columns on admins
+if (!col_exists($pdo, 'admins', 'totp_enabled')) {
+    $pdo->exec('ALTER TABLE admins ADD COLUMN totp_secret_enc TEXT NULL, ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN totp_last_step BIGINT UNSIGNED NULL');
+    say('admins.totp_* added');
+}
+
 echo "Database is up to date.\n";

@@ -79,6 +79,16 @@ function tab_handle(PDO $pdo, array $admin): void
         return;
     }
 
+    if ($action === 'reset_2fa') {
+        if ($isSelf) { flash('Turn off your own two-step sign-in from the Account tab.', 'bad'); return; }
+        if (!(int) $target['totp_enabled']) { flash($target['name'] . ' does not use two-step sign-in.', 'bad'); return; }
+        $pdo->prepare('UPDATE admins SET totp_secret_enc = NULL, totp_enabled = 0, totp_last_step = NULL WHERE id = ?')->execute([$id]);
+        $pdo->prepare('DELETE FROM admin_recovery_codes WHERE admin_id = ?')->execute([$id]);
+        log_activity('warning', 'Two-step sign-in reset by admin', $target['username']);
+        flash('Two-step sign-in was turned off for ' . $target['name'] . '. They can turn it on again from their Account tab.');
+        return;
+    }
+
     if ($action === 'reset_password') {
         if ($isSelf) { flash('Change your own password from the Account tab.', 'bad'); return; }
         $pw = temp_password();
@@ -128,10 +138,11 @@ function tab_render(PDO $pdo, array $admin): void
           </form>
           <?php if ($m['role'] === 'admin'): ?><p class="mt-1 text-xs text-soft">Admins always have full access.</p><?php endif; ?>
         </td>
-        <td class="px-4 py-3"><?= $active ? badge('active') : badge('suspended') ?><?= (int) $m['must_change_password'] ? '<p class="mt-1 text-xs text-soft">Must set a new password</p>' : '' ?></td>
+        <td class="px-4 py-3"><?= $active ? badge('active') : badge('suspended') ?><?= (int) $m['must_change_password'] ? '<p class="mt-1 text-xs text-soft">Must set a new password</p>' : '' ?><?= (int) $m['totp_enabled'] ? '<p class="mt-1 text-xs text-soft">Two-step sign-in on</p>' : '' ?></td>
         <td class="px-4 py-3">
           <div class="flex flex-wrap justify-end gap-2">
             <?php if (!$self): ?>
+              <?php if ((int) $m['totp_enabled']): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="reset_2fa"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?> hover:bg-[#FFD3CC] hover:text-[#7E160A]">Reset two-step</button></form><?php endif; ?>
               <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="reset_password"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?>">Reset password</button></form>
               <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="toggle_active"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?> <?= $active ? 'hover:bg-[#FFD3CC] hover:text-[#7E160A]' : 'hover:bg-lime hover:text-navy' ?>"><?= $active ? 'Disable' : 'Enable' ?></button></form>
             <?php else: ?><span class="text-xs text-soft">Use the Account tab for your own password.</span><?php endif; ?>

@@ -339,3 +339,15 @@ CREATE TABLE IF NOT EXISTS notifications (
   KEY idx_notif_read (read_at)
 ) ENGINE=InnoDB;
 INSERT IGNORE INTO app_meta (k, v) VALUES ('notify_email', 'denis@telecomlijn.nl');
+
+-- Stage 7: two-factor sign-in. The secret is stored encrypted (AES-256-GCM, the app key); totp_last_step stops a code being used twice.
+ALTER TABLE admins ADD COLUMN totp_secret_enc TEXT NULL, ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN totp_last_step BIGINT UNSIGNED NULL;
+-- One-time recovery codes, stored only as keyed hashes (HMAC-SHA256 with the app key).
+CREATE TABLE IF NOT EXISTS admin_recovery_codes (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT UNSIGNED NOT NULL,
+  code_hash CHAR(64) NOT NULL,
+  used_at DATETIME NULL,
+  KEY idx_rc_admin (admin_id, code_hash),
+  CONSTRAINT fk_rc_admin FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

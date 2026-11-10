@@ -1,8 +1,59 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/monitor.php';       // secret_encrypt / secret_decrypt
+require_once dirname(__DIR__) . '/twofactor.php';
+
+/** Two-step sign-in actions of the Account tab. */
+function tab_handle_2fa(PDO $pdo, array $admin, string $action): void
+{
+    $s = $pdo->prepare('SELECT id, username, password_hash, totp_enabled, totp_secret_enc FROM admins WHERE id = ?');
+    $s->execute([$admin['id']]);
+    $me = $s->fetch();
+    $on = (bool) (int) $me['totp_enabled'];
+    $setup = $_SESSION['totp_setup'] ?? null;
+    if (is_array($setup) && time() - (int) ($setup['t'] ?? 0) > 900) { $setup = null; unset($_SESSION['totp_setup']); }   // an unfinished set-up expires after 15 minutes
+
+    if ($action === '2fa_start') {
+        if ($on) { flash('Two-step sign-in is already on.', 'bad'); return; }
+        $_SESSION['totp_setup'] = ['secret' => base64_encode(totp_new_secret()), 't' => time()];
+        return;
+    }
+    if ($action === '2fa_cancel') { unset($_SESSION['totp_setup']); return; }
+
+    if ($action === '2fa_confirm') {
+        if ($on || !is_array($setup)) { flash('Start the set-up first.', 'bad'); return; }
+        if (tfa_locked($pdo, (string) $me['username'])) { flash('Too many wrong codes. Wait ' . TFA_WINDOW_MINUTES . ' minutes and try again.', 'bad'); return; }
+        $secret = (string) base64_decode((string) $setup['secret'], true);
+        $step = totp_verify($secret, (string) ($_POST['code'] ?? ''));
+        if ($step === null) { tfa_fail($pdo, (string) $me['username']); flash('That code is not right. Check the code in your app and try again.', 'bad'); return; }
+        $pdo->prepare('UPDATE admins SET totp_secret_enc = ?, totp_enabled = 1, totp_last_step = ? WHERE id = ?')->execute([secret_encrypt($secret), $step, $me['id']]);
+        $_SESSION['new_recovery'] = recovery_codes_make($pdo, (int) $me['id']);   // shown once, on the next page
+        unset($_SESSION['totp_setup']);
+        tfa_clear($pdo, (string) $me['username']);
+        log_activity('warning', 'Two-step sign-in turned on', (string) $me['username']);
+        flash('Two-step sign-in is on. Save your recovery codes now.');
+        return;
+    }
+
+    if ($action === '2fa_disable') {
+        if (!$on) { flash('Two-step sign-in is not on.', 'bad'); return; }
+        if (tfa_locked($pdo, (string) $me['username'])) { flash('Too many wrong codes. Wait ' . TFA_WINDOW_MINUTES . ' minutes and try again.', 'bad'); return; }
+        $pw = substr((string) ($_POST['password'] ?? ''), 0, 1024);
+        $how = password_verify($pw, (string) $me['password_hash']) ? twofactor_check($pdo, $me, substr((string) ($_POST['code'] ?? ''), 0, 40)) : null;
+        if ($how === null) { tfa_fail($pdo, (string) $me['username']); flash('The password or the code is not right, so two-step sign-in stays on.', 'bad'); return; }
+        $pdo->prepare('UPDATE admins SET totp_secret_enc = NULL, totp_enabled = 0, totp_last_step = NULL WHERE id = ?')->execute([$me['id']]);
+        $pdo->prepare('DELETE FROM admin_recovery_codes WHERE admin_id = ?')->execute([$me['id']]);
+        tfa_clear($pdo, (string) $me['username']);
+        log_activity('warning', 'Two-step sign-in turned off', (string) $me['username']);
+        flash('Two-step sign-in is off.');
+        return;
+    }
+}
+
 function tab_handle(PDO $pdo, array $admin): void
 {
+    if (str_starts_with((string) ($_POST['action'] ?? ''), '2fa_')) { tab_handle_2fa($pdo, $admin, (string) $_POST['action']); return; }
     if (($_POST['action'] ?? '') === 'notify') {
         if (!is_admin()) { deny_access('settings:notify'); }
         $mail = trim((string) ($_POST['notify_email'] ?? ''));
@@ -53,6 +104,47 @@ function tab_render(PDO $pdo, array $admin): void
       <div><label for="confirm" class="text-sm font-semibold">Confirm new password</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" required class="<?= $field ?>"></div>
       <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Update password</button>
     </form>
+  </section>
+
+  <?php
+    $me = $pdo->prepare('SELECT username, totp_enabled FROM admins WHERE id = ?'); $me->execute([$admin['id']]); $me = $me->fetch();
+    $tfaOn = (bool) (int) $me['totp_enabled'];
+    $setup = $_SESSION['totp_setup'] ?? null;
+    if (is_array($setup) && time() - (int) ($setup['t'] ?? 0) > 900) { $setup = null; unset($_SESSION['totp_setup']); }
+    $newCodes = $_SESSION['new_recovery'] ?? null; unset($_SESSION['new_recovery']);   // recovery codes are shown exactly once
+    $secret = is_array($setup) ? (string) base64_decode((string) $setup['secret'], true) : '';
+  ?>
+  <?php if ($newCodes): ?>
+  <section class="rise rounded-2xl border border-butter/30 bg-butter-100 p-5 sm:p-6 lg:col-span-2" role="alert" aria-labelledby="rc-h">
+    <h2 id="rc-h" class="text-lg font-bold tracking-tight text-butter">Your recovery codes</h2>
+    <p class="mt-1 text-sm">Keep these somewhere safe. Each code works once if you lose your phone. They will not be shown again.</p>
+    <ul class="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-deep p-4 font-mono text-sm notranslate select-all sm:grid-cols-5"><?php foreach ($newCodes as $c): ?><li><?= e($c) ?></li><?php endforeach; ?></ul>
+  </section>
+  <?php endif; ?>
+  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6 lg:col-span-2" aria-labelledby="tfa-h">
+    <h2 id="tfa-h" class="text-lg font-bold tracking-tight">Two-step sign-in</h2>
+    <?php if ($tfaOn): ?>
+      <p class="mt-1 text-sm text-soft"><?= badge('active') ?> After your password you also enter a 6-digit code from your authenticator app. Unused recovery codes: <strong class="text-ink"><?= recovery_codes_left($pdo, (int) $admin['id']) ?></strong> of <?= TOTP_RECOVERY_COUNT ?>.</p>
+      <form method="post" class="mt-5 grid gap-4 sm:grid-cols-3 sm:items-end"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_disable">
+        <div><label for="off_pw" class="text-sm font-semibold">Your password</label><input id="off_pw" name="password" type="password" autocomplete="current-password" required class="<?= $field ?>"></div>
+        <div><label for="off_code" class="text-sm font-semibold">Code from the app</label><input id="off_code" name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="40" class="<?= $field ?>"></div>
+        <button class="pressable h-11 rounded-xl border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Turn off two-step</button>
+      </form>
+    <?php elseif ($secret !== ''): ?>
+      <p class="mt-1 text-sm text-soft">In your authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password and others) choose to add an account by entering a key, and type this key. Then enter the 6-digit code the app shows.</p>
+      <dl class="mt-4 space-y-3 text-sm">
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Secret key</dt><dd class="mt-1 break-all rounded-xl bg-deep p-3 font-mono text-base tracking-wider notranslate select-all"><?= e(totp_secret_text($secret)) ?></dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Or open this link on the phone that has the app</dt><dd class="mt-1 break-all"><a class="underline decoration-lime decoration-2 underline-offset-4 notranslate" href="<?= e(totp_uri($secret, (string) $me['username'])) ?>"><?= e(totp_uri($secret, (string) $me['username'])) ?></a></dd></div>
+      </dl>
+      <form method="post" class="mt-5 flex flex-wrap items-end gap-3"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_confirm">
+        <div><label for="on_code" class="text-sm font-semibold">First code from the app</label><input id="on_code" name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="10" class="<?= $field ?> w-44"></div>
+        <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Confirm and turn on</button>
+      </form>
+      <form method="post" class="mt-3"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_cancel"><button class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Cancel</button></form>
+    <?php else: ?>
+      <p class="mt-1 text-sm text-soft">Add a second step to your own sign-in: a 6-digit code from an authenticator app. Off for now.</p>
+      <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_start"><button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Set up two-step sign-in</button></form>
+    <?php endif; ?>
   </section>
 
   <?php if (is_admin()): require_once dirname(__DIR__) . '/notifications.php'; ?>
