@@ -2182,6 +2182,17 @@ try {
     $plain = 0; foreach (['index.php'] as $pg) { $plain += substr_count(http('GET', "$base/$pg", ['jar' => $admin])['body'], 'data-plain'); }
     same($plain, substr_count(http('GET', "$base/index.php", ['jar' => $admin])['body'], 'data-empty="1"') === 4 ? 0 : 4, 'only the four tiny two-column chart tables on the Overview opt out of the card layout (none when the charts are empty)');
     check(str_contains(http('GET', "$base/index.php", ['jar' => $admin])['body'], 'role="search" class="relative min-w-0'), 'the top-bar search can shrink, so the bar (bell, theme button, language) fits on a phone');
+
+    section('36. Passwords and secrets at rest');
+    same((int) $pdo->query("SELECT COUNT(*) FROM admins WHERE password_hash NOT LIKE '$argon2id$%' AND password_hash NOT LIKE '$2y$%'")->fetchColumn(), 0, 'every account password is stored as an Argon2id (or bcrypt) hash, never as text');
+    same((int) $pdo->query("SELECT COUNT(*) FROM password_resets WHERE token_hash NOT REGEXP '^[a-f0-9]{64}$'")->fetchColumn() + (int) $pdo->query("SELECT COUNT(*) FROM invitations WHERE token_hash NOT REGEXP '^[a-f0-9]{64}$'")->fetchColumn() + (int) $pdo->query("SELECT COUNT(*) FROM admin_recovery_codes WHERE code_hash NOT REGEXP '^[a-f0-9]{64}$'")->fetchColumn(), 0, 'reset tokens, invitation tokens and recovery codes are stored only as 64-character hashes');
+    $tp = $post($admin, 'settings.php?tab=team', ['tab' => 'team', 'action' => 'add_user', 'username' => 'zz.tmp', 'name' => 'Tmp', 'email' => 'zz.tmp@example.test', 'role' => 'user', 'perm' => 'none'], 'settings.php?tab=team');
+    $shown = preg_match('/select-all">([^<]+)</', http('GET', "$base/settings.php?tab=team", ['jar' => $admin])['body'], $tm) ? html_entity_decode($tm[1]) : '';
+    check(strlen($shown) >= 12 && password_verify($shown, (string) $pdo->query("SELECT password_hash FROM admins WHERE username = 'zz.tmp'")->fetchColumn()), 'a temporary password is shown once and only its hash is stored');
+    check(!str_contains((string) $pdo->query("SELECT GROUP_CONCAT(CONCAT(action, target)) FROM activity_logs WHERE target = 'zz.tmp' OR action LIKE 'Team member%'")->fetchColumn(), $shown), 'and it never appears in the activity log');
+    $pdo->exec("DELETE FROM admins WHERE username = 'zz.tmp'"); $pdo->exec("DELETE FROM activity_logs WHERE is_demo = 0 AND target LIKE 'zz.tmp%'");
+    $teamSrc = (string) file_get_contents(__DIR__ . '/../includes/settings/team.php');
+    check(str_contains($teamSrc, '\'password_enc\' => secret_encrypt($pw)') && !str_contains($teamSrc, '\'password\' => $pw'), 'while it waits to be shown, the temporary password is encrypted in the session, not plain text');
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();
     echo "\n  ABORTED: " . get_class($e) . ': ' . $e->getMessage() . "\n";
