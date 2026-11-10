@@ -1,74 +1,174 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/img/telecomlijn-logo-white.png">
+  <img src="assets/img/telecomlijn-logo-color.png" alt="Telecomlijn" width="260">
+</picture>
+
 # Telecomlijn CRM
 
-**One calm place to run a telecom business: customers, support, planning, invoices and uptime, together.**
+### One calm place to run a telecom business.
+Customers, support, planning, invoices and uptime, together.
+
+<br>
+
+![PHP 8.2](https://img.shields.io/badge/PHP-8.2-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![MariaDB](https://img.shields.io/badge/MariaDB-10.4+-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![1,126 checks passing](https://img.shields.io/badge/tests-1%2C126%20passing-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![Proprietary](https://img.shields.io/badge/licence-proprietary-111D36?style=for-the-badge&labelColor=111D36&color=FFF1A8)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.jpg">
+  <img src="docs/screenshots/overview-light.jpg" alt="The Overview: service health, key numbers and what needs attention" width="900">
+</picture>
+
+<sub>The Overview, in light and dark mode. All data in the screenshots is generated demo data.</sub>
+
+</div>
+
+<br>
 
 Telecomlijn CRM is a private CRM and operations dashboard for a business that sells and supports connectivity. It brings the people you serve, the problems they report, the visits you plan, the money you are owed and the health of your services into one fast, clear workspace. It runs on your own server, and your data stays there.
-
-> Private software. Copyright (c) 2026 Denis Mehmed. All rights reserved. See [LICENSE](LICENSE).
 
 ---
 
 ## What it does
 
-### Know your customers
-Every customer is a **company** with its address, chamber-of-commerce and VAT numbers, and the **people** who work there. A company page shows everything in one view: its people, open tickets, invoices, upcoming appointments and the full history. Notes (call, meeting, email) and system events sit in one **timeline**, so anyone on the team can pick up a conversation where it was left.
+<table>
+<tr>
+<td width="33%" valign="top">
 
-### Handle support without losing track
-**Tickets** have a status, a priority, an owner and a comment thread. Filter by what is open, urgent or yours; urgent tickets raise an alert and an email at once. Time-to-resolve is measured for you.
+### 🏢 Know your customers
+Every customer is a **company** with its address, KvK and VAT numbers and the **people** who work there. One page shows their users, tickets, invoices, appointments and a full **timeline** of notes (call, meeting, email) and events.
 
-### Plan the work
-A **calendar** shows appointments per company and contact person in a month grid and an agenda. Click a day to plan a visit. Each person's page lists what is planned with their company, and any appointment can be added to your own calendar app with one download.
+</td>
+<td width="33%" valign="top">
 
-### Get paid
-Create **invoices** from a company in seconds, with lines, VAT, payment terms and exact amounts. Record payments (iDEAL, transfer, card, direct debit) and see what is open, due soon or overdue. Download a clean **PDF**, and set up **recurring invoices** that bill monthly, quarterly or yearly, once per period and never twice.
+### 🎫 Handle support
+**Tickets** with status, priority, owner and a comment thread. Filter by what is open, urgent or yours. Urgent tickets raise an alert and an email at once, and time-to-resolve is measured for you.
 
-### Watch your services
-An **uptime** page in the style of Uptime Kuma shows every monitored service, its history and response time, and your own **endpoint checks** keep an eye on addresses you choose. A service that goes down tells you before a customer does.
+</td>
+<td width="33%" valign="top">
 
-### See how the business is doing
-The **Overview** shows health, key numbers and trend charts for revenue, new users, tickets per week and time to resolve, each with a data table. **Reports** and **activity logs** can be searched, filtered and exported.
+### 📅 Plan the work
+A **calendar** of appointments per company and contact person, as a month grid and an agenda. Click a day to plan a visit, and add any appointment to your own calendar app with one download.
 
-### Find anything
-One search box finds people, companies, invoices and tickets. **CSV export and import** move data in and out safely, with bad rows explained instead of guessed.
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-### Stay informed
-A **notification bell** warns about overdue invoices, failed backups, services that are down and urgent tickets, and mails each one once, to the address you choose and to colleagues who opt in.
+### 💶 Get paid
+Create **invoices** from a company in seconds, record payments, and see what is open, due soon or overdue. Download a clean **PDF**, and let **recurring invoices** bill monthly, quarterly or yearly, once per period and never twice.
 
-### Run a team
-Invite colleagues by email, give them a role and permission level, switch on **two-step sign-in** (and require it for admins), reset a lost device, and see who did what in an **audit trail**.
+</td>
+<td valign="top">
+
+### 📡 Watch your services
+An **uptime** page in the style of Uptime Kuma, plus your own **endpoint checks**. A service that goes down tells you before a customer does.
+
+</td>
+<td valign="top">
+
+### 📈 See the whole picture
+The **Overview** shows health, key numbers and trends for revenue, new users, tickets and time to resolve, each with a data table. **Reports** and **activity logs** can be filtered and exported.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🔎 Find anything
+One search box finds people, companies, invoices and tickets. **CSV export and import** move data in and out safely, and explain every row they refuse.
+
+</td>
+<td valign="top">
+
+### 🔔 Stay informed
+A **notification bell** for overdue invoices, failed backups, services that are down and urgent tickets, each mailed once to the address you choose and to colleagues who opt in.
+
+</td>
+<td valign="top">
+
+### 👥 Run a team
+Invite colleagues by email, set roles and permissions, turn on **two-step sign-in** (and require it for admins), reset a lost device, and follow an **audit trail** of who did what.
+
+</td>
+</tr>
+</table>
+
+---
+
+## See it
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/company-dark.jpg" alt="A company page with its details, people, tickets and appointments"><br><sub><b>A company</b>: details, people, tickets, appointments and history on one page.</sub></td>
+<td width="50%"><img src="docs/screenshots/tickets-dark.jpg" alt="The ticket list with filters, priorities and statuses"><br><sub><b>Tickets</b>: filter by status, priority, owner and company.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/calendar-dark.jpg" alt="The calendar month grid"><br><sub><b>Calendar</b>: a month grid and an agenda, with an .ics download.</sub></td>
+<td width="50%"><img src="docs/screenshots/invoices-dark.jpg" alt="The invoice list with open, due and overdue amounts"><br><sub><b>Invoices</b>: what is open, due soon and overdue at a glance.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/ticket-light.jpg" alt="A ticket in light mode"><br><sub><b>Light mode</b>: follows your system, switch any time.</sub></td>
+<td width="50%" align="center"><img src="docs/screenshots/phone-tickets.jpg" alt="The ticket list on a phone" width="200"> <img src="docs/screenshots/phone-overview.jpg" alt="The Overview on a phone" width="200"><br><sub><b>On a phone</b>: tables become readable cards.</sub></td>
+</tr>
+</table>
 
 ---
 
 ## Built to be trusted
 
-- **Security by default.** Passwords are stored only as strong hashes. Sign-in has lockout and rate limits, sessions end when idle, forms are protected against forged requests, and stored secrets are encrypted. A strict content policy blocks injected scripts. See `docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt`.
-- **Privacy built in.** Retention periods are enforced automatically (activity logs after 12 months, invoices after the legal 7 years). Staff can look up, export and anonymise what is held about a person. Translation through Google only happens after explicit consent. A data-breach procedure and a processing register are included as drafts for legal review.
-- **Accessible.** Contrast was measured in light and dark mode, charts come with tables, everything works with a keyboard, and motion stops for people who ask for less of it.
-- **Works on a phone.** On small screens tables become readable cards, and the calendar switches to its agenda.
-- **Proven.** An automated suite of about 1,100 checks, including a crawler that follows every link and form in the program, runs against a real server. Every test and fix is documented inside the product, under Settings, Tests.
+<table>
+<tr>
+<td width="33%" valign="top">
 
-## A product that looks the part
+### 🔒 Secure by default
+Passwords are stored only as strong hashes. Sign-in has lockout and rate limits, sessions end when idle, forms resist forged requests, stored secrets are encrypted, and a strict content policy blocks injected scripts.
 
-A navy, lime and butter-yellow design with a light mode and a dark mode that follow the system setting by default, a pop-out sidebar, and a quiet, spring-based motion system. The interface has a Dutch-friendly layout, a language switch, and a few hidden surprises for the curious.
+</td>
+<td width="33%" valign="top">
+
+### 🛡️ Privacy built in
+Retention is automatic (logs after 12 months, invoices after the legal 7 years). Staff can look up, export and anonymise what is held about a person. Translation through Google happens only after explicit consent.
+
+</td>
+<td width="33%" valign="top">
+
+### ♿ Accessible and responsive
+Contrast measured in light and dark, charts with data tables, full keyboard use, and motion that stops for people who ask for less of it. On small screens tables turn into cards.
+
+</td>
+</tr>
+</table>
+
+An automated suite of **1,126 checks**, including a crawler that follows every link and form in the program, runs against a real server. Every test and fix is documented inside the product, under *Settings → Tests*.
 
 ## Under the hood
 
-PHP 8.2 and MariaDB, Tailwind CSS, no framework and no build step. It runs on a plain XAMPP stack. Pages are grouped by feature (`auth`, `users`, `companies`, `tickets`, `calendar`, `invoices`, `monitoring`, `system`, ...), shared logic lives in `includes/`, and scheduled jobs live in `bin/`. The PDF writer, the two-factor code (RFC 6238) and the SMTP client are written in-house, so customer data does not leave the server through third-party services.
+PHP 8.2 and MariaDB with Tailwind CSS: no framework and no build step, on a plain XAMPP stack. Pages are grouped by feature (`auth`, `users`, `companies`, `tickets`, `calendar`, `invoices`, `monitoring`, `system`, ...), shared logic lives in `includes/`, and scheduled jobs in `bin/`. The PDF writer, the two-factor code (RFC 6238) and the SMTP client are written in-house, so customer data does not leave the server through third-party services.
 
 ## Documentation
 
 | Read this | For |
 | --- | --- |
 | [`docs/SYSTEM_FEATURES_EXPLAINED.txt`](docs/SYSTEM_FEATURES_EXPLAINED.txt) | Every page and feature, how to use it, with worked examples |
-| [`docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt`](docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt) | How each part is secured, how the system supports the GDPR and Dutch rules, known gaps, go-live checklist |
+| [`docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt`](docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt) | How each part is secured, how it supports the GDPR and Dutch rules, known gaps, go-live checklist |
 | [`docs/INSTALL.md`](docs/INSTALL.md) | Setup, folder layout, scheduled jobs, tests, running on a network |
 | [`docs/PRODUCT.md`](docs/PRODUCT.md) | Product and design notes |
-| [`docs/datalekprocedure.md`](docs/datalekprocedure.md), [`docs/verwerkingsregister.md`](docs/verwerkingsregister.md) | Data-breach procedure and processing register (Dutch, drafts) |
+| [`docs/datalekprocedure.md`](docs/datalekprocedure.md), [`docs/verwerkingsregister.md`](docs/verwerkingsregister.md) | Data-breach procedure and processing register (Dutch, drafts for legal review) |
 
-Getting a copy running takes one command, `php bin/setup.php`; the details are in the install guide.
+<br>
 
-## Credits and licence
+<div align="center">
 
-Design and development by Denis Mehmed for Telecomlijn. Third-party components (Tailwind CSS, Hanken Grotesk, icon shapes) keep their own licences, listed in [`assets/LICENSES.txt`](assets/LICENSES.txt).
+**Design and development by Denis Mehmed for Telecomlijn.**
 
-Copyright (c) 2026 Denis Mehmed. All rights reserved. No one may use, copy, modify or distribute this software without written permission. See [LICENSE](LICENSE).
+Copyright © 2026 Denis Mehmed. All rights reserved. No one may use, copy, modify or distribute this software without written permission. See [LICENSE](LICENSE).
+Third-party components (Tailwind CSS, Hanken Grotesk, icon shapes) keep their own licences, listed in [`assets/LICENSES.txt`](assets/LICENSES.txt).
+
+</div>
