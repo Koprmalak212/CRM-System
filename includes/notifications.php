@@ -40,6 +40,9 @@ function notifications_refresh(PDO $pdo, bool $force = false): int
     }
     $new = 0;
 
+    // Recurring invoices that became due are created first, so an overdue one is noticed in the same pass. An error here is only logged.
+    try { require_once __DIR__ . '/recurring.php'; recurring_run_due($pdo); } catch (Throwable $e) { error_log('Recurring run failed: ' . $e->getMessage()); }
+
     // 1. invoices past their due date with money still owed
     if (!function_exists('invoice_base_sql')) { require __DIR__ . '/invoices.php'; }
     foreach ($pdo->query("SELECT id, number, customer, balance_cents, is_demo FROM (" . invoice_base_sql() . ") t WHERE state = 'overdue' LIMIT 200") as $r) {

@@ -14,7 +14,7 @@ declare(strict_types=1);
 /** Tables that carry the is_demo tag, in the order they are shown to the admin. */
 const DEMO_TABLES = [
     'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
-    'payments' => 'Payments', 'reports' => 'Reports', 'backups' => 'Backups',
+    'payments' => 'Payments', 'recurring_invoices' => 'Recurring invoices', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
 
@@ -287,6 +287,14 @@ function demo_seed(PDO $pdo): array
             $payIns->execute([$iid, $sub + $vat, demo_pick(['iDEAL', 'Bank transfer', 'Bank transfer', 'Direct debit', 'Credit card']), $day(-$paidAgo), 'PAY-' . mt_rand(100000, 999999), $day(-$paidAgo) . ' 14:00:00']);
         }
 
+        // ----- Recurring invoices: next dates are all in the future, so loading demo data never creates invoices by itself
+        $recIns = $pdo->prepare('INSERT INTO recurring_invoices (company_id, description, amount_cents, vat_rate, frequency, next_date, anchor_day, terms_days, active, created_by, is_demo) VALUES (?,?,?,?,?,?,?,14,?,?,1)');
+        foreach ([['Business fiber 1 Gbps (monthly)', 14900, 'month', 1], ['Managed firewall (monthly)', 8900, 'month', 1], ['VoIP seats, 3CX (quarterly)', 22800, 'quarter', 0], ['Yearly support contract', 120000, 'year', 1]] as $n => [$d, $amt, $freq, $act]) {
+            $co = $customers[$n % count($customers)];
+            $next = date('Y-m-d', strtotime('+' . mt_rand(6, 25) . ' days'));
+            $recIns->execute([$co['id'], $d, $amt, 21, $freq, $next, (int) date('j', strtotime($next)), $act, 'admin']);
+        }
+
         // ----- Example endpoints (real checks, but tagged so they can be removed with the rest)
         $pdo->exec("INSERT INTO monitored_endpoints (name, url, method, expected_status, interval_min, is_demo) VALUES ('Telecomlijn website (demo)', 'https://telecomlijn.nl/', 'GET', 200, 5, 1), ('Example.com (demo)', 'https://example.com/', 'HEAD', 200, 5, 1)");
 
@@ -316,8 +324,9 @@ function demo_remove(PDO $pdo): array
         $pdo->exec("DELETE FROM notes WHERE about_type = 'user' AND about_id NOT IN (SELECT id FROM users)");   // notes typed by hand on a removed demo user go with that user
         $pdo->exec('DELETE FROM invoices WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = invoices.id AND p.is_demo = 0)');
         // a demo company stays while a real user or a kept invoice still points at it
-        $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id)');
+        $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM recurring_invoices r WHERE r.company_id = companies.id AND r.is_demo = 0)');
         $pdo->exec("DELETE FROM notes WHERE about_type = 'company' AND about_id NOT IN (SELECT id FROM companies)");
+        $pdo->exec('DELETE FROM recurring_invoices WHERE is_demo = 1');   // after the invoices: the ones it made that were kept lose the link
         $pdo->exec('DELETE FROM monitored_endpoints WHERE is_demo = 1');
         $pdo->exec('DELETE FROM services WHERE is_demo = 1');
         $pdo->exec('DELETE FROM reports WHERE is_demo = 1');

@@ -409,3 +409,38 @@ CREATE TABLE IF NOT EXISTS invitations (
 ) ENGINE=InnoDB;
 -- Raised when a password is reset, so every other signed-in session of that person ends.
 ALTER TABLE admins ADD COLUMN session_epoch INT UNSIGNED NOT NULL DEFAULT 0;
+
+-- Stage 10: supplier details for invoices and PDFs (BTW number and IBAN stay empty until someone enters them),
+-- and recurring invoices. A unique key on (recurring_id, issue_date) means a period can never be invoiced twice.
+CREATE TABLE IF NOT EXISTS company_profile (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  name VARCHAR(80) NOT NULL DEFAULT '',
+  address1 VARCHAR(80) NOT NULL DEFAULT '',
+  address2 VARCHAR(80) NOT NULL DEFAULT '',
+  address3 VARCHAR(80) NOT NULL DEFAULT '',
+  kvk VARCHAR(8) NOT NULL DEFAULT '',
+  btw_number VARCHAR(20) NOT NULL DEFAULT '',
+  iban VARCHAR(34) NOT NULL DEFAULT '',
+  email VARCHAR(190) NOT NULL DEFAULT '',
+  phone VARCHAR(40) NOT NULL DEFAULT '',
+  updated_at DATETIME NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS recurring_invoices (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  description VARCHAR(200) NOT NULL,
+  amount_cents INT UNSIGNED NOT NULL,
+  vat_rate TINYINT UNSIGNED NOT NULL DEFAULT 21,
+  frequency ENUM('month','quarter','year') NOT NULL DEFAULT 'month',
+  next_date DATE NOT NULL,
+  anchor_day TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  terms_days TINYINT UNSIGNED NOT NULL DEFAULT 14,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  last_run DATE NULL,
+  created_by VARCHAR(60) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_rec_due (active, next_date),
+  CONSTRAINT fk_rec_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+ALTER TABLE invoices ADD COLUMN recurring_id INT UNSIGNED NULL, ADD UNIQUE KEY uq_inv_recurring (recurring_id, issue_date), ADD CONSTRAINT fk_inv_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_invoices(id) ON DELETE SET NULL;

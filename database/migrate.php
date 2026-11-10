@@ -72,4 +72,10 @@ if (!col_exists($pdo, 'admins', 'session_epoch')) {
     say('admins.session_epoch added');
 }
 
+// ---- Stage 10: invoices can belong to a recurring schedule
+if (!col_exists($pdo, 'invoices', 'recurring_id')) {
+    $pdo->exec('ALTER TABLE invoices ADD COLUMN recurring_id INT UNSIGNED NULL, ADD UNIQUE KEY uq_inv_recurring (recurring_id, issue_date), ADD CONSTRAINT fk_inv_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_invoices(id) ON DELETE SET NULL');
+    say('invoices.recurring_id added');
+}
+
 echo "Database is up to date.\n";

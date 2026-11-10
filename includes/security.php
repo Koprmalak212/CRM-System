@@ -285,7 +285,7 @@ function enforce_rate_limit(): void
     if ($script === 'forgot.php' && $isPost) { $rules[] = ['reset', 5, 60]; }
     if (in_array($script, ['reset.php', 'invite.php'], true) && $isPost) { $rules[] = ['token', 10, 60]; }
     if ($script === 'search.php') { $rules[] = ['search', 60, 60]; }   // the heaviest read page: several LIKE queries per request
-    if (in_array($script, ['report_download.php', 'export.php'], true)) { $rules[] = ['export', 15, 60]; }   // downloads of personal data share one small budget
+    if (in_array($script, ['report_download.php', 'export.php', 'invoice_pdf.php'], true)) { $rules[] = ['export', 15, 60]; }   // downloads of personal data share one small budget
     if ($script === 'import.php' && $isPost) { $rules[] = ['import', 10, 60]; }
     if ($script === 'login.php' && $isPost) { $rules[] = ['login', 20, 60]; }
 

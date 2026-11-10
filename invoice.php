@@ -104,15 +104,16 @@ page_start($inv['number'], 'invoices', $inv['customer']);
       </div>
       <div class="text-right">
         <?= badge($inv['state']) ?>
+        <p class="mt-2"><a href="invoice_pdf.php?id=<?= (int) $inv['id'] ?>" class="pressable inline-flex h-10 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('download', 'h-4 w-4') ?>Download PDF</a></p>
         <p class="mt-2 text-sm font-semibold <?= $inv['state'] === 'overdue' ? 'text-[#FF9C8C]' : 'text-soft' ?>"><?= e(invoice_state_text($inv)) ?></p>
       </div>
     </div>
     <div class="grid gap-4 border-b border-line p-5 text-sm sm:grid-cols-[1fr_auto] sm:p-6">
       <div><p class="text-soft">From</p><p class="font-bold"><?= e($company['name']) ?></p><p class="text-soft"><?= e(implode(', ', $company['address_lines'])) ?></p><p class="text-soft"><?= e($company['email']) ?> · <?= e($company['phone']) ?></p></div>
-      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 notranslate"><dt class="text-soft">KvK</dt><dd class="font-semibold tabular-nums"><?= e($company['kvk']) ?></dd><dt class="text-soft">BTW-id</dt><dd class="font-semibold tabular-nums"><?= e($company['btw']) ?></dd><dt class="text-soft">IBAN</dt><dd class="font-semibold tabular-nums"><?= e($company['iban']) ?></dd></dl>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 notranslate"><dt class="text-soft">KvK</dt><dd class="font-semibold tabular-nums"><?= e($company['kvk']) ?></dd><dt class="text-soft">BTW-id</dt><dd class="font-semibold tabular-nums"><?= $company['btw'] !== '' ? e($company['btw']) : '<span class="font-normal text-soft">not set</span>' ?></dd><dt class="text-soft">IBAN</dt><dd class="font-semibold tabular-nums"><?= $company['iban'] !== '' ? e($company['iban']) : '<span class="font-normal text-soft">not set</span>' ?></dd></dl>
     </div>
     <?php if (!empty($company['btw_is_placeholder'])): ?>
-      <p role="alert" class="border-b border-line bg-coral/10 px-5 py-3 text-sm font-semibold text-[#FF9C8C] sm:px-6">The supplier BTW number and IBAN are placeholders. Enter the real values in includes/company.php before this invoice is sent to a customer.</p>
+      <p role="alert" class="border-b border-line bg-coral/10 px-5 py-3 text-sm font-semibold text-[#FF9C8C] sm:px-6">The supplier BTW number and/or IBAN are not filled in yet. They are left off the PDF until you enter them under <?= is_admin() ? '<a class="underline" href="settings.php?tab=company">Settings &gt; Company details</a>' : 'Settings &gt; Company details (ask an admin)' ?>.</p>
     <?php endif; ?>
     <dl class="grid grid-cols-2 gap-4 border-b border-line p-5 text-sm sm:grid-cols-5 sm:p-6">
       <div><dt class="text-soft">Invoice</dt><dd class="mt-0.5 font-semibold tabular-nums"><?= e($inv['number']) ?></dd></div>
@@ -141,7 +142,7 @@ page_start($inv['number'], 'invoices', $inv['customer']);
       <div class="flex justify-between"><dt class="text-soft">Paid</dt><dd class="tabular-nums"><?= e(money((int) $inv['paid_cents'])) ?></dd></div>
       <div class="flex justify-between text-base font-bold"><dt>Balance due</dt><dd class="tabular-nums <?= $remaining > 0 ? ($inv['state'] === 'overdue' ? 'text-[#FF9C8C]' : 'text-butter') : 'text-lime' ?>"><?= e(money(max(0, $remaining))) ?></dd></div>
     </dl>
-    <p class="border-t border-line p-5 text-sm text-soft sm:p-6 notranslate">Please pay <?= e(money(max(0, $remaining))) ?> to IBAN <?= e($company['iban']) ?> in the name of <?= e($company['name']) ?>, quoting <?= e($inv['number']) ?>, no later than <?= e(date('j F Y', strtotime($inv['due_date']))) ?>.</p>
+    <p class="border-t border-line p-5 text-sm text-soft sm:p-6 notranslate">Please pay <?= e(money(max(0, $remaining))) ?><?= $company['iban'] !== '' ? ' to IBAN ' . e($company['iban']) . ' in the name of ' : ' to ' ?><?= e($company['name']) ?>, quoting <?= e($inv['number']) ?>, no later than <?= e(date('j F Y', strtotime($inv['due_date']))) ?>.</p>
     <?php if ($inv['notes'] !== ''): ?><p class="border-t border-line p-5 text-sm text-soft sm:p-6"><?= e($inv['notes']) ?></p><?php endif; ?>
   </section>
 

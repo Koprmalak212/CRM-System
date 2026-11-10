@@ -77,7 +77,7 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
       </div>
     <?php endforeach; ?>
   </dl>
-  <div class="flex flex-wrap gap-2"><?= csv_buttons('invoices') ?>
+  <div class="flex flex-wrap gap-2"><a href="recurring.php" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Recurring</a><?= csv_buttons('invoices') ?>
   <a href="invoice_new.php" class="pressable inline-flex h-12 items-center gap-2 rounded-xl bg-lime px-5 text-[15px] font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a></div>
 </div>
 
