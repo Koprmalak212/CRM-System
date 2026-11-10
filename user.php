@@ -4,6 +4,7 @@ require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/companies.php';
 require __DIR__ . '/includes/notes.php';
 require __DIR__ . '/includes/tickets.php';
+require __DIR__ . '/includes/appointments.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -155,6 +156,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
     <?php endif; ?>
   </section>
   <?= tickets_panel($pdo, 'user_id', $id, 'ticket_new.php?user=' . $id) ?>
+  <?php if ($u['company_id'] !== null): ?><?= appointments_panel($pdo, (int) $u['company_id'], 'Appointments of ' . $u['company'], 'appointment_edit.php?company=' . (int) $u['company_id'] . '&user=' . $id, $id) ?><?php endif; ?>
   <?= notes_panel($pdo, 'user', $id, 'user.php?id=' . $id) ?>
 </div>
 <?php page_end(); ?>

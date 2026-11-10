@@ -8,6 +8,7 @@ A CRM and admin dashboard for **Telecomlijn**: companies, users, tickets, notes,
 
 - **Overview** with system health, stats, an open-tickets tile, trend charts (revenue, new users, tickets per week, time to resolve, each with a data table) and a demo-data panel (load or remove fake data without touching real records)
 - **Companies** as their own section (address, KvK, VAT, users, invoices, open tickets), linked from users and invoices; **Notes** and an activity timeline on every user and company
+- **Calendar** of appointments per company and contact person (month grid, agenda, `.ics` export); each company and person page shows the upcoming appointments of their company
 - **Tickets** with status, priority, assignee, comment thread, filters and sorting
 - **Global search** across users, companies, invoices and tickets (wildcard characters are searched literally)
 - **CSV export and import** (admin only): UTF-8 with BOM, formula injection neutralised, duplicates skipped, bad rows listed with the reason
@@ -80,7 +81,7 @@ Secrets are deliberately left out:
 C:\xampp\php\php.exe tests/run.php
 ```
 
-980+ checks (one file per stage in `tests/parts/`) covering authentication, permissions, rate limiting, the SSRF guards, the encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, the trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast and the phone layout. Results and fixes are also documented in Settings, Tests. Phone and light-mode layout were additionally checked in a real browser at 360, 768 and 1440 px.
+1070+ checks (one file per stage in `tests/parts/`) covering authentication, permissions, rate limiting, the SSRF guards, the encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, the trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast and the phone layout. Results and fixes are also documented in Settings, Tests. Phone and light-mode layout were additionally checked in a real browser at 360, 768 and 1440 px.
 
 An optional pre-commit hook runs the suite before each commit: `git config core.hooksPath .githooks`.
 

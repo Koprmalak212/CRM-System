@@ -5,6 +5,7 @@ require __DIR__ . '/includes/invoices.php';
 require __DIR__ . '/includes/companies.php';
 require __DIR__ . '/includes/notes.php';
 require __DIR__ . '/includes/tickets.php';
+require __DIR__ . '/includes/appointments.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -74,6 +75,7 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
   </section>
 
   <?= tickets_panel($pdo, 'company_id', $id, 'ticket_new.php?company=' . $id) ?>
+  <?= appointments_panel($pdo, $id, 'Upcoming appointments', 'appointment_edit.php?company=' . $id) ?>
 
   <section class="rise rounded-2xl border border-line bg-panel shadow-panel lg:col-span-3" aria-labelledby="iv">
     <div class="flex flex-wrap items-center justify-between gap-3 p-5 pb-3"><h2 id="iv" class="text-base font-bold">Invoices</h2>

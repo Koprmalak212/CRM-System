@@ -447,3 +447,25 @@ ALTER TABLE invoices ADD COLUMN recurring_id INT UNSIGNED NULL, ADD UNIQUE KEY u
 -- Follow-up: notes can be edited (and show it) or deleted by their author or an admin; each person can opt in to notification emails.
 ALTER TABLE notes ADD COLUMN edited_at DATETIME NULL;
 ALTER TABLE admins ADD COLUMN notify_optin TINYINT(1) NOT NULL DEFAULT 0;
+
+-- Calendar: appointments with a company and, optionally, one of its people. Deleting the company removes its appointments;
+-- deleting the person only clears the contact.
+CREATE TABLE IF NOT EXISTS appointments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NULL,
+  title VARCHAR(160) NOT NULL,
+  location VARCHAR(160) NOT NULL DEFAULT '',
+  description VARCHAR(1000) NOT NULL DEFAULT '',
+  status ENUM('scheduled','done','cancelled') NOT NULL DEFAULT 'scheduled',
+  starts_at DATETIME NOT NULL,
+  ends_at DATETIME NOT NULL,
+  created_by VARCHAR(60) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_appt_time (starts_at),
+  KEY idx_appt_company (company_id, starts_at),
+  KEY idx_appt_user (user_id),
+  CONSTRAINT fk_appt_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+  CONSTRAINT fk_appt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;

@@ -12,6 +12,7 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
         'overview' => ['index.php', 'Overview', 'dashboard'],
         'users' => ['users.php', 'Users', 'users'],
         'companies' => ['companies.php', 'Companies', 'building'],
+        'calendar' => ['calendar.php', 'Calendar', 'calendar'],
         'tickets' => ['tickets.php', 'Tickets', 'ticket'],
         'connections' => ['connections.php', 'Connections', 'network'],
         'uptime' => ['uptime.php', 'Uptime', 'gauge'],

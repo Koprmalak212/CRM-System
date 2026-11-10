@@ -34,7 +34,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $root->exec('ALTER TABLE invoices DROP FOREIGN KEY fk_inv_recurring, DROP INDEX uq_inv_recurring, DROP COLUMN recurring_id');   // later stages point at invoices and companies,
     $root->exec('DROP TABLE recurring_invoices');                                                                                    // which the old database did not have
     $root->exec('ALTER TABLE invoices DROP FOREIGN KEY fk_inv_company, DROP COLUMN company_id');
-    $root->exec('DROP TABLE ticket_comments, tickets');   // later stages point at companies, which the old database did not have
+    $root->exec('DROP TABLE ticket_comments, tickets, appointments');   // later stages point at companies, which the old database did not have
     $root->exec('DROP TABLE companies');
     $root->exec("ALTER TABLE users ADD COLUMN company VARCHAR(120) NOT NULL DEFAULT '', ADD KEY idx_company (company)");
     $ui = $root->prepare("INSERT INTO users (name, email, country, last_seen, created_at, company, is_demo) VALUES (?,?,?,NOW(),NOW(),?,?)");

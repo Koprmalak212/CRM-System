@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 /** Tables that carry the is_demo tag, in the order they are shown to the admin. */
 const DEMO_TABLES = [
-    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
+    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'appointments' => 'Appointments', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
     'payments' => 'Payments', 'recurring_invoices' => 'Recurring invoices', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
@@ -146,6 +146,22 @@ function demo_seed(PDO $pdo): array
             $pdo->prepare('UPDATE tickets SET reference = ? WHERE id = ?')->execute(['TCK-' . str_pad((string) $tid, 4, '0', STR_PAD_LEFT), $tid]);
             for ($k = mt_rand(1, 4); $k > 0; $k--) {
                 $tcIns->execute([$tid, demo_pick(['admin', 'support']), demo_pick($replies), demo_ts(mt_rand($upd, max($upd, $age - 60)))]);
+            }
+        }
+
+        // ----- Appointments: a few per company, from a month back to two months ahead, usually with one of its people
+        $apIns = $pdo->prepare('INSERT INTO appointments (company_id, user_id, title, location, description, status, starts_at, ends_at, created_by, is_demo) VALUES (?,?,?,?,?,?,?,?,?,1)');
+        $apTitles = ['Fiber installation', 'Quarterly review', 'Phone system training', 'Network health check', 'Contract renewal talk', 'Onboarding call', 'Site survey', 'Router replacement'];
+        $apPlaces = ['On site', 'Our office, Rotterdam', 'Video call', 'Customer office'];
+        foreach ($companies as $co) {
+            for ($k = mt_rand(2, 4); $k > 0; $k--) {
+                $dayOffset = mt_rand(-30, 60);
+                $startTs = strtotime(date('Y-m-d', strtotime(($dayOffset >= 0 ? '+' : '') . $dayOffset . ' days')) . ' ' . mt_rand(8, 16) . ':' . demo_pick(['00', '30']));
+                $endTs = $startTs + demo_pick([1800, 3600, 5400, 7200]);
+                $past = $endTs < time();
+                $status = $past ? demo_weighted(['done' => 85, 'cancelled' => 15]) : demo_weighted(['scheduled' => 92, 'cancelled' => 8]);
+                $contact = !empty($uByCo[$co['id']]) && mt_rand(0, 100) < 80 ? demo_pick($uByCo[$co['id']]) : null;
+                $apIns->execute([$co['id'], $contact, demo_pick($apTitles), demo_pick($apPlaces), '', $status, date('Y-m-d H:i:s', $startTs), date('Y-m-d H:i:s', $endTs), 'admin']);
             }
         }
 
@@ -316,6 +332,7 @@ function demo_remove(PDO $pdo): array
     $before = demo_counts($pdo, 1);
     $pdo->beginTransaction();
     try {
+        $pdo->exec('DELETE FROM appointments WHERE is_demo = 1');
         $pdo->exec('DELETE FROM notifications WHERE is_demo = 1');
         $pdo->exec('DELETE FROM tickets WHERE is_demo = 1');   // its comments go with it
         $pdo->exec('DELETE FROM notes WHERE is_demo = 1');
@@ -324,7 +341,7 @@ function demo_remove(PDO $pdo): array
         $pdo->exec("DELETE FROM notes WHERE about_type = 'user' AND about_id NOT IN (SELECT id FROM users)");   // notes typed by hand on a removed demo user go with that user
         $pdo->exec('DELETE FROM invoices WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = invoices.id AND p.is_demo = 0)');
         // a demo company stays while a real user or a kept invoice still points at it
-        $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM recurring_invoices r WHERE r.company_id = companies.id AND r.is_demo = 0)');
+        $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM recurring_invoices r WHERE r.company_id = companies.id AND r.is_demo = 0) AND NOT EXISTS (SELECT 1 FROM appointments ap WHERE ap.company_id = companies.id AND ap.is_demo = 0)');
         $pdo->exec("DELETE FROM notes WHERE about_type = 'company' AND about_id NOT IN (SELECT id FROM companies)");
         $pdo->exec('DELETE FROM recurring_invoices WHERE is_demo = 1');   // after the invoices: the ones it made that were kept lose the link
         $pdo->exec('DELETE FROM monitored_endpoints WHERE is_demo = 1');
