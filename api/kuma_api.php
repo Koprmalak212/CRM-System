@@ -69,7 +69,10 @@ if ($action === 'test') {
     $stored = kuma_settings($pdo);
     $url = $str($in['kumaUrl'] ?? '') !== '' ? $str($in['kumaUrl']) : $stored['url'];
     $key = trim($str($in['apiKey'] ?? ''));
-    if ($key === '' && $stored['has_key']) { $key = secret_decrypt($stored['key_enc']); }   // blank means "use the saved key"
+    // Blank means "use the saved key", but only for the saved address: otherwise an admin (or a forged request) could name any
+    // address and make the server send the stored key to it.
+    $sameUrl = $stored['url'] !== '' && rtrim($url, '/') === rtrim((string) $stored['url'], '/');
+    if ($key === '' && $stored['has_key'] && $sameUrl) { $key = secret_decrypt($stored['key_enc']); }
     [$okUrl, $urlMsg] = kuma_validate_url($url);
     if (!$okUrl) { kuma_json(200, ['ok' => false, 'result' => 'invalid_url', 'message' => $urlMsg]); }
     if ($key === '') { kuma_json(200, ['ok' => false, 'result' => 'no_key', 'message' => 'Enter the API key to test.']); }
