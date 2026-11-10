@@ -44,3 +44,67 @@ $r = http('GET', "$base/auth/change_password.php", ['jar' => $fl]);
 check($r['code'] === 200, 'and the change-password page itself opens');
 $pdo->exec("DELETE FROM admins WHERE username = 'zz.first16'");
 $pdo->exec("DELETE FROM activity_logs WHERE target LIKE '%zz.first16%' OR actor = 'zz.first16'");
+
+section('48. Hardening: sign-in lockout per account, from any address');
+check(str_contains((string) file_get_contents($root16 . '/database/schema.sql'), 'KEY idx_user_time (username, attempted_at)'), 'the schema has an index for the per-account count');
+$pdo48 = $pdo;
+same((int) $pdo48->query("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'login_attempts' AND index_name = 'idx_user_time'")->fetchColumn() > 0, true, 'and the running database has it (run database/migrate.php after an update)');
+$pw48 = random_password();
+$pdo->prepare("INSERT INTO admins (username, email, name, password_hash, role, perm_integrations, must_change_password) VALUES ('zz.lock16', 'zz.lock16@example.test', 'Lock Tester', ?, 'user', 'none', 0)")->execute([hash_password($pw48)]);
+$spread = function (string $name, int $n, string $when = 'NOW()') use ($pdo) {   // $n failures for $name, each from a different address
+    $ins = $pdo->prepare("INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, $when)");
+    for ($i = 1; $i <= $n; $i++) { $ins->execute(['203.0.113.' . $i, $name]); }
+};
+$reset48 = function () use ($pdo) { $pdo->exec('DELETE FROM login_attempts'); $pdo->exec('DELETE FROM rate_limits'); };
+$tryLogin = function (string $user, string $pass) use ($base) {   // returns [signed in?, page text]
+    $jar = tempnam(sys_get_temp_dir(), 'tl');
+    $page = http('GET', "$base/auth/login.php", ['jar' => $jar]);
+    $r = http('POST', "$base/auth/login.php", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'username' => $user, 'password' => $pass])]);
+    $in = $r['code'] === 302 && str_contains($r['headers'], 'index.php');
+    @unlink($jar);
+    return [$in, $r['body'], $r['code']];
+};
+$LOCK = 'Too many failed attempts. Wait 15 minutes and try again.';
+
+$reset48(); $spread('zz.lock16', 9);
+[$in] = $tryLogin('zz.lock16', $pw48);
+check($in, '9 failures from 9 different addresses do not lock the account: the right password still works');
+
+$reset48(); $spread('zz.lock16', 10);
+[$in, $body] = $tryLogin('zz.lock16', $pw48);
+check(!$in && str_contains($body, $LOCK), '10 failures from 10 different addresses lock the account: even the right password is refused for now', substr(strip_tags($body), 0, 120));
+
+$reset48(); $spread('zz.lock16@example.test', 10);
+[$in, $body] = $tryLogin('zz.lock16', $pw48);
+check(!$in && str_contains($body, $LOCK), 'failures typed as the email address count against the username too (no way round it by switching)');
+$reset48(); $spread('zz.lock16', 5); $spread('zz.lock16@example.test', 5);
+$pdo->exec("UPDATE login_attempts SET ip = CONCAT('198.51.100.', id % 200) WHERE ip LIKE '203.0.113.%'");
+[$in] = $tryLogin('zz.lock16@example.test', $pw48);
+check(!$in, 'five by username and five by email together close the account');
+
+$reset48(); $spread('no.such.account16', 10);
+[$in, $body] = $tryLogin('no.such.account16', 'whatever-123');
+check(!$in && str_contains($body, $LOCK), 'an unknown name shows exactly the same lockout message, so nothing reveals whether an account exists');
+
+$reset48(); $spread('zz.lock16', 10, 'NOW() - INTERVAL 20 MINUTE');
+[$in] = $tryLogin('zz.lock16', $pw48);
+check($in, 'failures older than the 15-minute window no longer count: the lockout lifts by itself');
+
+$reset48(); $spread('zz.lock16', 10);
+[$in, $body] = $tryLogin('zz.lock16', 'a-wrong-password-1');
+check(!$in && str_contains($body, $LOCK), 'a wrong password during the lockout gets the same message');
+same((int) $pdo->query("SELECT COUNT(*) FROM login_attempts WHERE username = 'zz.lock16'")->fetchColumn(), 10, 'attempts made during a lockout are not added to the count, so it does not grow without end');
+
+$reset48(); $spread('zz.lock16', 9);
+[$in, $body] = $tryLogin('zz.lock16', 'a-wrong-password-2');
+check(!$in && str_contains($body, 'do not match'), 'the 10th failure itself still answers "do not match"');
+check((int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action LIKE 'Sign-in locked for 15 minutes%' AND target = 'zz.lock16' AND created_at > NOW() - INTERVAL 5 MINUTE")->fetchColumn() === 1, 'and that failure writes one activity-log entry saying the account is locked');
+[$in] = $tryLogin('zz.lock16', $pw48);
+check(!$in, 'from then on the account is locked for the right password too');
+
+$reset48(); $spread('some.other.person', 10);
+[$in] = $tryLogin('zz.lock16', $pw48);
+check($in, 'a lockout on one account does not affect another');
+$reset48();
+$pdo->exec("DELETE FROM admins WHERE username = 'zz.lock16'");
+$pdo->exec("DELETE FROM activity_logs WHERE target IN ('zz.lock16', 'zz.lock16@example.test') OR actor = 'zz.lock16'");
