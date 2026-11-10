@@ -281,7 +281,8 @@ function enforce_rate_limit(): void
     $rules = [['all', 240, 60]];
     if ($isPost) { $rules[] = ['post', 40, 60]; }
     if ($script === 'search.php') { $rules[] = ['search', 60, 60]; }   // the heaviest read page: several LIKE queries per request
-    if ($script === 'report_download.php') { $rules[] = ['export', 15, 60]; }
+    if (in_array($script, ['report_download.php', 'export.php'], true)) { $rules[] = ['export', 15, 60]; }   // downloads of personal data share one small budget
+    if ($script === 'import.php' && $isPost) { $rules[] = ['import', 10, 60]; }
     if ($script === 'login.php' && $isPost) { $rules[] = ['login', 20, 60]; }
 
     foreach ($rules as [$bucket, $limit, $window]) {

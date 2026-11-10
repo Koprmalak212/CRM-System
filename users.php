@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+require __DIR__ . '/includes/csv.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -80,6 +81,7 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     </select>
     <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
     <?php if ($q !== '' || $role !== '' || $status !== '' || $company > 0): ?><a href="users.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
+    <span class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('users') ?></span>
   </form>
 
   <div class="overflow-x-auto">

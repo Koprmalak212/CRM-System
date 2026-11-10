@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
+require __DIR__ . '/includes/csv.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -38,7 +39,7 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     <input id="q" name="q" type="search" value="<?= e($q) ?>" placeholder="Name, city, KvK or email" class="<?= $field ?> w-full sm:w-72">
     <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Search</button>
     <?php if ($q !== ''): ?><a href="companies.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear search</a><?php endif; ?>
-    <a href="company_edit.php" class="pressable ml-auto inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>Add company</a>
+    <div class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('companies') ?><a href="company_edit.php" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>Add company</a></div>
   </form>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[820px] text-left text-sm">

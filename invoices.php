@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/invoices.php';
+require __DIR__ . '/includes/csv.php';
 require __DIR__ . '/includes/layout.php';
 require_login();
 $pdo = db();
@@ -76,7 +77,8 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
       </div>
     <?php endforeach; ?>
   </dl>
-  <a href="invoice_new.php" class="pressable inline-flex h-12 items-center gap-2 rounded-xl bg-lime px-5 text-[15px] font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a>
+  <div class="flex flex-wrap gap-2"><?= csv_buttons('invoices') ?>
+  <a href="invoice_new.php" class="pressable inline-flex h-12 items-center gap-2 rounded-xl bg-lime px-5 text-[15px] font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a></div>
 </div>
 
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Invoice status" style="animation-delay:.05s">
