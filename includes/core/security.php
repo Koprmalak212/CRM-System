@@ -264,7 +264,9 @@ function client_ip(): string
     return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
 }
 
-/** Fixed-window counter per IP and bucket. Returns [allowed, seconds until the window resets, hits]. */
+/** Fixed-window counter per IP and bucket. Returns [allowed, seconds until the window resets, hits].
+ *  Old windows and other expired data are not cleaned here: bin/purge.php does that once a day from cron (see docs/INSTALL.md),
+ *  so a web request never pays for housekeeping. */
 function rate_hit(string $bucket, int $limit, int $windowSeconds): array
 {
     $now = time();
@@ -276,9 +278,6 @@ function rate_hit(string $bucket, int $limit, int $windowSeconds): array
     $s = $pdo->prepare('SELECT hits FROM rate_limits WHERE ip = ? AND bucket = ? AND window_start = ?');
     $s->execute([$ip, $bucket, $start]);
     $hits = (int) $s->fetchColumn();
-    if (random_int(1, 150) === 1) {   // housekeeping: expired windows, old login attempts and logs past their retention period
-        purge_expired_data($pdo);
-    }
     return [$hits <= $limit, max(1, $start + $windowSeconds - $now), $hits];
 }
 

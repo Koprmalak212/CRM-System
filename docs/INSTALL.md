@@ -74,7 +74,7 @@ Left out:
 
 ## Scheduled jobs
 
-Set these up in the Windows Task Scheduler (or cron):
+Set these up in the Windows Task Scheduler (or cron). **The retention job is the only thing that deletes expired data** (activity logs after 12 months, login attempts, rate-limit counters, monitoring history, old invoices): web requests no longer do any housekeeping, so if `bin/purge.php` is not scheduled, nothing is ever removed.
 
 | Job | When | Command |
 | --- | --- | --- |
@@ -84,6 +84,18 @@ Set these up in the Windows Task Scheduler (or cron):
 | Kuma history | every minute | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\kuma_poll.php` |
 
 Recurring invoices are also created when the site is opened.
+
+On Linux the same jobs as cron lines (`crontab -e` for the web server's user, or the owner of the files):
+
+```
+# retention: every night at 03:15 (hourly keeps the rate-limit table smaller on a busy site: 15 * * * *)
+15 3 * * *  php /var/www/crm/bin/purge.php >> /var/www/crm/storage/purge.log 2>&1
+# recurring invoices: every day at 06:00
+0 6 * * *   php /var/www/crm/bin/run_recurring.php >> /var/www/crm/storage/recurring.log 2>&1
+# endpoint checks and Kuma history: every minute
+* * * * *   php /var/www/crm/bin/check_endpoints.php
+* * * * *   php /var/www/crm/bin/kuma_poll.php
+```
 
 ## Tests
 

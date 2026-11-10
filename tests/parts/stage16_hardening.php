@@ -108,3 +108,25 @@ check($in, 'a lockout on one account does not affect another');
 $reset48();
 $pdo->exec("DELETE FROM admins WHERE username = 'zz.lock16'");
 $pdo->exec("DELETE FROM activity_logs WHERE target IN ('zz.lock16', 'zz.lock16@example.test') OR actor = 'zz.lock16'");
+
+section('49. Hardening: the retention purge runs from cron, not from web requests');
+$sec = (string) file_get_contents($root16 . '/includes/core/security.php');
+preg_match('/function rate_hit\(.*?\R}\R/s', $sec, $mm);   // \R: the file may have Windows line endings
+check(isset($mm[0]) && !str_contains($mm[0], 'purge_expired_data') && !str_contains($mm[0], 'random_int'), 'rate_hit() no longer calls the purge (and has no random housekeeping)');
+check(!str_contains($sec, 'random_int(1, 150)'), 'the one-in-150 purge is gone from security.php');
+$pdo->exec("DELETE FROM activity_logs WHERE action = 'ZZH49 old'");
+$pdo->exec("INSERT INTO activity_logs (level, actor, action, target, ip, created_at) VALUES ('info', 'zz', 'ZZH49 old', 'old', '::1', NOW() - INTERVAL 400 DAY)");
+$pdo->exec("DELETE FROM rate_limits WHERE bucket = 'zz49'");
+$pdo->exec("INSERT INTO rate_limits (ip, bucket, window_start, hits) VALUES ('0.0.0.0', 'zz49', " . (time() - 7200) . ", 3)");
+$old49 = fn() => (int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action = 'ZZH49 old'")->fetchColumn();
+$win49 = fn() => (int) $pdo->query("SELECT COUNT(*) FROM rate_limits WHERE bucket = 'zz49' AND window_start < " . (time() - 3600))->fetchColumn();
+for ($i = 0; $i < 900; $i++) { rate_hit('zz49b', 100000, 60); }   // before the change roughly 6 of these 900 calls would have purged
+check($old49() === 1 && $win49() === 1, '900 rate-limit calls leave expired rows alone: nothing is purged inside a request');
+$pdo->exec("DELETE FROM rate_limits WHERE bucket = 'zz49b'");
+$p = proc_open([PHP_BINARY, $root16 . '/bin/purge.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp);
+$out49 = stream_get_contents($pp[1]); $code49 = proc_close($p);
+check($code49 === 0 && str_contains($out49, 'Removed'), 'bin/purge.php runs from the command line and reports what it removed', trim($out49));
+check($old49() === 0 && $win49() === 0, 'and it removes the expired activity-log row and the expired rate-limit window');
+same(http('GET', "$base/bin/purge.php")['code'], 403, 'the purge can not be started from the web (403)');
+$inst49 = (string) file_get_contents($root16 . '/docs/INSTALL.md');
+check(str_contains($inst49, 'bin/purge.php') && str_contains($inst49, '15 3 * * *') && str_contains($inst49, 'only thing that deletes expired data'), 'docs/INSTALL.md documents the cron line and says that nothing else purges');
