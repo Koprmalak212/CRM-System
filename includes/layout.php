@@ -51,6 +51,7 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
 </style>
 <script nonce="<?= csp_nonce() ?>">document.documentElement.classList.add('js');try{var s=localStorage.getItem('sbPinned');var p=s===null?!matchMedia('(hover:hover)').matches:s==='1';if(p)document.documentElement.dataset.sb='pinned'}catch(e){};try{if(localStorage.getItem('sbSeen'))document.documentElement.dataset.sbseen='1'}catch(e){}setTimeout(function(){if(!window.__motion)document.documentElement.classList.add('reveal-all')},3000);</script>
 <link rel="stylesheet" href="assets/motion.css">
+<link rel="stylesheet" href="assets/cards.css">
 </head>
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-lime focus:px-4 focus:py-2 focus:font-semibold focus:text-navy">Skip to content</a>
@@ -97,7 +98,7 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>Menu
       </button>
       <button id="menuBtn" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-ink/10 lg:hidden" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><?= icon('menu', 'h-5 w-5') ?></button>
-      <form action="search.php" method="get" role="search" class="relative max-w-md flex-1">
+      <form action="search.php" method="get" role="search" class="relative min-w-0 max-w-md flex-1">
         <label for="gsearch" class="sr-only">Search everything</label>
         <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-soft"><?= icon('search', 'h-4 w-4') ?></span>
         <input id="gsearch" name="q" type="search" placeholder="Search users, companies, invoices, tickets" class="h-10 w-full rounded-xl border border-line bg-panel pl-10 pr-3 text-sm placeholder:text-soft/80 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
@@ -161,6 +162,7 @@ function page_end(): void
 </script>
 <?= theme_toggle_script() ?>
 <script src="assets/motion.js" defer></script>
+<script src="assets/cards.js" defer></script>
 </body>
 </html>
 <?php

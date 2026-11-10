@@ -1,0 +1,40 @@
+/*
+ * Phone layout for tables (stage 12). Below 640 px every table (assets/cards.js has marked it with .rt) becomes a stack of cards:
+ * one card per row, the column name beside each value, the sort links of the header kept as a row of chips above the cards.
+ * The explicit ARIA roles that cards.js sets keep it a table for screen readers, even though it is no longer drawn like one.
+ * Colours come from the theme variables, so it follows light and dark mode.
+ */
+@media (max-width: 639.98px) {
+  .overflow-x-auto:has(> table.rt) { overflow-x: visible; }
+
+  table.rt, table.rt thead, table.rt tbody { display: block; width: 100%; min-width: 0 !important; }
+
+  /* the header row: only the sortable columns are kept, as chips */
+  table.rt thead tr { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .75rem 1rem; border-bottom: 1px solid rgb(var(--c-line)); }
+  table.rt thead tr.rt-has-sort::before { content: "Sort by"; margin-right: .25rem; font-size: .75rem; font-weight: 600; color: rgb(var(--c-soft)); }
+  table.rt thead th { display: none; padding: 0 !important; background: none; }
+  table.rt thead th.rt-sort { display: block; }
+  table.rt thead th.rt-sort a { display: inline-flex; align-items: center; gap: .25rem; min-height: 2.25rem; padding: .25rem .8rem; border: 1px solid rgb(var(--c-line)); border-radius: 999px; font-size: .8125rem; }
+  table.rt thead th.rt-sort[aria-sort="ascending"] a, table.rt thead th.rt-sort[aria-sort="descending"] a { border-color: rgb(var(--c-focus)); color: rgb(var(--c-ink)); }
+
+  /* one card per row */
+  table.rt tbody tr { display: block; padding: .5rem 0; border-top: 1px solid rgb(var(--c-line)); }
+  table.rt tbody tr:first-child { border-top: 0; }
+  table.rt tbody td, table.rt tbody th[scope="row"] {
+    display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); align-items: baseline; gap: .75rem;
+    padding: .35rem 1rem !important; text-align: left !important; white-space: normal !important;
+  }
+  table.rt tbody td::before, table.rt tbody th[scope="row"]::before {
+    content: attr(data-label); font-size: .75rem; font-weight: 600; line-height: 1.4; color: rgb(var(--c-soft));
+  }
+  table.rt .rt-v { display: block; min-width: 0; overflow-wrap: anywhere; text-align: right; justify-self: end; }
+  /* the first cell is the card's title: full width, no label; cells without a label and empty-state rows too */
+  table.rt tbody td[data-main], table.rt tbody td[data-label=""], table.rt tbody td[colspan] { display: block; }
+  table.rt tbody td[data-main]::before, table.rt tbody td[data-label=""]::before, table.rt tbody td[colspan]::before { content: none; }
+  table.rt tbody td[data-main] .rt-v, table.rt tbody td[data-label=""] .rt-v { text-align: left; }
+  table.rt tbody td[colspan] .rt-v { text-align: center; }
+  table.rt tbody td[data-main] { padding-top: .6rem !important; }
+  /* action buttons: easy to hit, wrapping instead of overflowing */
+  table.rt tbody td[data-label=""] .rt-v, table.rt tbody td[data-label="Action"] .rt-v, table.rt tbody td[data-label="Actions"] .rt-v { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .5rem; }
+  table.rt tbody td[data-label="Actions"] .rt-v > div { justify-content: flex-start !important; }
+}

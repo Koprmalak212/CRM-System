@@ -111,7 +111,7 @@ function trend_chart(string $id, string $title, string $sub, array $series, call
     }
     $h .= '</div><div class="mt-2 flex justify-between text-xs text-soft"><span>' . e($series[0]['label']) . '</span><span>' . e($series[intdiv($n - 1, 2)]['label']) . '</span><span>' . e($series[$n - 1]['label']) . '</span></div>';
     $h .= '<details class="mt-3 text-sm"><summary class="cursor-pointer font-semibold underline decoration-lime decoration-2 underline-offset-4">View as table</summary>'
-        . '<table class="mt-2 w-full text-left text-sm"><caption class="sr-only">' . e($title) . '</caption><thead class="text-xs text-soft"><tr><th scope="col" class="py-1.5 pr-4 font-semibold">Period</th><th scope="col" class="py-1.5 text-right font-semibold">' . e($valueHeading) . '</th></tr></thead><tbody class="divide-y divide-line">';
+        . '<table class="mt-2 w-full text-left text-sm" data-plain><caption class="sr-only">' . e($title) . '</caption><thead class="text-xs text-soft"><tr><th scope="col" class="py-1.5 pr-4 font-semibold">Period</th><th scope="col" class="py-1.5 text-right font-semibold">' . e($valueHeading) . '</th></tr></thead><tbody class="divide-y divide-line">';
     foreach ($series as $p) {
         $h .= '<tr><th scope="row" class="py-1.5 pr-4 font-normal text-soft">' . e($p['label']) . '</th><td class="py-1.5 text-right tabular-nums notranslate">' . ($p['value'] === null ? '–' : e($fmt($p['value']))) . '</td></tr>';
     }

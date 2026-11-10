@@ -36,6 +36,7 @@ function check(bool $cond, string $name, string $detail = ''): void
     if ($cond) { $pass++; echo "  ok    $name\n"; }
     else { $fail++; $failures[] = $name; echo "  FAIL  $name" . ($detail !== '' ? "  ($detail)" : '') . "\n"; }
 }
+function fresh_window(): void { $r = time() % 60; if ($r > 35) { sleep(61 - $r); } }   // the limiter counts per calendar minute: start a burst early in one
 function section(string $t): void { echo "\n== $t\n"; }
 function same(mixed $a, mixed $b, string $name): void { check($a === $b, $name, 'got ' . json_encode($a) . ', expected ' . json_encode($b)); }
 
@@ -842,6 +843,7 @@ try {
     check(str_contains(http('GET', "$base/creator.php", ['jar' => $admin])['body'], 'creator') && http('GET', "$base/teletollie.php", ['jar' => $admin])['code'] === 200, 'creator.php and teletollie.php still open');
 
     // rate limit
+    fresh_window();
     $pdo->exec('DELETE FROM rate_limits');
     $codes = [];
     for ($i = 0; $i < 64; $i++) { $codes[] = http('GET', "$base/search.php?q=rl$i", ['jar' => $admin])['code']; }
@@ -1000,6 +1002,7 @@ try {
     same((int) $pdo->query("SELECT company_id FROM users WHERE email = 'zz.imp1@example.test'")->fetchColumn(), $uco, 'an imported user is linked to the company named in the file');
 
     // ---- export is rate limited like report downloads
+    fresh_window();
     $pdo->exec('DELETE FROM rate_limits');
     $codes = [];
     for ($i = 0; $i < 18; $i++) { $codes[] = $exp($admin, 'tickets')['code']; }
@@ -1591,6 +1594,7 @@ try {
     $pdo->exec("DELETE FROM password_resets WHERE admin_id = $rid");
     for ($i = 0; $i < 5; $i++) { $forgot('zz.rst'); }
     same((int) $pdo->query("SELECT COUNT(*) FROM password_resets WHERE admin_id = $rid")->fetchColumn(), 3, 'one account can have at most 3 reset requests per hour; more are ignored silently');
+    fresh_window();
     $pdo->exec('DELETE FROM rate_limits');
     $codes = [];
     for ($i = 0; $i < 7; $i++) { $g = http('GET', "$base/forgot.php", ['jar' => ($jj = $newJar())]); $codes[] = http('POST', "$base/forgot.php", ['jar' => $jj, 'body' => http_build_query(['csrf' => csrf_from($g['body']), 'who' => 'nobody'])])['code']; }
@@ -1687,6 +1691,7 @@ try {
     $inv(['name' => '<script>alert(1)</script>', 'username' => 'zz.inv5', 'email' => 'zz.inv5@example.test'] + $b2);
     $xs = http('GET', "$base/settings.php?tab=team", ['jar' => $admin])['body'] . http('GET', "$base/invite.php?token=" . $ilink('zz.inv5@example.test'))['body'];
     check(!str_contains($xs, '<script>alert(1)') && str_contains($xs, '&lt;script&gt;'), 'markup in an invited name is escaped on the Team tab and on the invitation page');
+    fresh_window();
     $pdo->exec('DELETE FROM rate_limits');
     $codes = [];
     for ($i = 0; $i < 12; $i++) { $jj = $newJar(); $g = http('GET', "$base/invite.php?token=$itok", ['jar' => $jj]); $codes[] = http('POST', "$base/invite.php", ['jar' => $jj, 'body' => http_build_query(['csrf' => csrf_from($g['body']), 'token' => $itok, 'new' => 'x', 'confirm' => 'x'])])['code']; }
@@ -1866,8 +1871,9 @@ try {
     check(str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], "invoice_pdf.php?id=$zi") && str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], 'Download PDF'), 'every invoice page has a Download PDF button');
     check(str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], 'not filled in yet') && str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], 'not set'), 'the invoice page reminds you that BTW number and IBAN are still empty');
     check((int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action = 'Invoice PDF downloaded' AND target = 'ZZR-PDF-1'")->fetchColumn() === 1, 'a download is written to the activity log');
+    fresh_window();
     $pdo->exec('DELETE FROM rate_limits');
-    $codes = []; for ($i = 0; $i < 17; $i++) { $codes[] = http('GET', "$base/invoice_pdf.php?id=$zi", ['jar' => $admin])['code']; }
+    fresh_window(); $pdo->exec('DELETE FROM rate_limits'); $codes = []; for ($i = 0; $i < 17; $i++) { $codes[] = http('GET', "$base/invoice_pdf.php?id=$zi", ['jar' => $admin])['code']; }
     check(count(array_filter($codes, fn($c) => $c === 429)) >= 2, 'PDF downloads share the 15-a-minute download limit (429 after that)', json_encode(array_count_values($codes)));
     $pdo->exec('DELETE FROM rate_limits');
 
@@ -2109,6 +2115,41 @@ try {
     check(!$dim, 'no row or text is dimmed with opacity (it silently lowers contrast); disabled and read rows use a tint', implode(', ', $dim));
     $bs = (string) file_get_contents(__DIR__ . '/../includes/bootstrap.php');
     check(str_contains($bs, "'info' => 'bg-ink/10 text-ink'") && !str_contains($bs, "bg-white/10 text-ink"), 'the neutral badge uses a tint of the text colour, so it shows in both themes');
+
+    // =========================================================
+    // Stage 12: phone layout for tables
+    // =========================================================
+    section('35. Phone tables: assets and markup');
+    $cssF = __DIR__ . '/../assets/cards.css'; $jsF = __DIR__ . '/../assets/cards.js';
+    check(is_file($cssF) && is_file($jsF), 'assets/cards.css and assets/cards.js exist');
+    $cardsCss = (string) @file_get_contents($cssF); $cardsJs = (string) @file_get_contents($jsF);
+    check(str_contains($cardsCss, '@media (max-width: 639.98px)'), 'the card layout applies only below 640 px');
+    check(str_contains($cardsCss, 'content: attr(data-label)') && str_contains($cardsCss, 'min-width: 0 !important') && str_contains($cardsCss, 'overflow-x: visible'), 'the column name is shown beside each value, table minimum widths are cancelled and the scroll box no longer scrolls sideways');
+    check(str_contains($cardsCss, 'table.rt thead th.rt-sort') && str_contains($cardsCss, 'Sort by'), 'the sort links of the header stay available as a row of chips above the cards');
+    check(str_contains($cardsCss, 'rgb(var(--c-line))') && !preg_match('/#[0-9A-Fa-f]{3,6}\b/', $cardsCss), 'the cards use the theme colours only, so they follow light and dark mode');
+    check(str_contains($cardsJs, "setAttribute('role', 'table')") && str_contains($cardsJs, "'columnheader'") && str_contains($cardsJs, "'rowheader'") && str_contains($cardsJs, "'cell'") && str_contains($cardsJs, "'rowgroup'") && str_contains($cardsJs, "'row'"), 'the script gives every table explicit ARIA roles (table, rowgroup, row, columnheader, rowheader, cell) so screen readers keep reading it as a table');
+    check(str_contains($cardsJs, "data-label") && str_contains($cardsJs, 'colSpan') && str_contains($cardsJs, 'MutationObserver') && str_contains($cardsJs, 'data-plain'), 'labels follow header colspans, tables added later by scripts are handled, and data-plain opts out');
+    $lay = http('GET', "$base/index.php", ['jar' => $admin])['body'];
+    check(str_contains($lay, 'assets/cards.css') && str_contains($lay, 'assets/cards.js'), 'every dashboard page loads the card styles and script');
+    same(http('GET', "$base/assets/cards.css")['code'], 200, 'the stylesheet is served');
+    same(http('GET', "$base/assets/cards.js")['code'], 200, 'and the script');
+    $firstUser = (int) $pdo->query('SELECT MIN(id) FROM users')->fetchColumn(); $firstCo = (int) $pdo->query('SELECT MIN(id) FROM companies')->fetchColumn(); $firstInv = (int) $pdo->query('SELECT MIN(id) FROM invoices')->fetchColumn();
+    $tablePages = ['users.php', 'companies.php', 'tickets.php', 'invoices.php', 'logs.php', 'reports.php', 'backups.php', 'connections.php', 'recurring.php', 'settings.php?tab=team', 'settings.php?tab=integrations', 'settings.php?tab=tests', "user.php?id=$firstUser", "company.php?id=$firstCo", "invoice.php?id=$firstInv"];
+    $noHead = []; $noScope = []; $count = 0;
+    foreach ($tablePages as $pg) {
+        $b = http('GET', "$base/$pg", ['jar' => $admin])['body'];
+        preg_match_all('#<table\b(.*?)</table>#s', $b, $tm);
+        foreach ($tm[0] as $tb) {
+            $count++;
+            if (!str_contains($tb, '<thead')) { $noHead[] = $pg; }
+            elseif (preg_match('#<thead.*?</thead>#s', $tb, $th) && preg_match('/<th(?=[\s>])(?![^>]*scope="col")[^>]*>/', $th[0])) { $noScope[] = $pg; }
+        }
+    }
+    check($count >= 15 && !$noHead, "all $count tables on " . count($tablePages) . ' pages have a header row (the card labels come from it)', implode(', ', array_unique($noHead)));
+    check(!$noScope, 'and every header cell is marked scope="col"', implode(', ', array_unique($noScope)));
+    $plain = 0; foreach (['index.php'] as $pg) { $plain += substr_count(http('GET', "$base/$pg", ['jar' => $admin])['body'], 'data-plain'); }
+    same($plain, 4, 'only the four tiny two-column chart tables on the Overview opt out of the card layout');
+    check(str_contains(http('GET', "$base/index.php", ['jar' => $admin])['body'], 'role="search" class="relative min-w-0'), 'the top-bar search can shrink, so the bar (bell, theme button, language) fits on a phone');
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();
     echo "\n  ABORTED: " . get_class($e) . ': ' . $e->getMessage() . "\n";
