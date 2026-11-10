@@ -1,0 +1,39 @@
+PROPRIETARY LICENSE NOTICE
+
+Copyright (c) 2026 Denis Mehmed. All rights reserved.
+
+This software, including its source code, database schema, design, text,
+documentation and test suite (together, the "Software"), is the private and
+confidential property of Denis Mehmed.
+
+No licence or other right is granted to anyone. Without the prior written
+permission of the copyright holder you may not:
+
+  - use, run or deploy the Software, for any purpose, commercial or not;
+  - copy, reproduce or store it beyond what is needed to view it;
+  - modify it, translate it or create derivative works from it;
+  - distribute, publish, sublicense, sell, rent or lend it, or make it
+    available to others, including as a hosted service;
+  - remove or change this notice or any other notice of ownership.
+
+Seeing the Software, for example in an online repository, does not give
+permission to do any of the above. Permission, if given, must be in writing,
+signed by the copyright holder, and applies only to the person and purpose
+named in it.
+
+Third-party components
+----------------------
+The Software includes third-party material that remains under its own
+licences and is not covered by this notice. The licences and notices for it are
+in assets/LICENSES.txt and assets/fonts/OFL.txt (Tailwind CSS, Hanken Grotesk,
+icon shapes). The Telecomlijn logos are owned by Telecomlijn.
+
+No warranty
+-----------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. THE COPYRIGHT HOLDER IS
+NOT LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+Contact for permission requests: Denis Mehmed.

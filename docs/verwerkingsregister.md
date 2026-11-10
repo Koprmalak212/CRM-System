@@ -9,7 +9,7 @@ Verwerkingsverantwoordelijke: Telecomlijn Zakelijk, Seinhuiswachter 12, 3034 KH 
 | 1 | Beheerdersaccounts | Naam, gebruikersnaam, e-mailadres, wachtwoord-hash (Argon2id) | Toegang tot het beheerportaal | Gerechtvaardigd belang (beveiliging) | Zolang het account actief is | Geen |
 | 2 | Gebruikersbestand (klanten en gebruikers) | Naam, e-mailadres, rol, land, laatst gezien, aantal logins | Het leveren en beheren van de dienst | Uitvoering overeenkomst (art. 6 lid 1 sub b AVG) | Looptijd overeenkomst, daarna 2 jaar | Hosting- en softwareleveranciers (verwerkers) |
 | 3 | Sessies / verbindingen | IP-adres, apparaat, plaats, protocol, tijden | Beheer en beveiliging van verbindingen | Gerechtvaardigd belang: fraudepreventie en netwerkbeveiliging (art. 6 lid 1 sub f) | Tot de sessie wordt beëindigd | Geen |
-| 4 | Activiteitenlogboek | Account of e-mailadres van de actor, actie, IP-adres, tijdstip | Beveiliging, controle en verantwoording | Gerechtvaardigd belang (art. 6 lid 1 sub f) | **12 maanden**, daarna automatisch verwijderd (`purge.php`) | Geen |
+| 4 | Activiteitenlogboek | Account of e-mailadres van de actor, actie, IP-adres, tijdstip | Beveiliging, controle en verantwoording | Gerechtvaardigd belang (art. 6 lid 1 sub f) | **12 maanden**, daarna automatisch verwijderd (`bin/purge.php`) | Geen |
 | 5 | Inlogpogingen en snelheidsbegrenzing | IP-adres, ingevoerde gebruikersnaam (alleen als die op een gebruikersnaam lijkt), tijdstip | Bescherming tegen aanvallen | Gerechtvaardigd belang (art. 6 lid 1 sub f) | 24 uur (inlogpogingen), 1 uur (snelheidsbegrenzing) | Geen |
 | 6 | Facturen en betalingen | Naam en adres van de klant, e-mailadres, factuurregels, betalingen | Facturering, fiscale administratie | Wettelijke verplichting (art. 6 lid 1 sub c) | **7 jaar** (fiscale bewaarplicht), daarna automatisch verwijderd | Boekhouder, belastingdienst indien wettelijk verplicht |
 | 7 | Vertaalfunctie (Google Translate) | De tekst van de pagina, inclusief zichtbare namen, e-mailadressen en IP-adressen | Interface in de taal van de gebruiker | **Toestemming** (art. 6 lid 1 sub a), vooraf gevraagd, intrekbaar via de voettekst | Toestemming wordt lokaal in de browser bewaard tot intrekking | Google (mogelijk verwerking buiten de EER) |
@@ -28,7 +28,7 @@ Er worden **geen** analytische, marketing- of socialemedia-cookies of trackers g
 
 ## Rechten van betrokkenen
 
-Verzoeken (inzage, rectificatie, verwijdering, overdraagbaarheid, bezwaar, beperking) worden binnen 4 weken afgehandeld, zoals in het privacybeleid staat. In het portaal: **Privacy requests** (`privacy.php`) toont wat er over een e-mailadres is vastgelegd, maakt een JSON-export en anonimiseert een gebruiker. Facturen worden niet gewist vanwege de bewaarplicht van 7 jaar.
+Verzoeken (inzage, rectificatie, verwijdering, overdraagbaarheid, bezwaar, beperking) worden binnen 4 weken afgehandeld, zoals in het privacybeleid staat. In het portaal: **Privacy requests** (`privacy/privacy.php`) toont wat er over een e-mailadres is vastgelegd, maakt een JSON-export en anonimiseert een gebruiker. Facturen worden niet gewist vanwege de bewaarplicht van 7 jaar.
 
 ## Openstaande punten (niet uit de code te halen)
 

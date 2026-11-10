@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/mailer.php';
+require_once dirname(__DIR__) . '/modules/mailer.php';
 
 const INVITE_VALID_DAYS = 3;
 const PERM_LABELS = ['none' => 'No access', 'view' => 'View only', 'manage' => 'Can manage'];
@@ -79,7 +79,7 @@ function tab_handle(PDO $pdo, array $admin): void
             ->execute([$email, $username, $name, $role, $perm, hash('sha256', $token), (string) $admin['username']]);
         [$status, , $note] = mail_send($pdo, $email, 'You are invited to Telecomlijn Admin',
             "Hello " . $name . ",\n\n" . ($admin['name'] ?? 'An admin') . " invited you to Telecomlijn Admin as " . $username . ". Open this link within " . INVITE_VALID_DAYS . " days to choose your password:\n\n"
-            . $base . '/invite.php?token=' . $token . "\n\nThe link works once. After that you can also add a second sign-in step (an authenticator app) under Settings > Account.\n", 'invite');
+            . $base . '/auth/invite.php?token=' . $token . "\n\nThe link works once. After that you can also add a second sign-in step (an authenticator app) under Settings > Account.\n", 'invite');
         log_activity('warning', 'Invitation sent', $username . ' · ' . $role . ' · ' . $status);
         flash($status === 'sent' ? 'Invitation sent to ' . $email . '.' : ($status === 'recorded' ? 'Invitation created for ' . $email . '. No mail server is set up, so copy the link from Settings > Email > Outbox.' : 'The invitation was created but the email failed: ' . $note . ' Open Settings > Email > Outbox to copy the link.'), $status === 'failed' ? 'bad' : 'ok');
         return;

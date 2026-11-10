@@ -6,8 +6,8 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     // =========================================================
     // Stage 10: PDF invoices and recurring invoices
     // =========================================================
-    require_once TESTS_DIR . '/../includes/pdf.php';
-    require_once TESTS_DIR . '/../includes/recurring.php';
+    require_once TESTS_DIR . '/../includes/modules/pdf.php';
+    require_once TESTS_DIR . '/../includes/modules/recurring.php';
     require_once TESTS_DIR . '/../includes/settings/company.php';   // iban_valid()
     $cpBackup = $pdo->query('SELECT * FROM company_profile WHERE id = 1')->fetch() ?: null;
     $cleanPdf = function () use ($pdo, $cpBackup) {
@@ -47,7 +47,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $pdo->exec("INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES ($zi, 'Business fiber 1 Gbps (monthly) with a rather long description that has to wrap onto a second line of the table', 1, 10000), ($zi, 'Yealink desk phone', 2.5, 938)");
     $pdo->exec("INSERT INTO payments (invoice_id, amount_cents, method, paid_at, created_at) VALUES ($zi, 4937, 'iDEAL', CURDATE(), NOW())");
     $load = function (int $id) use ($pdo) { $s = $pdo->prepare('SELECT * FROM (' . invoice_base_sql() . ') t WHERE id = ?'); $s->execute([$id]); $inv = $s->fetch(); $it = $pdo->prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY id'); $it->execute([$id]); return [$inv, $it->fetchAll()]; };
-    $co0 = require TESTS_DIR . '/../includes/company.php';
+    $co0 = require TESTS_DIR . '/../includes/modules/company.php';
     same([$co0['btw'], $co0['iban'], $co0['btw_is_placeholder']], ['', '', true], 'BTW number and IBAN start empty (no made-up numbers), and the invoice page treats that as still to fill in');
     [$inv, $items] = $load($zi);
     $bytes = invoice_pdf($inv, $items, $co0);
@@ -76,29 +76,29 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     check(str_contains(invoice_pdf($odd, $items, $co0), 'Caf') && str_starts_with(invoice_pdf($odd, $items, $co0), '%PDF'), 'accents and characters the font lacks do not break the file');
 
     // download over HTTP
-    same(http('GET', "$base/invoice_pdf.php?id=$zi")['code'], 302, 'signed out: the PDF redirects to the login page');
-    same(http('GET', "$base/invoice_pdf.php?id=999999", ['jar' => $admin])['code'], 404, 'an unknown invoice is 404');
-    same(http('GET', "$base/invoice_pdf.php?id=abc", ['jar' => $admin])['code'], 404, 'a non-numeric id is 404');
-    $r = http('GET', "$base/invoice_pdf.php?id=$zi", ['jar' => $admin]);
+    same(http('GET', "$base/invoices/invoice_pdf.php?id=$zi")['code'], 302, 'signed out: the PDF redirects to the login page');
+    same(http('GET', "$base/invoices/invoice_pdf.php?id=999999", ['jar' => $admin])['code'], 404, 'an unknown invoice is 404');
+    same(http('GET', "$base/invoices/invoice_pdf.php?id=abc", ['jar' => $admin])['code'], 404, 'a non-numeric id is 404');
+    $r = http('GET', "$base/invoices/invoice_pdf.php?id=$zi", ['jar' => $admin]);
     check($r['code'] === 200 && str_contains($r['headers'], 'application/pdf') && str_contains($r['headers'], 'attachment; filename="invoice-ZZR-PDF-1.pdf"') && str_contains($r['headers'], 'no-store') && str_starts_with($r['body'], '%PDF-1.4'), 'the download is a PDF attachment named invoice-NUMBER.pdf and is not cached');
     check(str_contains($r['body'], "(\x80 149,37) Tj") && (int) preg_match('/Content-Length: (\d+)/i', $r['headers'], $cl) === 1 && (int) $cl[1] === strlen($r['body']), 'the downloaded file has the total and a correct Content-Length');
-    check(str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], "invoice_pdf.php?id=$zi") && str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], 'Download PDF'), 'every invoice page has a Download PDF button');
-    check(str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], 'not filled in yet') && str_contains(http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'], 'not set'), 'the invoice page reminds you that BTW number and IBAN are still empty');
+    check(str_contains(http('GET', "$base/invoices/invoice.php?id=$zi", ['jar' => $admin])['body'], "invoices/invoice_pdf.php?id=$zi") && str_contains(http('GET', "$base/invoices/invoice.php?id=$zi", ['jar' => $admin])['body'], 'Download PDF'), 'every invoice page has a Download PDF button');
+    check(str_contains(http('GET', "$base/invoices/invoice.php?id=$zi", ['jar' => $admin])['body'], 'not filled in yet') && str_contains(http('GET', "$base/invoices/invoice.php?id=$zi", ['jar' => $admin])['body'], 'not set'), 'the invoice page reminds you that BTW number and IBAN are still empty');
     check((int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action = 'Invoice PDF downloaded' AND target = 'ZZR-PDF-1'")->fetchColumn() === 1, 'a download is written to the activity log');
     fresh_window();
     $pdo->exec('DELETE FROM rate_limits');
-    fresh_window(); $pdo->exec('DELETE FROM rate_limits'); $codes = []; for ($i = 0; $i < 17; $i++) { $codes[] = http('GET', "$base/invoice_pdf.php?id=$zi", ['jar' => $admin])['code']; }
+    fresh_window(); $pdo->exec('DELETE FROM rate_limits'); $codes = []; for ($i = 0; $i < 17; $i++) { $codes[] = http('GET', "$base/invoices/invoice_pdf.php?id=$zi", ['jar' => $admin])['code']; }
     check(count(array_filter($codes, fn($c) => $c === 429)) >= 2, 'PDF downloads share the 15-a-minute download limit (429 after that)', json_encode(array_count_values($codes)));
     $pdo->exec('DELETE FROM rate_limits');
 
     section('30. Company details in Settings');
     foreach (['NL91ABNA0417164300', 'DE89370400440532013000', 'GB82WEST12345698765432', 'BE68539007547034'] as $ib) { check(iban_valid($ib), "IBAN check accepts $ib"); }
     foreach (['NL91ABNA0417164301', 'NL91ABNA041716430', 'nl91abna0417164300', 'XX', '', 'NL91 ABNA 0417 1643 00', 'NL00BANK0000000000'] as $ib) { check(!iban_valid($ib), 'IBAN check refuses ' . json_encode($ib)); }
-    same(http('GET', "$base/settings.php?tab=company")['code'], 302, 'signed out: the Company details tab redirects');
-    same(http('GET', "$base/settings.php?tab=company", ['jar' => $user])['code'], 403, 'a normal account gets 403 on the tab');
-    check(!str_contains(http('GET', "$base/settings.php", ['jar' => $user])['body'], 'tab=company') && str_contains(http('GET', "$base/settings.php", ['jar' => $admin])['body'], 'tab=company'), 'the tab is shown to admins only');
-    $cf = fn(array $d) => $post($admin, 'settings.php?tab=company', ['tab' => 'company'] + $d, 'settings.php?tab=company');
-    same($post($user, 'settings.php?tab=company', ['tab' => 'company', 'iban' => 'NL91ABNA0417164300', 'btw_number' => 'NL123456789B01'], 'settings.php')['code'], 403, 'a forged save by a normal account is 403');
+    same(http('GET', "$base/settings/settings.php?tab=company")['code'], 302, 'signed out: the Company details tab redirects');
+    same(http('GET', "$base/settings/settings.php?tab=company", ['jar' => $user])['code'], 403, 'a normal account gets 403 on the tab');
+    check(!str_contains(http('GET', "$base/settings/settings.php", ['jar' => $user])['body'], 'tab=company') && str_contains(http('GET', "$base/settings/settings.php", ['jar' => $admin])['body'], 'tab=company'), 'the tab is shown to admins only');
+    $cf = fn(array $d) => $post($admin, 'settings/settings.php?tab=company', ['tab' => 'company'] + $d, 'settings/settings.php?tab=company');
+    same($post($user, 'settings/settings.php?tab=company', ['tab' => 'company', 'iban' => 'NL91ABNA0417164300', 'btw_number' => 'NL123456789B01'], 'settings/settings.php')['code'], 403, 'a forged save by a normal account is 403');
     same((int) $pdo->query('SELECT COUNT(*) FROM company_profile')->fetchColumn(), $cpBackup ? 1 : 0, 'and nothing changed');
     $full = ['name' => '', 'address1' => '', 'address2' => '', 'address3' => '', 'kvk' => '', 'btw_number' => 'nl 1234.56.789.b01', 'iban' => 'nl91 abna 0417 1643 00', 'email' => '', 'phone' => ''];
     foreach ([['IBAN is not valid', ['iban' => 'NL91ABNA0417164301']], ['Dutch BTW number looks like', ['btw_number' => 'NL12345']], ['BTW number starts with a country code', ['btw_number' => '12345678']], ['KvK number has 8 digits', ['kvk' => '123']], ['email address is not valid', ['email' => 'nope']]] as [$msg, $bad]) {
@@ -108,19 +108,19 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $cf($full);
     $row = $pdo->query('SELECT * FROM company_profile WHERE id = 1')->fetch();
     same([$row['btw_number'], $row['iban']], ['NL123456789B01', 'NL91ABNA0417164300'], 'a valid BTW number and IBAN are saved in a normalised form (capitals, no spaces)');
-    $co1 = require TESTS_DIR . '/../includes/company.php';
+    $co1 = require TESTS_DIR . '/../includes/modules/company.php';
     same([$co1['btw'], $co1['iban'], $co1['btw_is_placeholder'], $co1['name']], ['NL123456789B01', 'NL91ABNA0417164300', false, 'Telecomlijn Zakelijk'], 'invoices use them; empty name, address and KvK fall back to the defaults');
     $bytes2 = invoice_pdf($inv, $items, $co1);
     check(str_contains($bytes2, 'BTW-id NL123456789B01') && str_contains($bytes2, 'IBAN NL91ABNA0417164300') && str_contains($bytes2, 'to IBAN NL91ABNA0417164300 in the name of Telecomlijn Zakelijk'), 'once filled in, the PDF prints the BTW-id and IBAN and the payment line names the IBAN');
-    $pg = http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'];
+    $pg = http('GET', "$base/invoices/invoice.php?id=$zi", ['jar' => $admin])['body'];
     check(!str_contains($pg, 'not filled in yet') && str_contains($pg, 'NL91ABNA0417164300'), 'the invoice page no longer shows the reminder and shows the IBAN');
     $cf(['name' => 'Acme <b>Telecom</b> BV', 'address1' => 'Main Street 1', 'address2' => '1000 AA Town', 'kvk' => '12345678', 'email' => 'x@acme.test', 'phone' => '020 123'] + $full);
-    $pg = http('GET', "$base/invoice.php?id=$zi", ['jar' => $admin])['body'];
+    $pg = http('GET', "$base/invoices/invoice.php?id=$zi", ['jar' => $admin])['body'];
     check(str_contains($pg, 'Acme &lt;b&gt;Telecom&lt;/b&gt; BV') && !str_contains($pg, '<b>Telecom</b>') && str_contains($pg, 'Main Street 1, 1000 AA Town'), 'a changed name and address show on the invoice page, escaped');
-    check(str_contains(invoice_pdf($inv, $items, require TESTS_DIR . '/../includes/company.php'), '(Acme <b>Telecom</b> BV) Tj'), 'and on the PDF as plain text');
+    check(str_contains(invoice_pdf($inv, $items, require TESTS_DIR . '/../includes/modules/company.php'), '(Acme <b>Telecom</b> BV) Tj'), 'and on the PDF as plain text');
     $cf(['btw_number' => '', 'iban' => ''] + $full);
     same([(string) $pdo->query('SELECT btw_number FROM company_profile')->fetchColumn(), (string) $pdo->query('SELECT iban FROM company_profile')->fetchColumn()], ['', ''], 'BTW number and IBAN can be emptied again');
-    check(!str_contains(invoice_pdf($inv, $items, require TESTS_DIR . '/../includes/company.php'), 'IBAN'), 'and then disappear from the PDF again');
+    check(!str_contains(invoice_pdf($inv, $items, require TESTS_DIR . '/../includes/modules/company.php'), 'IBAN'), 'and then disappear from the PDF again');
     check((int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action = 'Company details saved'")->fetchColumn() >= 3, 'saving is in the activity log');
 
     // =========================================================
@@ -138,10 +138,10 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     [$d, $errs] = recurring_validate($pdo, ['company_id' => (string) $zco, 'description' => 'Fiber', 'amount' => '1.234,56', 'vat' => '21', 'frequency' => 'quarter', 'next_date' => '2026-12-01', 'terms' => '30']);
     same([$errs, $d['amount_cents'], $d['frequency'], $d['terms_days']], [[], 123456, 'quarter', 30], 'a valid form is accepted and the amount parsed to cents');
 
-    same(http('GET', "$base/recurring.php")['code'], 302, 'signed out: recurring.php redirects');
-    same(http('POST', "$base/recurring.php", ['body' => 'action=run'])['code'], 302, 'signed out: a forged run is refused');
-    same(http('POST', "$base/recurring.php", ['jar' => $admin, 'body' => 'action=run'])['code'], 403, 'a run without a CSRF token is 403');
-    $add = fn(array $d) => $post($admin, 'recurring.php', ['action' => 'add'] + $d, 'recurring.php');
+    same(http('GET', "$base/invoices/recurring.php")['code'], 302, 'signed out: invoices/recurring.php redirects');
+    same(http('POST', "$base/invoices/recurring.php", ['body' => 'action=run'])['code'], 302, 'signed out: a forged run is refused');
+    same(http('POST', "$base/invoices/recurring.php", ['jar' => $admin, 'body' => 'action=run'])['code'], 403, 'a run without a CSRF token is 403');
+    $add = fn(array $d) => $post($admin, 'invoices/recurring.php', ['action' => 'add'] + $d, 'invoices/recurring.php');
     $form = ['company_id' => (string) $zco, 'description' => 'ZZR Monthly fiber', 'amount' => '100,00', 'vat' => '21', 'frequency' => 'month', 'next_date' => date('Y-m-d', strtotime('+10 days')), 'terms' => '14'];
     $r = $add(['company_id' => '999999'] + $form);
     check($r['code'] === 200 && str_contains($r['body'], 'Choose a company'), 'a company that does not exist is refused');
@@ -153,10 +153,10 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $rec = $pdo->query("SELECT * FROM recurring_invoices WHERE description = 'ZZR Monthly fiber'")->fetch();
     check($rec && (int) $rec['amount_cents'] === 10000 && (int) $rec['active'] === 1 && $rec['frequency'] === 'month' && (int) $rec['anchor_day'] === (int) date('j', strtotime('+10 days')) && $rec['last_run'] === null, 'it is stored active, with the amount in cents and the start day as the anchor');
     $rid = (int) $rec['id'];
-    $rp = http('GET', "$base/recurring.php", ['jar' => $admin])['body'];
+    $rp = http('GET', "$base/invoices/recurring.php", ['jar' => $admin])['body'];
     check(str_contains($rp, 'ZZR Monthly fiber') && str_contains($rp, 'ZZR Pdf Co') && str_contains($rp, date('j M Y', strtotime('+10 days'))), 'the list shows the schedule with its company and next date');
     $x = $add(['description' => 'ZZR <script>alert(1)</script>'] + $form);
-    check(!str_contains(http('GET', "$base/recurring.php", ['jar' => $admin])['body'], '<script>alert(1)') && str_contains(http('GET', "$base/recurring.php", ['jar' => $admin])['body'], '&lt;script&gt;'), 'markup in a description is escaped');
+    check(!str_contains(http('GET', "$base/invoices/recurring.php", ['jar' => $admin])['body'], '<script>alert(1)') && str_contains(http('GET', "$base/invoices/recurring.php", ['jar' => $admin])['body'], '&lt;script&gt;'), 'markup in a description is escaped');
     $pdo->exec("DELETE FROM recurring_invoices WHERE description LIKE 'ZZR <script>%'");
 
     section('32. Recurring invoices: creating, pausing, deleting');
@@ -176,7 +176,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     same(count($again['created']), 0, 'running again straight away creates nothing');
     recurring_run_due($pdo); recurring_run_due($pdo);
     same((int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn(), 1, 'and more runs still leave exactly one invoice for that period');
-    check(str_contains(http('GET', "$base/invoice.php?id=" . (int) $inv1['id'], ['jar' => $admin])['body'], 'Recurring invoice'), 'the invoice carries a note that it is a recurring one');
+    check(str_contains(http('GET', "$base/invoices/invoice.php?id=" . (int) $inv1['id'], ['jar' => $admin])['body'], 'Recurring invoice'), 'the invoice carries a note that it is a recurring one');
     // the unique key is the last line of defence
     $pdo->prepare('UPDATE recurring_invoices SET next_date = ? WHERE id = ?')->execute([$due, $rid]);
     $dup = recurring_run_due($pdo);
@@ -203,14 +203,14 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 
     // pausing and resuming through the page
     $pdo->prepare('UPDATE recurring_invoices SET active = 1, next_date = ?, anchor_day = ? WHERE id = ?')->execute([date('Y-m-d', strtotime('+5 days')), (int) date('j', strtotime('+5 days')), $rid]);
-    $tg = fn() => $post($admin, 'recurring.php', ['action' => 'toggle', 'id' => (string) $rid], 'recurring.php');
+    $tg = fn() => $post($admin, 'invoices/recurring.php', ['action' => 'toggle', 'id' => (string) $rid], 'invoices/recurring.php');
     $tg();
     same((int) $pdo->query("SELECT active FROM recurring_invoices WHERE id = $rid")->fetchColumn(), 0, 'Pause switches a schedule off');
     $pdo->prepare('UPDATE recurring_invoices SET next_date = ? WHERE id = ?')->execute([date('Y-m-d', strtotime('-45 days')), $rid]);
     $cnt = (int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn();
     recurring_run_due($pdo);
     same((int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn(), $cnt, 'a paused schedule creates nothing, even when its date has passed');
-    check(str_contains(http('GET', "$base/recurring.php", ['jar' => $admin])['body'], 'paused'), 'the list shows it as paused');
+    check(str_contains(http('GET', "$base/invoices/recurring.php", ['jar' => $admin])['body'], 'paused'), 'the list shows it as paused');
     $tg();
     $res = $pdo->query("SELECT active, next_date FROM recurring_invoices WHERE id = $rid")->fetch();
     check((int) $res['active'] === 1 && $res['next_date'] >= date('Y-m-d'), 'Resume switches it on and moves the next date to today or later (the paused months are not billed afterwards)', $res['next_date']);
@@ -219,10 +219,10 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     // the Run now button, the page load and the command line
     $pdo->prepare('UPDATE recurring_invoices SET next_date = ?, anchor_day = ? WHERE id = ?')->execute([date('Y-m-d'), (int) date('j'), $rid]);
     $c0 = (int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn();
-    $r = $post($admin, 'recurring.php', ['action' => 'run'], 'recurring.php');
+    $r = $post($admin, 'invoices/recurring.php', ['action' => 'run'], 'invoices/recurring.php');
     same((int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn(), $c0 + 1, 'the Run now button creates what is due');
-    check(str_contains(http('GET', "$base/recurring.php", ['jar' => $admin])['body'], 'Nothing is due right now'), 'and the page then says nothing is due');
-    $post($admin, 'recurring.php', ['action' => 'run'], 'recurring.php');
+    check(str_contains(http('GET', "$base/invoices/recurring.php", ['jar' => $admin])['body'], 'Nothing is due right now'), 'and the page then says nothing is due');
+    $post($admin, 'invoices/recurring.php', ['action' => 'run'], 'invoices/recurring.php');
     same((int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn(), $c0 + 1, 'pressing Run now again changes nothing');
     $pdo->prepare('UPDATE recurring_invoices SET next_date = ?, anchor_day = ? WHERE id = ?')->execute([date('Y-m-d', strtotime('-1 day')), (int) date('j', strtotime('-1 day')), $rid]);   // a date this schedule has not invoiced yet
     $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('notif_refreshed_at', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([(string) (time() - 900)]);
@@ -231,10 +231,10 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     http('GET', "$base/index.php", ['jar' => $admin]);
     same((int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn(), $c0 + 2, 'and opening it again does not');
     $pdo->prepare('UPDATE recurring_invoices SET next_date = ?, anchor_day = ? WHERE id = ?')->execute([date('Y-m-d', strtotime('-2 days')), (int) date('j', strtotime('-2 days')), $rid]);   // a date this schedule has not invoiced yet
-    $cli = function () { $p = proc_open([PHP_BINARY, TESTS_DIR . '/../run_recurring.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp); $o = stream_get_contents($pp[1]) . stream_get_contents($pp[2]); proc_close($p); return trim($o); };
+    $cli = function () { $p = proc_open([PHP_BINARY, TESTS_DIR . '/../bin/run_recurring.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp); $o = stream_get_contents($pp[1]) . stream_get_contents($pp[2]); proc_close($p); return trim($o); };
     check(preg_match('/^(\d+) invoice\(s\) created/', $cli(), $m) === 1 && (int) $m[1] >= 1, 'the command-line script (for a scheduled task) creates what is due');
     same($cli(), '0 invoice(s) created.', 'and running it again creates nothing');
-    same(http('GET', "$base/run_recurring.php")['code'], 403, 'the script can not be started from the web (403)');
+    same(http('GET', "$base/bin/run_recurring.php")['code'], 403, 'the script can not be started from the web (403)');
     // a second run at the same moment
     $other = new PDO('mysql:host=127.0.0.1;dbname=ops_console;charset=utf8mb4', 'root', '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     $other->query("SELECT GET_LOCK('recurring_run', 1)")->fetchColumn();
@@ -247,12 +247,12 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 
     // deleting
     $keep = (int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE recurring_id = $rid")->fetchColumn();
-    check(str_contains(http('GET', "$base/recurring.php?delete=$rid", ['jar' => $admin])['body'], 'Yes, delete the schedule') && (int) $pdo->query("SELECT COUNT(*) FROM recurring_invoices WHERE id = $rid")->fetchColumn() === 1, 'Delete first asks for confirmation; opening that page deletes nothing');
-    $post($admin, 'recurring.php', ['action' => 'delete', 'id' => (string) $rid], 'recurring.php');
+    check(str_contains(http('GET', "$base/invoices/recurring.php?delete=$rid", ['jar' => $admin])['body'], 'Yes, delete the schedule') && (int) $pdo->query("SELECT COUNT(*) FROM recurring_invoices WHERE id = $rid")->fetchColumn() === 1, 'Delete first asks for confirmation; opening that page deletes nothing');
+    $post($admin, 'invoices/recurring.php', ['action' => 'delete', 'id' => (string) $rid], 'invoices/recurring.php');
     same((int) $pdo->query("SELECT COUNT(*) FROM recurring_invoices WHERE id = $rid")->fetchColumn(), 0, 'after confirming, the schedule is deleted');
     same((int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE customer = 'ZZR Pdf Co' AND recurring_id IS NULL AND notes LIKE 'Recurring invoice%'")->fetchColumn(), $keep, 'the invoices it created are kept, only losing the link');
-    $gone = $post($admin, 'recurring.php', ['action' => 'delete', 'id' => '999999'], 'recurring.php');
-    check($gone['code'] === 302 && str_contains($gone['headers'], 'recurring.php'), 'deleting a schedule that no longer exists is handled calmly (back to the list)');
+    $gone = $post($admin, 'invoices/recurring.php', ['action' => 'delete', 'id' => '999999'], 'invoices/recurring.php');
+    check($gone['code'] === 302 && str_contains($gone['headers'], 'invoices/recurring.php'), 'deleting a schedule that no longer exists is handled calmly (back to the list)');
     // company deleted: schedules go, invoices stay
     $pdo->prepare('UPDATE recurring_invoices SET active = 1 WHERE company_id = ?')->execute([$zco]);
     same((int) $pdo->query("SELECT COUNT(*) FROM recurring_invoices WHERE company_id = $zco")->fetchColumn(), 2, 'the other two test schedules still exist');

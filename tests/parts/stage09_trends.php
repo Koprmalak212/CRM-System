@@ -6,7 +6,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     // =========================================================
     // Stage 9: trends on the Overview
     // =========================================================
-    require_once TESTS_DIR . '/../includes/trends.php';
+    require_once TESTS_DIR . '/../includes/modules/trends.php';
     section('26. Trends: periods and numbers');
     $fixed = new DateTimeImmutable('2026-11-10');
     $mk = trend_month_keys(12, $fixed);

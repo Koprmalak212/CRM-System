@@ -22,26 +22,26 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $upload = function (string $jar, string $content, array $extra = [], string $filename = 'data.csv', ?string $csrf = null) use ($base, $pdo) {
         $pdo->exec('DELETE FROM rate_limits');
         $tmp = tempnam(sys_get_temp_dir(), 'csv'); file_put_contents($tmp, $content);
-        $csrf ??= csrf_from(http('GET', "$base/import.php", ['jar' => $jar])['body']);
-        $r = http('POST', "$base/import.php", ['jar' => $jar, 'body' => $extra + ['csrf' => $csrf, 'type' => 'companies', 'file' => new CURLFile($tmp, 'text/csv', $filename)]]);
+        $csrf ??= csrf_from(http('GET', "$base/system/import.php", ['jar' => $jar])['body']);
+        $r = http('POST', "$base/system/import.php", ['jar' => $jar, 'body' => $extra + ['csrf' => $csrf, 'type' => 'companies', 'file' => new CURLFile($tmp, 'text/csv', $filename)]]);
         @unlink($tmp);
         return $r;
     };
-    $exp = fn(string $jar, string $type) => http('GET', "$base/export.php?type=$type", ['jar' => $jar]);
+    $exp = fn(string $jar, string $type) => http('GET', "$base/system/export.php?type=$type", ['jar' => $jar]);
     $parse = function (string $csv) { $t = str_starts_with($csv, "\xEF\xBB\xBF") ? substr($csv, 3) : $csv; $fh = fopen('php://temp', 'w+'); fwrite($fh, $t); rewind($fh); $o = []; while (($r = fgetcsv($fh, 0, ',', '"', '')) !== false) { $o[] = $r; } return $o; };
 
     // ---- access
-    foreach (['users', 'companies', 'invoices', 'tickets'] as $ty) { same(http('GET', "$base/export.php?type=$ty")['code'], 302, "signed out: export of $ty redirects to the login page"); }
-    same(http('GET', "$base/import.php")['code'], 302, 'signed out: import.php redirects');
+    foreach (['users', 'companies', 'invoices', 'tickets'] as $ty) { same(http('GET', "$base/system/export.php?type=$ty")['code'], 302, "signed out: export of $ty redirects to the login page"); }
+    same(http('GET', "$base/system/import.php")['code'], 302, 'signed out: system/import.php redirects');
     foreach (['users', 'companies', 'invoices', 'tickets'] as $ty) { same($exp($user, $ty)['code'], 403, "a normal account gets 403 on the $ty export"); }
-    same(http('GET', "$base/import.php", ['jar' => $user])['code'], 403, 'a normal account gets 403 on import.php');
+    same(http('GET', "$base/system/import.php", ['jar' => $user])['code'], 403, 'a normal account gets 403 on system/import.php');
     same($upload($user, "name\nZZI Sneaky\n", [], 'data.csv', 'x')['code'], 403, 'a normal account can not POST an import');
     same((int) $pdo->query("SELECT COUNT(*) FROM companies WHERE name = 'ZZI Sneaky'")->fetchColumn(), 0, 'and nothing was imported');
-    check(!str_contains(http('GET', "$base/users.php", ['jar' => $user])['body'], 'export.php') && str_contains(http('GET', "$base/users.php", ['jar' => $admin])['body'], 'export.php?type=users'), 'export buttons are shown to admins only');
-    foreach (['companies.php' => 'companies', 'tickets.php' => 'tickets', 'invoices.php' => 'invoices'] as $pg => $ty) { check(str_contains(http('GET', "$base/$pg", ['jar' => $admin])['body'], "export.php?type=$ty"), "the $ty list has an Export CSV button"); }
-    check(str_contains(http('GET', "$base/companies.php", ['jar' => $admin])['body'], 'import.php?type=companies') && str_contains(http('GET', "$base/users.php", ['jar' => $admin])['body'], 'import.php?type=users'), 'users and companies have an Import CSV button');
+    check(!str_contains(http('GET', "$base/users/users.php", ['jar' => $user])['body'], 'system/export.php') && str_contains(http('GET', "$base/users/users.php", ['jar' => $admin])['body'], 'system/export.php?type=users'), 'export buttons are shown to admins only');
+    foreach (['companies/companies.php' => 'companies', 'tickets/tickets.php' => 'tickets', 'invoices/invoices.php' => 'invoices'] as $pg => $ty) { check(str_contains(http('GET', "$base/$pg", ['jar' => $admin])['body'], "system/export.php?type=$ty"), "the $ty list has an Export CSV button"); }
+    check(str_contains(http('GET', "$base/companies/companies.php", ['jar' => $admin])['body'], 'system/import.php?type=companies') && str_contains(http('GET', "$base/users/users.php", ['jar' => $admin])['body'], 'system/import.php?type=users'), 'users and companies have an Import CSV button');
     same($exp($admin, 'nonsense')['code'], 404, 'an unknown export type is 404');
-    same(http('GET', "$base/export.php", ['jar' => $admin])['code'], 404, 'no export type is 404');
+    same(http('GET', "$base/system/export.php", ['jar' => $admin])['code'], 404, 'no export type is 404');
 
     // ---- export format
     $pdo->exec("INSERT INTO companies (name, address, city, kvk, email, notes) VALUES ('ZZI =HYPERLINK(\"http://evil.test\")', '+1 Street', '-Minus', '99980001', 'zzi1@example.test', '@SUM(A1)'), ('ZZI Plain; \"quoted\" Co', 'Line 1', 'Delft', '99980002', 'zzi2@example.test', 'two\nlines')");
@@ -102,11 +102,11 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     // ---- import: bad files
     $note = fn(string $body) => (preg_match('/role="alert"[^>]*>([^<]+)</', $body, $m) ? html_entity_decode($m[1]) : '');
     $none = fn() => (int) $pdo->query("SELECT COUNT(*) FROM companies WHERE name LIKE 'ZZI Bad%'")->fetchColumn();
-    same(http('POST', "$base/import.php", ['jar' => $admin, 'body' => ['type' => 'companies', 'csrf' => 'wrong']])['code'], 403, 'an import with a wrong CSRF token is 403');
+    same(http('POST', "$base/system/import.php", ['jar' => $admin, 'body' => ['type' => 'companies', 'csrf' => 'wrong']])['code'], 403, 'an import with a wrong CSRF token is 403');
     same($upload($admin, "name\nZZI Bad token\n", [], 'data.csv', 'wrong-token')['code'], 403, 'an upload with a wrong CSRF token is 403');
     check(str_contains($note($upload($admin, "name\nZZI Bad ext\n", [], 'data.exe')['body']), 'Only .csv files'), 'a file that is not .csv is refused');
     check(str_contains($note($upload($admin, "name\nZZI Bad ext\n", [], 'data.csv.php')['body']), 'Only .csv files'), 'a double extension is refused');
-    $r = http('POST', "$base/import.php", ['jar' => $admin, 'body' => ['csrf' => csrf_from(http('GET', "$base/import.php", ['jar' => $admin])['body']), 'type' => 'companies']]);
+    $r = http('POST', "$base/system/import.php", ['jar' => $admin, 'body' => ['csrf' => csrf_from(http('GET', "$base/system/import.php", ['jar' => $admin])['body']), 'type' => 'companies']]);
     check(str_contains($note($r['body']), 'Choose a CSV file first'), 'no file chosen: asked to choose one');
     check(str_contains($note($upload($admin, '')['body']), 'The file is empty'), 'an empty file is refused');
     check(str_contains($note($upload($admin, "name,city\n")['body']), 'no rows'), 'a file with only a header is refused');
@@ -118,8 +118,8 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $big = $upload($admin, "name\n" . str_repeat('x', 300000));
     check(in_array($big['code'], [413, 200], true) && ($big['code'] === 413 || str_contains($note($big['body']), 'too large')), 'a file over Apache\'s 256 KB request limit is refused (413 or the same message)', 'code ' . $big['code']);
     same($none(), 0, 'none of the refused files created a company');
-    check(!str_contains(http('GET', "$base/import.php", ['jar' => $admin])['body'], 'ZZI Bad'), 'refused files are not kept or shown');
-    check(!str_contains((string) file_get_contents(TESTS_DIR . '/../import.php'), 'move_uploaded_file') && !str_contains((string) file_get_contents(TESTS_DIR . '/../import.php'), 'include $f') , 'import.php never moves, stores or includes the uploaded file');
+    check(!str_contains(http('GET', "$base/system/import.php", ['jar' => $admin])['body'], 'ZZI Bad'), 'refused files are not kept or shown');
+    check(!str_contains((string) file_get_contents(TESTS_DIR . '/../system/import.php'), 'move_uploaded_file') && !str_contains((string) file_get_contents(TESTS_DIR . '/../system/import.php'), 'include $f') , 'system/import.php never moves, stores or includes the uploaded file');
 
     // ---- import: mixed good and bad rows, delimiters, quoting
     $mixed = "\xEF\xBB\xBFname;kvk;email;city;website\n"
@@ -142,7 +142,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     same($pdo->query("SELECT city FROM companies WHERE name = 'ZZI Good Three'")->fetchColumn(), "Multi\nline", 'a quoted cell with a line break is read as one cell');
     same((int) $pdo->query("SELECT COUNT(*) FROM companies WHERE name LIKE 'ZZI Bad%' OR name LIKE 'ZZI Dup%' OR name = 'ZZI Ragged'")->fetchColumn(), 0, 'no rejected or duplicate row was saved');
     $xs = $upload($admin, "name\n\"ZZI <script>alert(1)</script>\"\n");
-    $xl = http('GET', "$base/companies.php?q=ZZI+%3Cscript", ['jar' => $admin])['body'];
+    $xl = http('GET', "$base/companies/companies.php?q=ZZI+%3Cscript", ['jar' => $admin])['body'];
     check(!str_contains($xl, '<script>alert(1)') && str_contains($xl, '&lt;script&gt;'), 'markup in an imported name is escaped when shown');
     // users: bad rows
     $r = $upload($admin, "name,email,role,status,company\nZZI Ok,zz.imp1@example.test,viewer,active,ZZI Users Co\nZZI Role,zz.imp2@example.test,superuser,active,\nZZI Stat,zz.imp3@example.test,viewer,gone,\nZZI Comp,zz.imp4@example.test,viewer,active,No Such Company\nZZI Mail,nope,viewer,active,\nZZI Dupe,zz.csv1@example.test,viewer,active,\n,zz.imp5@example.test,,,\n", ['type' => 'users']);
@@ -158,5 +158,5 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     for ($i = 0; $i < 18; $i++) { $codes[] = $exp($admin, 'tickets')['code']; }
     check(count(array_filter($codes, fn($c) => $c === 200)) === 15 && count(array_filter($codes, fn($c) => $c === 429)) === 3, 'exports are rate limited: 15 a minute, then 429', json_encode(array_count_values($codes)));
     $pdo->exec('DELETE FROM rate_limits');
-    $pdo->exec("DELETE FROM activity_logs WHERE action = 'Rate limit exceeded' AND target LIKE '%export.php' AND is_demo = 0");
+    $pdo->exec("DELETE FROM activity_logs WHERE action = 'Rate limit exceeded' AND target LIKE '%system/export.php' AND is_demo = 0");
     $cleanCsv();

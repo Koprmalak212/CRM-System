@@ -1,6 +1,7 @@
 # Secrets and runtime files must never be committed
 includes/config.local.php
-storage/
+storage/*
+!storage/.htaccess
 .impeccable/
 node_modules/
 *.log

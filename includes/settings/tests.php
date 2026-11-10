@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../invoices.php';   // valid_date()
+require_once __DIR__ . '/../modules/invoices.php';   // valid_date()
 
 const TEST_RESULTS = [
     'pass' => ['Passed', 'bg-lime text-navy'],
@@ -158,7 +158,7 @@ function tab_render(PDO $pdo, array $admin): void
     <div class="min-w-56 flex-1"><label for="t-q" class="mb-1 block text-xs font-semibold text-soft">Search</label>
       <input id="t-q" name="q" type="search" value="<?= e($q) ?>" placeholder="Test, finding, fix or reference" class="<?= $field ?> w-full"></div>
     <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
-    <?php if ($result !== '' || $area !== '' || $q !== ''): ?><a href="settings.php?tab=tests" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
+    <?php if ($result !== '' || $area !== '' || $q !== ''): ?><a href="settings/settings.php?tab=tests" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </form>
 
   <div class="overflow-x-auto">
@@ -182,7 +182,7 @@ function tab_render(PDO $pdo, array $admin): void
           <?php endif; ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$rows): ?><tr><td colspan="6" class="px-4 py-14 text-center"><p class="text-base font-semibold">No entries match</p><p class="mt-1 text-soft">Try another result, area or search term.</p><a href="settings.php?tab=tests" class="pressable mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">Show all entries</a></td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="6" class="px-4 py-14 text-center"><p class="text-base font-semibold">No entries match</p><p class="mt-1 text-soft">Try another result, area or search term.</p><a href="settings/settings.php?tab=tests" class="pressable mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">Show all entries</a></td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

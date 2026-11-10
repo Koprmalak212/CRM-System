@@ -41,13 +41,13 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $tfaId = (int) $pdo->query("SELECT id FROM admins WHERE username = 'tfa.tester'")->fetchColumn();
     $pwStep = function (string $jar, string $u = 'tfa.tester', string $p = 'Tfa-Test-Passw0rd!') use ($base, $pdo) {
         $pdo->exec('DELETE FROM rate_limits');
-        $page = http('GET', "$base/login.php", ['jar' => $jar]);
-        return http('POST', "$base/login.php", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'username' => $u, 'password' => $p])]);
+        $page = http('GET', "$base/auth/login.php", ['jar' => $jar]);
+        return http('POST', "$base/auth/login.php", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'username' => $u, 'password' => $p])]);
     };
     $codeStep = function (string $jar, string $code) use ($base, $pdo) {
         $pdo->exec('DELETE FROM rate_limits');
-        $page = http('GET', "$base/login_2fa.php", ['jar' => $jar]);
-        return http('POST', "$base/login_2fa.php", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'code' => $code])]);
+        $page = http('GET', "$base/auth/login_2fa.php", ['jar' => $jar]);
+        return http('POST', "$base/auth/login_2fa.php", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'code' => $code])]);
     };
     $signedIn = fn(string $jar) => http('GET', "$base/index.php", ['jar' => $jar])['code'] === 200;
     $newJar = fn() => tempnam(sys_get_temp_dir(), 'tf');
@@ -56,17 +56,17 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $jar = $newJar();
     $r = $pwStep($jar);
     check($r['code'] === 302 && str_contains($r['headers'], 'index.php') && $signedIn($jar), 'without two-step an account signs in as before (password only)');
-    $acc = http('GET', "$base/settings.php?tab=account", ['jar' => $jar])['body'];
+    $acc = http('GET', "$base/settings/settings.php?tab=account", ['jar' => $jar])['body'];
     check(str_contains($acc, 'Two-step sign-in') && str_contains($acc, 'Set up two-step sign-in') && !str_contains($acc, 'Secret key'), 'Settings > Account offers the set-up and shows no secret yet');
     same((int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $tfaId")->fetchColumn(), 0, 'it is off in the database');
-    $tf = function (array $d) use ($post, $jar) { return $post($jar, 'settings.php?tab=account', ['tab' => 'account'] + $d, 'settings.php?tab=account'); };
+    $tf = function (array $d) use ($post, $jar) { return $post($jar, 'settings/settings.php?tab=account', ['tab' => 'account'] + $d, 'settings/settings.php?tab=account'); };
     $tf(['action' => '2fa_start']);
-    $acc = http('GET', "$base/settings.php?tab=account", ['jar' => $jar])['body'];
+    $acc = http('GET', "$base/settings/settings.php?tab=account", ['jar' => $jar])['body'];
     preg_match('/Secret key<\/dt><dd[^>]*>([A-Z2-7 ]+)</', $acc, $m);
     $secret = base32_decode($m[1] ?? '');
     check($secret !== null && strlen($secret) === 20 && str_contains($acc, 'otpauth://totp/') && str_contains($acc, 'Confirm and turn on'), 'the set-up shows a 20-byte secret key, the otpauth link and a confirm form');
     same((int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $tfaId")->fetchColumn(), 0, 'still off until the first code is confirmed');
-    check(!str_contains(http('GET', "$base/settings.php?tab=account", ['jar' => $newJar()])['body'], 'Secret key'), 'the secret is only in the signed-in session, not on any other page');
+    check(!str_contains(http('GET', "$base/settings/settings.php?tab=account", ['jar' => $newJar()])['body'], 'Secret key'), 'the secret is only in the signed-in session, not on any other page');
     $tf(['action' => '2fa_confirm', 'code' => '000000']);
     same((int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $tfaId")->fetchColumn(), 0, 'a wrong first code does not turn it on');
     $tf(['action' => '2fa_confirm', 'code' => '12']);
@@ -78,28 +78,28 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     same((int) $row['totp_enabled'], 1, 'the right first code turns two-step sign-in on');
     $stored = (string) $row['totp_secret_enc'];
     check($stored !== '' && !str_contains($stored, base32_encode($secret)) && !str_contains($stored, $secret) && secret_decrypt($stored) === $secret, 'the secret is stored encrypted (AES-256-GCM), not as plain text, and decrypts to the same key');
-    $acc = http('GET', "$base/settings.php?tab=account", ['jar' => $jar])['body'];
+    $acc = http('GET', "$base/settings/settings.php?tab=account", ['jar' => $jar])['body'];
     preg_match_all('/<li>([A-Z2-9]{5}-[A-Z2-9]{5})<\/li>/', $acc, $mm);
     $codes = $mm[1];
     check(count($codes) === 10 && count(array_unique($codes)) === 10, 'ten different recovery codes are shown');
     $hashes = $pdo->query("SELECT code_hash FROM admin_recovery_codes WHERE admin_id = $tfaId")->fetchAll(PDO::FETCH_COLUMN);
     check(count($hashes) === 10 && !array_intersect($hashes, array_merge($codes, array_map(fn($c) => str_replace('-', '', $c), $codes))) && strlen($hashes[0]) === 64, 'they are stored only as 64-character hashes, never in plain text');
-    check(!str_contains(http('GET', "$base/settings.php?tab=account", ['jar' => $jar])['body'], $codes[0]), 'the recovery codes are shown once: a reload no longer shows them');
-    check(str_contains(http('GET', "$base/settings.php?tab=account", ['jar' => $jar])['body'], 'Unused recovery codes: <strong class="text-ink">10</strong>'), 'the page counts the unused recovery codes');
+    check(!str_contains(http('GET', "$base/settings/settings.php?tab=account", ['jar' => $jar])['body'], $codes[0]), 'the recovery codes are shown once: a reload no longer shows them');
+    check(str_contains(http('GET', "$base/settings/settings.php?tab=account", ['jar' => $jar])['body'], 'Unused recovery codes: <strong class="text-ink">10</strong>'), 'the page counts the unused recovery codes');
     same((int) $pdo->query("SELECT totp_last_step FROM admins WHERE id = $tfaId")->fetchColumn(), intdiv($confirmAt, 30), 'the step used to confirm is remembered (it can not be used again)');
     check(((int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action = 'Two-step sign-in turned on' AND target = 'tfa.tester'")->fetchColumn()) === 1, 'turning it on is in the activity log');
-    same(http('POST', "$base/settings.php?tab=account", ['body' => 'action=2fa_start&tab=account'])['code'], 302, 'signed out: the set-up can not be started');
-    same(http('POST', "$base/settings.php?tab=account", ['jar' => $jar, 'body' => 'action=2fa_start&tab=account'])['code'], 403, 'a set-up request without a CSRF token is 403');
+    same(http('POST', "$base/settings/settings.php?tab=account", ['body' => 'action=2fa_start&tab=account'])['code'], 302, 'signed out: the set-up can not be started');
+    same(http('POST', "$base/settings/settings.php?tab=account", ['jar' => $jar, 'body' => 'action=2fa_start&tab=account'])['code'], 403, 'a set-up request without a CSRF token is 403');
 
     section('21. Two-factor sign-in: the login steps');
     $j = $newJar();
     $r = $pwStep($j);
-    check($r['code'] === 302 && str_contains($r['headers'], 'login_2fa.php') && !str_contains($r['headers'], 'index.php'), 'right password: sent to the code step, not into the dashboard');
+    check($r['code'] === 302 && str_contains($r['headers'], 'auth/login_2fa.php') && !str_contains($r['headers'], 'index.php'), 'right password: sent to the code step, not into the dashboard');
     same(http('GET', "$base/index.php", ['jar' => $j])['code'], 302, 'and the dashboard is still closed: the password alone is not enough');
-    same(http('GET', "$base/settings.php", ['jar' => $j])['code'], 302, 'so are the other pages');
-    check(str_contains(http('GET', "$base/login_2fa.php", ['jar' => $j])['body'], 'Two-step sign-in'), 'the code step page opens for that session');
-    same(http('GET', "$base/login_2fa.php", ['jar' => $newJar()])['code'], 302, 'the code page is not reachable without first passing the password step');
-    same(http('POST', "$base/login_2fa.php", ['body' => 'code=123456'])['code'], 302, 'a code posted without a session is refused');
+    same(http('GET', "$base/settings/settings.php", ['jar' => $j])['code'], 302, 'so are the other pages');
+    check(str_contains(http('GET', "$base/auth/login_2fa.php", ['jar' => $j])['body'], 'Two-step sign-in'), 'the code step page opens for that session');
+    same(http('GET', "$base/auth/login_2fa.php", ['jar' => $newJar()])['code'], 302, 'the code page is not reachable without first passing the password step');
+    same(http('POST', "$base/auth/login_2fa.php", ['body' => 'code=123456'])['code'], 302, 'a code posted without a session is refused');
     $r = $pwStep($newJar(), 'tfa.tester', 'wrong-password');
     check($r['code'] === 200 && !str_contains($r['headers'], 'login_2fa'), 'a wrong password never reaches the code step');
     $r = $codeStep($j, '000000');
@@ -139,11 +139,11 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     check($last['code'] === 200 && str_contains($last['body'], 'not right'), 'five wrong codes are each answered with an error');
     same((int) $pdo->query("SELECT COUNT(*) FROM login_attempts WHERE username = '2fa:tfa.tester'")->fetchColumn(), 5, 'each wrong code is counted per address in the database');
     $r = $codeStep($jl, totp_code($secret, time() + 30));
-    check($r['code'] === 302 && str_contains($r['headers'], 'login.php?locked=1') && !$signedIn($jl), 'the sixth attempt is locked out, even with a correct code');
-    $r = http('GET', "$base/login.php?locked=1", ['jar' => $newJar()]);
+    check($r['code'] === 302 && str_contains($r['headers'], 'auth/login.php?locked=1') && !$signedIn($jl), 'the sixth attempt is locked out, even with a correct code');
+    $r = http('GET', "$base/auth/login.php?locked=1", ['jar' => $newJar()]);
     check(str_contains($r['body'], 'Too many failed attempts'), 'the login page explains the lock-out');
     $jl2 = $newJar(); $r = $pwStep($jl2);
-    check($r['code'] === 302 && str_contains($r['headers'], 'login_2fa.php'), 'the password step still works while locked (the lock is on the code step)');
+    check($r['code'] === 302 && str_contains($r['headers'], 'auth/login_2fa.php'), 'the password step still works while locked (the lock is on the code step)');
     $r = $codeStep($jl2, totp_code($secret, time() + 30));
     check(!$signedIn($jl2), 'but the code step stays locked for new sign-ins too until the window has passed');
     $pdo->exec("DELETE FROM login_attempts WHERE username LIKE '2fa:tfa.%'");
@@ -164,8 +164,8 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 
     section('22. Two-factor sign-in: turning it off, and admin reset');
     $jt = $newJar(); $pwStep($jt); $codeStep($jt, totp_code($secret, time() + 30));
-    $tf = function (array $d) use ($post, $jt) { return $post($jt, 'settings.php?tab=account', ['tab' => 'account'] + $d, 'settings.php?tab=account'); };
-    if (!$signedIn($jt)) { $pdo->prepare('UPDATE admins SET totp_last_step = NULL WHERE id = ?')->execute([$tfaId]); $jt = $newJar(); $pwStep($jt); $codeStep($jt, totp_code($secret, time())); $tf = function (array $d) use ($post, $jt) { return $post($jt, 'settings.php?tab=account', ['tab' => 'account'] + $d, 'settings.php?tab=account'); }; }
+    $tf = function (array $d) use ($post, $jt) { return $post($jt, 'settings/settings.php?tab=account', ['tab' => 'account'] + $d, 'settings/settings.php?tab=account'); };
+    if (!$signedIn($jt)) { $pdo->prepare('UPDATE admins SET totp_last_step = NULL WHERE id = ?')->execute([$tfaId]); $jt = $newJar(); $pwStep($jt); $codeStep($jt, totp_code($secret, time())); $tf = function (array $d) use ($post, $jt) { return $post($jt, 'settings/settings.php?tab=account', ['tab' => 'account'] + $d, 'settings/settings.php?tab=account'); }; }
     check($signedIn($jt), 'signed in again with a valid code to try turning it off');
     $tf(['action' => '2fa_disable', 'password' => 'wrong', 'code' => totp_code($secret, time() + 30)]);
     same((int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $tfaId")->fetchColumn(), 1, 'turning off with a wrong password does nothing');
@@ -186,26 +186,26 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $pdo->prepare('UPDATE admins SET totp_secret_enc = ?, totp_enabled = 1 WHERE id = ?')->execute([secret_encrypt($secret), $tfaId]);
     $rcs = recovery_codes_make($pdo, $tfaId);
     $jr = $newJar(); $pwStep($jr); $codeStep($jr, $rcs[0]);
-    $post($jr, 'settings.php?tab=account', ['tab' => 'account', 'action' => '2fa_disable', 'password' => $tfaPass, 'code' => $rcs[1]], 'settings.php?tab=account');
+    $post($jr, 'settings/settings.php?tab=account', ['tab' => 'account', 'action' => '2fa_disable', 'password' => $tfaPass, 'code' => $rcs[1]], 'settings/settings.php?tab=account');
     same((int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $tfaId")->fetchColumn(), 0, 'a recovery code also works as the proof when turning it off');
 
     // admin reset
     $pdo->prepare('UPDATE admins SET totp_secret_enc = ?, totp_enabled = 1 WHERE id = ?')->execute([secret_encrypt($secret), $tfaId]);
     recovery_codes_make($pdo, $tfaId);
-    $team = http('GET', "$base/settings.php?tab=team", ['jar' => $admin])['body'];
+    $team = http('GET', "$base/settings/settings.php?tab=team", ['jar' => $admin])['body'];
     check(str_contains($team, 'Two-step sign-in on') && str_contains($team, 'Reset two-step'), 'Settings > Team shows who has two-step on and a Reset button');
-    same($post($user, 'settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $tfaId], 'settings.php?tab=account')['code'], 403, 'a normal account can not reset anyone\'s two-step (403)');
+    same($post($user, 'settings/settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $tfaId], 'settings/settings.php?tab=account')['code'], 403, 'a normal account can not reset anyone\'s two-step (403)');
     same((int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $tfaId")->fetchColumn(), 1, 'and nothing changed');
     $adminSelf = (int) $pdo->query("SELECT id FROM admins WHERE username = '" . $adminUser . "'")->fetchColumn();
-    $post($admin, 'settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $adminSelf], 'settings.php?tab=team');
+    $post($admin, 'settings/settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $adminSelf], 'settings/settings.php?tab=team');
     same((int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $adminSelf")->fetchColumn(), 0, 'resetting yourself from Team is refused (use the Account tab); the admin still has it off');
-    $post($admin, 'settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $tfaId], 'settings.php?tab=team');
+    $post($admin, 'settings/settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $tfaId], 'settings/settings.php?tab=team');
     $row = $pdo->query("SELECT totp_enabled, totp_secret_enc FROM admins WHERE id = $tfaId")->fetch();
     check((int) $row['totp_enabled'] === 0 && $row['totp_secret_enc'] === null && (int) $pdo->query("SELECT COUNT(*) FROM admin_recovery_codes WHERE admin_id = $tfaId")->fetchColumn() === 0, 'an admin can reset another person\'s two-step: off, secret and recovery codes erased');
     check((int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action = 'Two-step sign-in reset by admin' AND target = 'tfa.tester'")->fetchColumn() === 1, 'the reset is logged');
     $jz = $newJar(); $r = $pwStep($jz);
     check($r['code'] === 302 && str_contains($r['headers'], 'index.php'), 'after a reset the person can sign in with their password and set it up again');
-    $rr = $post($admin, 'settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $tfaId], 'settings.php?tab=team');
+    $rr = $post($admin, 'settings/settings.php?tab=team', ['tab' => 'team', 'action' => 'reset_2fa', 'id' => (string) $tfaId], 'settings/settings.php?tab=team');
     check($rr['code'] === 302 && (int) $pdo->query("SELECT totp_enabled FROM admins WHERE id = $tfaId")->fetchColumn() === 0 && (int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE action = 'Two-step sign-in reset by admin' AND target = 'tfa.tester'")->fetchColumn() === 1, 'resetting an account that has it off changes nothing and is not logged again');
     $cleanTfa();
     $pdo->exec('DELETE FROM rate_limits');

@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-require __DIR__ . '/includes/bootstrap.php';
-require __DIR__ . '/includes/invoices.php';
-require __DIR__ . '/includes/trends.php';
-require __DIR__ . '/includes/layout.php';
+require __DIR__ . '/includes/core/bootstrap.php';
+require __DIR__ . '/includes/modules/invoices.php';
+require __DIR__ . '/includes/modules/trends.php';
+require __DIR__ . '/includes/core/layout.php';
 require_login();
 $pdo = db();
 
@@ -67,9 +67,9 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
       </p>
     </div>
     <div class="flex gap-2">
-      <a href="logs.php?level=error" class="inline-flex h-11 items-center gap-2 rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-navy-800">Review errors <?= icon('arrow', 'h-4 w-4') ?></a>
-      <a href="backups.php" class="inline-flex h-11 items-center rounded-xl border border-navy/20 bg-white/60 px-4 text-sm font-semibold hover:bg-panel">Backups</a>
-      <?php if (is_admin()): ?><a href="#demo-data" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-navy/20 bg-white/60 px-4 text-sm font-semibold hover:bg-white"><?= icon('database', 'h-4 w-4') ?>Demo data</a><?php endif; ?>
+      <a href="system/logs.php?level=error" class="inline-flex h-11 items-center gap-2 rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-navy-800">Review errors <?= icon('arrow', 'h-4 w-4') ?></a>
+      <a href="system/backups.php" class="inline-flex h-11 items-center rounded-xl border border-navy/20 bg-white/60 px-4 text-sm font-semibold hover:bg-panel">Backups</a>
+      <?php if (is_admin()): ?><a href="<?= self_url() ?>#demo-data" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-navy/20 bg-white/60 px-4 text-sm font-semibold hover:bg-white"><?= icon('database', 'h-4 w-4') ?>Demo data</a><?php endif; ?>
     </div>
   </div>
 </section>
@@ -77,11 +77,11 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
 <div class="stat-grid rise mt-6 grid grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel lg:grid-cols-5 lg:divide-x" style="animation-delay:.05s">
   <?php
   $stats = [
-      ['Accounts', number_format($usersTotal), '+' . $usersNew . ' in 30 days', 'users.php'],
-      ['Open tickets', (string) $ticketsOpen, $ticketsUrgent . ' urgent', 'tickets.php?status=open'],
-      ['Open sessions', (string) (int) $conn['total'], (int) $conn['flagged'] . ' flagged', 'connections.php'],
-      ['Last good backup', $lastBackup ? ago($lastBackup) : 'None', count($failedBackups) . ' failed in 48 h', 'backups.php'],
-      ['Errors, 24 h', (string) $err24, ($delta === 0 ? 'same as before' : ($delta > 0 ? '+' . $delta . ' vs previous 24 h' : $delta . ' vs previous 24 h')), 'logs.php?level=error'],
+      ['Accounts', number_format($usersTotal), '+' . $usersNew . ' in 30 days', 'users/users.php'],
+      ['Open tickets', (string) $ticketsOpen, $ticketsUrgent . ' urgent', 'tickets/tickets.php?status=open'],
+      ['Open sessions', (string) (int) $conn['total'], (int) $conn['flagged'] . ' flagged', 'monitoring/connections.php'],
+      ['Last good backup', $lastBackup ? ago($lastBackup) : 'None', count($failedBackups) . ' failed in 48 h', 'system/backups.php'],
+      ['Errors, 24 h', (string) $err24, ($delta === 0 ? 'same as before' : ($delta > 0 ? '+' . $delta . ' vs previous 24 h' : $delta . ' vs previous 24 h')), 'system/logs.php?level=error'],
   ];
   foreach ($stats as $i => [$label, $value, $note, $href]): ?>
     <a href="<?= e($href) ?>" class="group block p-5 hover:bg-butter-50 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i === 4 ? 'col-span-2 lg:col-span-1' : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
@@ -110,7 +110,7 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
     </div>
     <?php if (!$services): ?>
       <div class="px-5 pb-6 pt-2 sm:px-6"><p class="max-w-md text-[15px] text-[#C3CCE0]">No services are being tracked yet. Add an endpoint in Settings and its health will be recorded here and in the health API.</p>
-        <a href="settings.php?tab=integrations" class="pressable mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-lime px-4 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Add an endpoint</a></div>
+        <a href="settings/settings.php?tab=integrations" class="pressable mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-lime px-4 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Add an endpoint</a></div>
     <?php endif; ?>
     <ul class="divide-y divide-white/10">
       <?php foreach ($services as $si => $s): ?>
@@ -135,27 +135,27 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
     <?php else: ?>
     <ul class="divide-y divide-line">
       <?php foreach ($notHealthy as $s): ?>
-        <li><a href="logs.php?q=<?= urlencode(strtolower(explode(' ', $s['name'])[0])) ?>" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+        <li><a href="system/logs.php?q=<?= urlencode(strtolower(explode(' ', $s['name'])[0])) ?>" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
           <?= badge($s['now']) ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= e($s['name']) ?></span> is <?= e($s['now']) ?> right now.</span></a></li>
       <?php endforeach; ?>
       <?php foreach ($failedBackups as $b): ?>
-        <li><a href="backups.php" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+        <li><a href="system/backups.php" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
           <?= badge('failed') ?><span class="min-w-0 flex-1 text-[15px]">Backup <span class="font-semibold"><?= e($b['name']) ?></span> failed <?= e(str_replace(' ', "\u{00A0}", ago($b['started_at']))) ?>.</span></a></li>
       <?php endforeach; ?>
       <?php if ($epDown && integrations_level() !== 'none'): ?>
-        <li><a href="settings.php?tab=integrations" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+        <li><a href="settings/settings.php?tab=integrations" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
           <?= badge('down') ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= e(implode(', ', array_slice($epDown, 0, 3))) ?></span> did not respond to the last health check.</span></a></li>
       <?php endif; ?>
       <?php if ((int) $od['n'] > 0): ?>
-        <li><a href="invoices.php?state=overdue" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+        <li><a href="invoices/invoices.php?state=overdue" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
           <?= badge('overdue') ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= (int) $od['n'] ?> invoices</span> are past due, <span class="notranslate"><?= e(money((int) $od['s'])) ?></span> outstanding.</span></a></li>
       <?php endif; ?>
       <?php if ((int) $conn['flagged'] > 0): ?>
-        <li><a href="connections.php?status=flagged" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+        <li><a href="monitoring/connections.php?status=flagged" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
           <?= badge('flagged') ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= (int) $conn['flagged'] ?> sessions</span> from unfamiliar addresses are open.</span></a></li>
       <?php endif; ?>
       <?php if ($usersPending > 0): ?>
-        <li><a href="users.php?status=pending" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+        <li><a href="users/users.php?status=pending" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
           <?= badge('pending') ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= $usersPending ?> accounts</span> are waiting for approval.</span></a></li>
       <?php endif; ?>
     </ul>
@@ -191,7 +191,7 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
   <section class="rise rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.25s" aria-labelledby="rec-h">
     <div class="flex items-center justify-between px-5 pb-2 pt-5">
       <h2 id="rec-h" class="text-lg font-bold tracking-tight">Recent activity</h2>
-      <a href="logs.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4 hover:decoration-white">All logs</a>
+      <a href="system/logs.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4 hover:decoration-white">All logs</a>
     </div>
     <ul class="divide-y divide-line">
       <?php foreach ($recent as $r): ?>
@@ -225,7 +225,7 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
   <?php if ($demoRows === 0 && !demo_loaded()): ?>
     <p class="mt-1 max-w-2xl text-sm text-soft">Fill the dashboard with fake sample data to try it out: about 70 users, sessions, services, invoices and payments, reports, backups and a week of activity. Every sample record is tagged as demo, so it can be removed again in one click. Your own data is never changed.</p>
     <?php if ($realText !== ''): ?><p class="mt-2 text-sm text-soft">Your own data stays as it is: <span class="text-ink"><?= e($realText) ?></span>.</p><?php endif; ?>
-    <form method="post" action="demo_data.php" class="mt-4"><?= csrf_field() ?><input type="hidden" name="action" value="seed">
+    <form method="post" action="system/demo_data.php" class="mt-4"><?= csrf_field() ?><input type="hidden" name="action" value="seed">
       <button class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Load demo data</button>
     </form>
   <?php else: ?>
@@ -235,7 +235,7 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
       <summary class="pressable inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-xl border border-line px-5 text-sm font-bold hover:bg-[#FFD3CC] hover:text-[#7E160A]"><?= icon('x', 'h-4 w-4') ?>Remove demo data</summary>
       <div class="mt-3 rounded-xl border border-line bg-deep p-4">
         <p class="text-sm">This permanently deletes the <strong><?= number_format($demoRows) ?></strong> demo records listed above. Only records tagged as demo are removed.<?= $realText !== '' ? ' Your own records stay.' : '' ?> A demo invoice that has a real payment recorded on it is kept.</p>
-        <form method="post" action="demo_data.php" class="mt-3"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="confirm" value="yes">
+        <form method="post" action="system/demo_data.php" class="mt-3"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="confirm" value="yes">
           <button class="pressable inline-flex h-10 items-center rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, remove the demo data</button>
         </form>
       </div>

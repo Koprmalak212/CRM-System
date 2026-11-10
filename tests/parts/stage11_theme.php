@@ -6,7 +6,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     // =========================================================
     // Stage 11: light and dark theme
     // =========================================================
-    require_once TESTS_DIR . '/../includes/theme.php';
+    require_once TESTS_DIR . '/../includes/core/theme.php';
     section('33. Theme: palette and contrast');
     same(round(theme_contrast('0 0 0', '255 255 255'), 1), 21.0, 'contrast maths: black on white is 21:1');
     same(round(theme_contrast('255 255 255', '255 255 255'), 1), 1.0, 'and a colour on itself is 1:1');
@@ -39,24 +39,24 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $scr = theme_toggle_script();
     check(str_contains($scr, 'localStorage.setItem("theme"') && str_contains($scr, 'Switch to dark mode') && str_contains($scr, 'addEventListener("change"'), 'clicking saves the choice per browser and updates the label; the system setting is followed while nothing is saved');
     $anon = $newJar();
-    $pages = ['login.php' => null, 'forgot.php' => null, 'reset.php?token=nope' => null, 'invite.php?token=nope' => null, 'privacybeleid.php' => null];
+    $pages = ['auth/login.php' => null, 'auth/forgot.php' => null, 'auth/reset.php?token=nope' => null, 'auth/invite.php?token=nope' => null, 'privacy/privacybeleid.php' => null];
     foreach (array_keys($pages) as $pg) {
         $b = http('GET', "$base/$pg", ['jar' => $anon])['body'];
         check(str_contains($b, 'setAttribute("data-theme"') && str_contains($b, 'data-theme-toggle') && str_contains($b, '--c-ground:') && !str_contains($b, 'ground:\'#0A1226\''), "$pg has the theme (boot script, toggle button, palette)");
     }
-    check(str_contains(http('GET', "$base/login.php", ['jar' => $anon])['body'], 'logo-on-light') && str_contains(http('GET', "$base/forgot.php", ['jar' => $anon])['body'], 'logo-on-light'), 'pages on a page background carry the coloured logo for light mode next to the white one');
-    foreach (['index.php', 'users.php', 'companies.php', 'tickets.php', 'invoices.php', 'uptime.php', 'recurring.php', 'notifications.php', 'search.php?q=a', 'settings.php?tab=account', 'settings.php?tab=email', 'privacy.php'] as $pg) {
+    check(str_contains(http('GET', "$base/auth/login.php", ['jar' => $anon])['body'], 'logo-on-light') && str_contains(http('GET', "$base/auth/forgot.php", ['jar' => $anon])['body'], 'logo-on-light'), 'pages on a page background carry the coloured logo for light mode next to the white one');
+    foreach (['index.php', 'users/users.php', 'companies/companies.php', 'tickets/tickets.php', 'invoices/invoices.php', 'monitoring/uptime.php', 'invoices/recurring.php', 'notifications/notifications.php', 'search/search.php?q=a', 'settings/settings.php?tab=account', 'settings/settings.php?tab=email', 'privacy/privacy.php'] as $pg) {
         $b = http('GET', "$base/$pg", ['jar' => $admin])['body'];
         check(str_contains($b, 'data-theme-toggle') && str_contains($b, 'setAttribute("data-theme"') && str_contains($b, 'class="on-navy') , "$pg (signed in) has the theme and keeps the sidebar dark");
     }
     $ov = http('GET', "$base/index.php", ['jar' => $admin])['body'];
     check(substr_count($ov, 'on-navy') >= 2 && str_contains($ov, 'Service health'), 'the sidebar and the service-health card are both dark islands');
     check(str_contains($ov, 'chart-key'), 'the activity chart legend follows the chart colour');
-    $login = http('GET', "$base/login.php", ['jar' => $anon])['body'];
+    $login = http('GET', "$base/auth/login.php", ['jar' => $anon])['body'];
     check(str_contains($login, 'on-navy relative hidden flex-col'), 'the login brand panel is a dark island');
 
     // regressions: nothing may bring back hard-coded theme colours or text that is dimmed with opacity
-    $srcFiles = array_merge(glob(TESTS_DIR . '/../*.php'), glob(TESTS_DIR . '/../includes/*.php'), glob(TESTS_DIR . '/../includes/settings/*.php'));
+    $srcFiles = app_source_files();
     $hard = []; $dim = []; $cfgs = [];
     foreach ($srcFiles as $f) {
         $t = (string) file_get_contents($f);
@@ -67,5 +67,5 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     check(!$hard, 'no page hard-codes the dark page colour or colour scheme any more', implode(', ', $hard));
     check(!$cfgs, 'only includes/theme.php configures Tailwind (one palette for every page)', implode(', ', $cfgs));
     check(!$dim, 'no row or text is dimmed with opacity (it silently lowers contrast); disabled and read rows use a tint', implode(', ', $dim));
-    $bs = (string) file_get_contents(TESTS_DIR . '/../includes/bootstrap.php');
+    $bs = (string) file_get_contents(TESTS_DIR . '/../includes/core/bootstrap.php');
     check(str_contains($bs, "'info' => 'bg-ink/10 text-ink'") && !str_contains($bs, "bg-white/10 text-ink"), 'the neutral badge uses a tint of the text colour, so it shows in both themes');

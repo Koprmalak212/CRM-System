@@ -1,1 +1,4 @@
-Require all denied
+# Not for browsers: this folder holds code, data or scripts only.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>

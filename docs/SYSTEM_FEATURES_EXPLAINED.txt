@@ -74,7 +74,7 @@ activity log, and shown in the timeline of the person or company it concerns.
 2. SIGNING IN, SIGNING OUT, FIRST STEPS
 ===============================================================================
 
-Sign in (login.php)
+Sign in (auth/login.php)
   Enter username (or email) and password. After 5 wrong tries for one name,
   or 15 from one address, sign-in is paused for 15 minutes.
   If you have two-step sign-in switched on you then enter a 6-digit code from
@@ -82,7 +82,7 @@ Sign in (login.php)
   You are signed out automatically after 30 minutes of inactivity, or after
   8 hours in total. A message tells you why.
 
-Forgot your password (forgot.php)
+Forgot your password (auth/forgot.php)
   Enter your email address. If an account exists you receive a link that works
   for one hour and one time. The page gives the same answer whether or not the
   address exists. Choosing a new password signs you out everywhere else.
@@ -91,9 +91,9 @@ Forgot your password (forgot.php)
 
 First sign-in with a temporary password
   When an admin creates your account with a temporary password you must choose
-  your own password straight away (change_password.php).
+  your own password straight away (auth/change_password.php).
 
-Invitation (invite.php)
+Invitation (auth/invite.php)
   An admin can invite you by email instead. You open the link, choose a
   password and your account is ready.
 
@@ -163,7 +163,7 @@ moment you open it.
 
 
 ===============================================================================
-5. USERS (users.php, user.php, user_new.php)
+5. USERS (users/users.php, users/user.php, users/user_new.php)
 ===============================================================================
 
 Users list
@@ -174,11 +174,11 @@ Users list
   - "Clear filters" resets everything.
   - Add user opens the new-user form.
 
-New user (user_new.php)
+New user (users/user_new.php)
   Name, email (must be unique), role, country, company (picked from your
   companies, or left empty) and status.
 
-User page (user.php)
+User page (users/user.php)
   Everything about one person in one place:
   - Details with edit, and suspend / activate.
   - Their company (link to it).
@@ -199,7 +199,7 @@ Deleting
 
 
 ===============================================================================
-6. COMPANIES (companies.php, company.php, company_edit.php)
+6. COMPANIES (companies/companies.php, companies/company.php, companies/company_edit.php)
 ===============================================================================
 
 Companies list
@@ -249,7 +249,7 @@ Tip
 
 
 ===============================================================================
-8. TICKETS (tickets.php, ticket.php, ticket_new.php)
+8. TICKETS (tickets/tickets.php, tickets/ticket.php, tickets/ticket_new.php)
 ===============================================================================
 
 A ticket is one support case.
@@ -284,7 +284,7 @@ New ticket
 9. CALENDAR AND APPOINTMENTS
 ===============================================================================
 
-Calendar page (calendar.php)
+Calendar page (calendar/calendar.php)
   - A month grid, Monday first. Appointments appear on the day they happen;
     one that lasts several days appears on every day. A busy day shows three
     and "+N more".
@@ -296,7 +296,7 @@ Calendar page (calendar.php)
     company, contact, place and status. On a phone only the agenda is shown.
   - Download as .ics for any calendar app.
 
-Appointment form (appointment_edit.php)
+Appointment form (calendar/appointment_edit.php)
   Company (required), contact person (optional, must work at that company),
   title, location, notes, start and end (an appointment may last up to 14
   days) and status (Scheduled, Done, Cancelled).
@@ -316,7 +316,7 @@ Who sees what
   - A colleague at the same company sees the appointment without the mark.
   - A person at another company, or without a company, sees none of them.
 
-.ics export (calendar_ics.php)
+.ics export (calendar/calendar_ics.php)
   One appointment, or all of a company's appointments from 30 days ago on, as
   a file that opens in Outlook, Google Calendar, Apple Calendar and others.
   Times are local times; special characters are safe.
@@ -326,12 +326,12 @@ Who sees what
 10. INVOICES, PAYMENTS, PDF AND RECURRING INVOICES
 ===============================================================================
 
-Invoices list (invoices.php)
+Invoices list (invoices/invoices.php)
   - Summary tiles: open amount, overdue amount, collected in the last 30 days.
   - Filters: by state (open, due soon, overdue, paid) and by date range.
   - Search by number, customer or email; sort by the column headers.
 
-New invoice (invoice_new.php)
+New invoice (invoices/invoice_new.php)
   - Pick a company (fills in name and address) or type a customer.
   - Send-to email, customer address, issue date, an optional supply date,
     payment terms (which set the due date), VAT rate and notes.
@@ -339,7 +339,7 @@ New invoice (invoice_new.php)
     server in whole cents: subtotal, VAT and total.
   - The invoice number is created automatically and is unique.
 
-Invoice page (invoice.php)
+Invoice page (invoices/invoice.php)
   - All details and lines.
   - Record a payment: amount, method (iDEAL, Bank transfer, Credit card,
     Direct debit), date, reference. When payments cover the total, the invoice
@@ -350,13 +350,13 @@ Statuses
   Open (not yet due), Due soon (due within 7 days), Overdue (past the due date and
   not paid), Paid.
 
-PDF (invoice_pdf.php)
+PDF (invoices/invoice_pdf.php)
   A professional layout made inside the system (no outside service). It
   shows your supplier details, the customer, lines, VAT and total, the due
   date, and payment details. Your BTW number and IBAN come from
   Settings > Company details; if they are empty they are simply left off.
 
-Recurring invoices (recurring.php)
+Recurring invoices (invoices/recurring.php)
   For fixed monthly, quarterly or yearly work.
   - Create a schedule: company, description, amount, VAT, frequency (Month,
     Quarter, Year), first date, payment term.
@@ -364,14 +364,14 @@ Recurring invoices (recurring.php)
     pattern.
   - Pause or resume. Periods that passed while a schedule was paused are
     skipped, not billed afterwards.
-  - Invoices are created by the daily job (run_recurring.php, see 23). Never
+  - Invoices are created by the daily job (bin/run_recurring.php, see 23). Never
     twice for the same period, even if the job runs twice.
   - A generated invoice is an ordinary invoice that you can open, send and
     record payments on.
 
 
 ===============================================================================
-11. GLOBAL SEARCH (search.php)
+11. GLOBAL SEARCH (search/search.php)
 ===============================================================================
 
 Type in the search box on any page and press Enter. Results are grouped:
@@ -387,12 +387,12 @@ find.)
 12. CSV EXPORT AND IMPORT (admin only)
 ===============================================================================
 
-Export (export.php)
+Export (system/export.php)
   Download Users, Companies, Invoices, Tickets or Activity logs as CSV
   (UTF-8, opens correctly in Excel). Available from the list pages and from
   the logs page. Every export is logged.
 
-Import (import.php)
+Import (system/import.php)
   Upload a CSV of Users or Companies (up to 200 KB and 1000 rows).
   - Rows that already exist (same email or company name) are skipped.
   - Rows with problems are not imported; a list shows the row and the reason.
@@ -444,7 +444,7 @@ Outbox
 
 
 ===============================================================================
-14. CONNECTIONS (connections.php)
+14. CONNECTIONS (monitoring/connections.php)
 ===============================================================================
 
 A list of sessions and devices: user, IP address, device, location, protocol
@@ -458,7 +458,7 @@ country.
 15. UPTIME AND ENDPOINT CHECKS
 ===============================================================================
 
-Uptime (uptime.php)
+Uptime (monitoring/uptime.php)
   A status page in the style of Uptime Kuma: each service with its current
   state (up, slow, down), recent history bars and response time, and an
   overall banner.
@@ -466,7 +466,7 @@ Uptime (uptime.php)
   API Key (address and key). A service that goes down triggers a
   notification. Heartbeat history is kept 30 days.
 
-Endpoint checks (monitoring_uptime.php, check_endpoints.php)
+Endpoint checks (monitoring/monitoring_uptime.php, bin/check_endpoints.php)
   Your own checks of web addresses: add an address, the method (GET or HEAD)
   and the expected answer. The system calls it on a schedule and records up,
   slow or down with the time taken. Addresses that point to internal or
@@ -474,7 +474,7 @@ Endpoint checks (monitoring_uptime.php, check_endpoints.php)
 
 
 ===============================================================================
-16. REPORTS (reports.php)
+16. REPORTS (system/reports.php)
 ===============================================================================
 
 A list of reports with title, type, author, time and status (Ready, Running,
@@ -484,7 +484,7 @@ figures and the CSV export for real data.
 
 
 ===============================================================================
-17. BACKUPS (backups.php)
+17. BACKUPS (system/backups.php)
 ===============================================================================
 
 A log of backup jobs: name, type (full, incremental, database), status
@@ -495,7 +495,7 @@ tools and should be tested by restoring them.
 
 
 ===============================================================================
-18. ACTIVITY LOGS (logs.php)
+18. ACTIVITY LOGS (system/logs.php)
 ===============================================================================
 
 The audit trail: time, level (info, warning, error, critical), who, what,
@@ -510,7 +510,7 @@ locked?
 
 
 ===============================================================================
-19. SETTINGS (settings.php)
+19. SETTINGS (settings/settings.php)
 ===============================================================================
 
 Account (everyone)
@@ -570,10 +570,10 @@ Tests
 21. PRIVACY PAGES
 ===============================================================================
 
-Privacy policy (privacybeleid.php)
+Privacy policy (privacy/privacybeleid.php)
   The public text of how the organisation handles personal data.
 
-Privacy requests (privacy.php, staff)
+Privacy requests (privacy/privacy.php, staff)
   1. Enter the email address of the person asking.
   2. See what is held: user record, sessions, activity-log entries and
      invoices.
@@ -604,17 +604,17 @@ Overview > Demo data panel (admins).
 
 Set these up in the Windows Task Scheduler (or cron on Linux):
 
-  purge.php          daily. Deletes expired data: log entries over 12 months,
+  bin/purge.php          daily. Deletes expired data: log entries over 12 months,
                      login attempts, rate-limit counters, monitoring history
                      over 30 days, invoices over 7 years.
-                     php C:\xampp\htdocs\Websites\test\purge.php
-  run_recurring.php  daily. Creates the recurring invoices that are due.
-                     php C:\xampp\htdocs\Websites\test\run_recurring.php
-  check_endpoints.php  every minute; runs the endpoint checks that are due.
-  kuma_poll.php      every minute; keeps the Uptime history continuous when
+                     php C:\xampp\htdocs\Websites\test\bin\purge.php
+  bin/run_recurring.php  daily. Creates the recurring invoices that are due.
+                     php C:\xampp\htdocs\Websites\test\bin\run_recurring.php
+  bin/check_endpoints.php  every minute; runs the endpoint checks that are due.
+  bin/kuma_poll.php      every minute; keeps the Uptime history continuous when
                      nobody has the page open.
 
-purge.php, run_recurring.php, check_endpoints.php and kuma_poll.php all refuse to run from a browser.
+bin/purge.php, bin/run_recurring.php, bin/check_endpoints.php and bin/kuma_poll.php all refuse to run from a browser.
 
 
 ===============================================================================

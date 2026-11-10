@@ -25,8 +25,8 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $known = (int) $pdo->query('SELECT COUNT(*) FROM notifications')->fetchColumn();
     $nn = fn(string $like) => (int) $pdo->query("SELECT COUNT(*) FROM notifications WHERE dedupe_key LIKE '$like'")->fetchColumn();
 
-    foreach (['notifications.php'] as $pg) { same(http('GET', "$base/$pg")['code'], 302, 'signed out: notifications.php redirects to the login page'); }
-    same(http('POST', "$base/notifications.php", ['body' => 'action=read_all'])['code'], 302, 'signed out: marking as read is refused');
+    foreach (['notifications/notifications.php'] as $pg) { same(http('GET', "$base/$pg")['code'], 302, 'signed out: notifications/notifications.php redirects to the login page'); }
+    same(http('POST', "$base/notifications/notifications.php", ['body' => 'action=read_all'])['code'], 302, 'signed out: marking as read is refused');
 
     // the four events
     $pdo->exec("INSERT INTO invoices (number, customer, email, customer_address, issue_date, due_date, subtotal_cents, vat_cents, total_cents, created_at) VALUES ('ZZN-OD-1', 'ZZN Late Payer', 'a@b.test', 'x', CURDATE() - INTERVAL 40 DAY, CURDATE() - INTERVAL 10 DAY, 1000, 210, 1210, NOW()), ('ZZN-OK-1', 'ZZN Open Payer', 'a@b.test', 'x', CURDATE(), CURDATE() + INTERVAL 30 DAY, 1000, 210, 1210, NOW())");
@@ -44,10 +44,10 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     same($made, 5, 'one refresh records five new notifications: overdue invoice, failed backup, endpoint down, Kuma monitor down, urgent ticket');
     $row = fn(string $key) => $pdo->query("SELECT * FROM notifications WHERE dedupe_key = " . $pdo->quote($key))->fetch();
     $o = $row("invoice-overdue:$odId");
-    check($o && $o['kind'] === 'invoice_overdue' && str_contains($o['title'], 'ZZN-OD-1') && str_contains($o['body'], '12,10') && $o['link'] === "invoice.php?id=$odId" && $o['read_at'] === null, 'overdue invoice: title, amount owed, link to the invoice, unread');
+    check($o && $o['kind'] === 'invoice_overdue' && str_contains($o['title'], 'ZZN-OD-1') && str_contains($o['body'], '12,10') && $o['link'] === "invoices/invoice.php?id=$odId" && $o['read_at'] === null, 'overdue invoice: title, amount owed, link to the invoice, unread');
     same($nn("invoice-overdue:$okId"), 0, 'an invoice that is not overdue creates nothing');
     $b = $row("backup-failed:$bkId");
-    check($b && $b['kind'] === 'backup_failed' && str_contains($b['body'], 'ZZN-backup-fail') && $b['link'] === 'backups.php', 'failed backup: announced with its name');
+    check($b && $b['kind'] === 'backup_failed' && str_contains($b['body'], 'ZZN-backup-fail') && $b['link'] === 'system/backups.php', 'failed backup: announced with its name');
     same((int) $pdo->query("SELECT COUNT(*) FROM notifications WHERE kind = 'backup_failed' AND body LIKE '%ZZN-backup-old%' OR body LIKE '%ZZN-backup-ok%'")->fetchColumn(), 0, 'a failed backup older than 48 hours and a completed one create nothing');
     $since = $pdo->query("SELECT MIN(checked_at) FROM endpoint_checks WHERE endpoint_id = $epId AND state = 'down'")->fetchColumn();
     $d = $row("endpoint-down:$epId:$since");
@@ -55,10 +55,10 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     same($nn('endpoint-down:' . (int) $pdo->query("SELECT id FROM monitored_endpoints WHERE name = 'ZZN Fine Endpoint'")->fetchColumn() . ':%') + $nn('endpoint-down:' . (int) $pdo->query("SELECT id FROM monitored_endpoints WHERE name = 'ZZN Off Endpoint'")->fetchColumn() . ':%'), 0, 'a healthy endpoint and a switched-off one create nothing');
     $kid = (int) $pdo->query("SELECT id FROM kuma_heartbeats WHERE monitor_name = 'ZZN Kuma Monitor'")->fetchColumn();
     $k = $row("kuma-down:$kid");
-    check($k && $k['kind'] === 'service_down' && str_contains($k['title'], 'ZZN Kuma Monitor') && $k['link'] === 'uptime.php', 'an Uptime Kuma monitor that went down is announced');
+    check($k && $k['kind'] === 'service_down' && str_contains($k['title'], 'ZZN Kuma Monitor') && $k['link'] === 'monitoring/uptime.php', 'an Uptime Kuma monitor that went down is announced');
     same((int) $pdo->query("SELECT COUNT(*) FROM notifications WHERE title LIKE 'ZZN Kuma Quiet%' OR title LIKE 'ZZN Kuma Old%'")->fetchColumn(), 0, 'a heartbeat that is not a status change, or is older than a day, creates nothing');
     $t = $row("ticket-urgent:$tkId");
-    check($t && $t['kind'] === 'ticket_urgent' && str_contains($t['title'], 'ZZN-T-U') && $t['body'] === 'ZZN Urgent printer fire' && $t['link'] === "ticket.php?id=$tkId", 'urgent ticket: announced with its subject and link');
+    check($t && $t['kind'] === 'ticket_urgent' && str_contains($t['title'], 'ZZN-T-U') && $t['body'] === 'ZZN Urgent printer fire' && $t['link'] === "tickets/ticket.php?id=$tkId", 'urgent ticket: announced with its subject and link');
     same((int) $pdo->query("SELECT COUNT(*) FROM notifications WHERE body LIKE 'ZZN Normal%' OR body LIKE 'ZZN Resolved%'")->fetchColumn(), 0, 'a normal ticket and a resolved urgent one create nothing');
 
     // no duplicates
@@ -100,30 +100,30 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $page = http('GET', "$base/index.php", ['jar' => $admin])['body'];
     check(str_contains($page, 'id="bell"') && str_contains($page, 'Notifications, ' . $unreadNow . ' unread') && str_contains($page, 'Mark all read') && str_contains($page, 'See all notifications'), 'the top bar has a bell with the unread count (' . $unreadNow . '), a Mark all read button and a link to all notifications');
     check(str_contains($page, 'ZZN Third urgent') || str_contains($page, 'Urgent ticket ZZN-T-U3'), 'the dropdown lists the latest notifications');
-    $np = http('GET', "$base/notifications.php", ['jar' => $admin])['body'];
-    check(str_contains($np, 'Urgent ticket ZZN-T-U3') && str_contains($np, 'notifications.php?go='), 'notifications.php lists them with a link to each item (which marks it read)');
-    $un = http('GET', "$base/notifications.php?show=unread", ['jar' => $admin])['body'];
+    $np = http('GET', "$base/notifications/notifications.php", ['jar' => $admin])['body'];
+    check(str_contains($np, 'Urgent ticket ZZN-T-U3') && str_contains($np, 'notifications/notifications.php?go='), 'notifications/notifications.php lists them with a link to each item (which marks it read)');
+    $un = http('GET', "$base/notifications/notifications.php?show=unread", ['jar' => $admin])['body'];
     check(str_contains($un, 'Urgent ticket ZZN-T-U3') && !str_contains($un, 'ZZN-OD-1'), 'the Unread filter shows only unread ones');
-    same(http('POST', "$base/notifications.php", ['jar' => $admin, 'body' => 'action=read_all'])['code'], 403, 'marking as read without a CSRF token is 403');
+    same(http('POST', "$base/notifications/notifications.php", ['jar' => $admin, 'body' => 'action=read_all'])['code'], 403, 'marking as read without a CSRF token is 403');
     $nid = (int) $pdo->query("SELECT id FROM notifications WHERE body = 'ZZN Third urgent'")->fetchColumn();
-    $post($admin, 'notifications.php', ['action' => 'read', 'id' => (string) $nid], 'notifications.php');
+    $post($admin, 'notifications/notifications.php', ['action' => 'read', 'id' => (string) $nid], 'notifications/notifications.php');
     same((int) $pdo->query("SELECT read_at IS NOT NULL FROM notifications WHERE id = $nid")->fetchColumn(), 1, 'Mark read marks that one notification');
     same((int) $pdo->query('SELECT COUNT(*) FROM notifications WHERE read_at IS NULL')->fetchColumn(), $unreadNow - 1, 'and only that one');
-    $post($admin, 'notifications.php', ['action' => 'read', 'id' => '999999'], 'notifications.php');
+    $post($admin, 'notifications/notifications.php', ['action' => 'read', 'id' => '999999'], 'notifications/notifications.php');
     same((int) $pdo->query('SELECT COUNT(*) FROM notifications WHERE read_at IS NULL')->fetchColumn(), $unreadNow - 1, 'marking an unknown id changes nothing');
-    $r = $post($admin, 'notifications.php', ['action' => 'read_all', 'back' => 'tickets.php'], 'notifications.php');
+    $r = $post($admin, 'notifications/notifications.php', ['action' => 'read_all', 'back' => 'tickets/tickets.php'], 'notifications/notifications.php');
     same((int) $pdo->query('SELECT COUNT(*) FROM notifications WHERE read_at IS NULL')->fetchColumn(), 0, 'Mark all read clears every unread one');
-    check(str_contains($r['headers'], 'Location: tickets.php') && !str_contains($r['headers'], 'evil'), 'it returns to the page you were on');
-    $r = $post($admin, 'notifications.php', ['action' => 'read_all', 'back' => '//evil.example/x'], 'notifications.php');
-    check(str_contains($r['headers'], 'Location: notifications.php'), 'a forged return address is ignored');
+    check(str_contains($r['headers'], 'Location: ' . $basePath . '/tickets/tickets.php') && !str_contains($r['headers'], 'evil'), 'it returns to the page you were on');
+    $r = $post($admin, 'notifications/notifications.php', ['action' => 'read_all', 'back' => '//evil.example/x'], 'notifications/notifications.php');
+    check(str_contains($r['headers'], 'Location: ' . $basePath . '/notifications/notifications.php'), 'a forged return address is ignored');
     check(str_contains(http('GET', "$base/index.php", ['jar' => $admin])['body'], 'Notifications, none unread'), 'with nothing unread the bell says so and shows no number');
-    check(str_contains(http('GET', "$base/notifications.php?show=unread", ['jar' => $admin])['body'], 'You are all caught up'), 'the Unread filter shows a friendly empty state');
-    same(http('GET', "$base/notifications.php?page=-4&show[]=x", ['jar' => $admin])['code'], 200, 'a negative page and an array parameter are handled');
+    check(str_contains(http('GET', "$base/notifications/notifications.php?show=unread", ['jar' => $admin])['body'], 'You are all caught up'), 'the Unread filter shows a friendly empty state');
+    same(http('GET', "$base/notifications/notifications.php?page=-4&show[]=x", ['jar' => $admin])['code'], 200, 'a negative page and an array parameter are handled');
     $x = $pdo->prepare('INSERT INTO notifications (kind, dedupe_key, title, body, link, created_at) VALUES (?,?,?,?,?,NOW())');
-    $x->execute(['ticket_urgent', 'zzn-xss', 'ZZN <script>alert(1)</script>', '<img src=x onerror=alert(1)>', 'ticket.php?id=1']);
-    $xp = http('GET', "$base/index.php", ['jar' => $admin])['body'] . http('GET', "$base/notifications.php", ['jar' => $admin])['body'];
+    $x->execute(['ticket_urgent', 'zzn-xss', 'ZZN <script>alert(1)</script>', '<img src=x onerror=alert(1)>', 'tickets/ticket.php?id=1']);
+    $xp = http('GET', "$base/index.php", ['jar' => $admin])['body'] . http('GET', "$base/notifications/notifications.php", ['jar' => $admin])['body'];
     check(!str_contains($xp, '<script>alert(1)') && !str_contains($xp, '<img src=x') && str_contains($xp, '&lt;script&gt;'), 'notification text is escaped in the bell and on the page');
-    $lay = (string) file_get_contents(TESTS_DIR . '/../includes/layout.php');
+    $lay = (string) file_get_contents(TESTS_DIR . '/../includes/core/layout.php');
     check(preg_match('/@media \(prefers-reduced-motion: no-preference\) \{[^}]*bell-ring/', $lay) === 1 && substr_count($lay, 'animation: bell-ring') === 1, 'the bell only animates inside prefers-reduced-motion: no-preference');
     check(str_contains($page, '<details id="bell"') && str_contains($page, 'aria-label="Notifications, '), 'the bell is a keyboard-operable details/summary with a text label (no JavaScript needed)');
     $pdo->exec("DELETE FROM notifications WHERE dedupe_key = 'zzn-xss'");
@@ -134,25 +134,25 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     same($nn('zzn-old'), 0, 'notifications older than 90 days are removed');
 
     // notification email in Settings
-    $acc = http('GET', "$base/settings.php?tab=account", ['jar' => $admin])['body'];
+    $acc = http('GET', "$base/settings/settings.php?tab=account", ['jar' => $admin])['body'];
     $notifyKeep = $pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn();
     // the notification address is a setting (EMAIL_TARGET) under Settings > Email, not part of the code
-    $srcAll = ''; foreach (array_merge(glob(TESTS_DIR . '/../*.php'), glob(TESTS_DIR . '/../includes/*.php'), glob(TESTS_DIR . '/../includes/settings/*.php')) as $f) { $srcAll .= (string) file_get_contents($f); }
+    $srcAll = ''; foreach (app_source_files() as $f) { $srcAll .= (string) file_get_contents($f); }
     check(!str_contains($srcAll, 'denis@telecomlijn.nl') && !str_contains($srcAll, 'NOTIFY_DEFAULT_EMAIL'), 'no notification address is written into the program code');
     check(!str_contains((string) file_get_contents(TESTS_DIR . '/../database/schema.sql'), 'denis@telecomlijn.nl'), 'and none is seeded by the schema');
-    check(!str_contains($acc, 'name="notify_email"') && str_contains($acc, 'settings.php?tab=email'), 'Settings > Account no longer has the field; it points to Settings > Email');
-    $emTab = http('GET', "$base/settings.php?tab=email", ['jar' => $admin])['body'];
+    check(!str_contains($acc, 'name="notify_email"') && str_contains($acc, 'settings/settings.php?tab=email'), 'Settings > Account no longer has the field; it points to Settings > Email');
+    $emTab = http('GET', "$base/settings/settings.php?tab=email", ['jar' => $admin])['body'];
     check(str_contains($emTab, 'name="email_target"') && str_contains($emTab, 'EMAIL_TARGET'), 'Settings > Email has "Send notifications to" (EMAIL_TARGET)');
     foreach (['SMTP_SERVER', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'EMAIL_FROM'] as $nm) { check(str_contains($emTab, $nm), "Settings > Email shows the setting name $nm next to its field"); }
-    $nSave = fn(array $d) => $post($admin, 'settings.php?tab=email', ['tab' => 'email', 'action' => 'save', 'host' => '', 'port' => '587', 'encryption' => 'starttls', 'username' => '', 'password' => '', 'from_email' => '', 'from_name' => 'Telecomlijn Admin', 'base_url' => ''] + $d, 'settings.php?tab=email');
+    $nSave = fn(array $d) => $post($admin, 'settings/settings.php?tab=email', ['tab' => 'email', 'action' => 'save', 'host' => '', 'port' => '587', 'encryption' => 'starttls', 'username' => '', 'password' => '', 'from_email' => '', 'from_name' => 'Telecomlijn Admin', 'base_url' => ''] + $d, 'settings/settings.php?tab=email');
     $before = $pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn();
     $nSave(['email_target' => 'not an email']);
     same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), $before, 'an invalid notification address is refused');
-    same($post($user, 'settings.php?tab=email', ['tab' => 'email', 'action' => 'save', 'email_target' => 'evil@example.test'], 'settings.php')['code'], 403, 'a normal account can not change it (403)');
+    same($post($user, 'settings/settings.php?tab=email', ['tab' => 'email', 'action' => 'save', 'email_target' => 'evil@example.test'], 'settings/settings.php')['code'], 403, 'a normal account can not change it (403)');
     same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), $before, 'and it did not change');
     $nSave(['email_target' => 'team@example.test']);
     same($pdo->query("SELECT v FROM app_meta WHERE k = 'notify_email'")->fetchColumn(), 'team@example.test', 'an admin can change it');
-    check(str_contains(http('GET', "$base/settings.php?tab=email", ['jar' => $admin])['body'], 'value="team@example.test"'), 'the new address is shown in the field');
+    check(str_contains(http('GET', "$base/settings/settings.php?tab=email", ['jar' => $admin])['body'], 'value="team@example.test"'), 'the new address is shown in the field');
     $nSave(['email_target' => '']);
     same(notify_email($pdo), '', 'it can be emptied to turn notification emails off');
     // only a never-saved setting may come from the environment

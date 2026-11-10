@@ -136,7 +136,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
     neutralised so spreadsheets do not run them as formulas.
   - Open redirects: notification links only redirect to local .php pages.
   - File access: Apache denies direct access to .md, .sql, .log, .json,
-    .env, .ini, .bak files, config.local.php, setup.php and the build file.
+    .env, .ini, .bak files, config.local.php, bin/setup.php and the build file.
     (The database dump files are blocked by their .sql extension.)
 
 2.6 Secrets at rest
@@ -184,7 +184,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   queries. Demo data is tagged (is_demo) so removing it can never touch real
   records. Charts have a text/table alternative (accessibility).
 
-3.2 COMPANIES (companies.php, company.php, company_edit.php)
+3.2 COMPANIES (companies/companies.php, companies/company.php, companies/company_edit.php)
   What: Customer organisations with address, KvK number and VAT number, plus
   their users, invoices, tickets, notes and appointments in one page.
   Security: input is cleaned and length limited; edits are CSRF protected and
@@ -192,7 +192,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   invoices are attached (financial records are protected). Appointments of a
   deleted company are removed with it.
 
-3.3 USERS (users.php, user.php, user_new.php)
+3.3 USERS (users/users.php, users/user.php, users/user_new.php)
   What: People at customer companies: name, email, role, country, company,
   status; linked to tickets, notes, appointments, invoices.
   Security: sign-in; validated email; unique email; CSRF; changes and
@@ -207,7 +207,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   token and sign-in; every change is logged. Do not put sensitive categories
   of data in free text notes (see section 6).
 
-3.5 TICKETS (tickets.php, ticket.php, ticket_new.php)
+3.5 TICKETS (tickets/tickets.php, tickets/ticket.php, tickets/ticket_new.php)
   What: Support tickets with status (open, in progress, waiting, resolved, closed),
   priority (low to urgent), assignee, contact, comment thread, filters and
   sorting. Urgent tickets raise a notification.
@@ -215,7 +215,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   assignee must be an active staff account; CSRF on all changes; comments are
   escaped; changes logged and shown in the timeline.
 
-3.6 CALENDAR (calendar.php, appointment_edit.php, calendar_ics.php)
+3.6 CALENDAR (calendar/calendar.php, calendar/appointment_edit.php, calendar/calendar_ics.php)
   What: Appointments linked to a company and optionally one of its people:
   title, location, notes, start, end (max 14 days) and status (scheduled,
   done, cancelled). Month grid (Monday first), agenda list, company filter,
@@ -231,34 +231,34 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   sign in, so "users see their company's appointments" means staff see them
   on the person's page. A customer portal would need its own login (see 7).
 
-3.7 INVOICES AND PAYMENTS (invoices.php, invoice_new.php, invoice.php)
+3.7 INVOICES AND PAYMENTS (invoices/invoices.php, invoices/invoice_new.php, invoices/invoice.php)
   What: Invoices with lines, VAT, due date, status (open, due, overdue,
   paid), payments, a company picker, PDF download and recurring invoices.
   Security: amounts are stored as whole cents (no rounding errors); totals
   are recomputed on the server; VAT rate and numbers validated; invoice
   numbers unique; deleting is limited because of the 7 year retention duty.
 
-3.8 PDF INVOICES (includes/pdf.php, invoice_pdf.php)
+3.8 PDF INVOICES (includes/pdf.php, invoices/invoice_pdf.php)
   What: Invoice PDF made by a built-in PDF writer (no external service, so no
   customer data leaves the server). Supplier details come from Settings >
   Company details (BTW number, IBAN); empty fields are left off.
   Security: text is escaped for the PDF format; sign-in required; the IBAN is
   validated with the mod-97 check before saving.
 
-3.9 RECURRING INVOICES (recurring.php, run_recurring.php)
+3.9 RECURRING INVOICES (invoices/recurring.php, bin/run_recurring.php)
   What: Schedules (month, quarter, year) that create invoices automatically;
   a preview shows the next three dates. Run from a scheduled task.
   Security: a database lock prevents two runs at once, and a unique key on
   (schedule, issue date) means an invoice is never created twice for one
   period. The run script only works from the command line.
 
-3.10 GLOBAL SEARCH (search.php)
+3.10 GLOBAL SEARCH (search/search.php)
   What: One search box across users, companies, invoices and tickets, results
   grouped by type.
   Security: prepared statements, wildcard escaping, rate limited, results
   escaped.
 
-3.11 CSV EXPORT AND IMPORT (export.php, import.php, includes/csv.php)
+3.11 CSV EXPORT AND IMPORT (system/export.php, system/import.php, includes/csv.php)
   What: Download users, companies, invoices, tickets and logs as CSV;
   import users and companies. Duplicates are skipped and bad rows are listed
   with the reason.
@@ -266,7 +266,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   BOM; formula injection neutralised both ways; every export and import is
   logged (a bulk export is a data-protection event, so it is traceable).
 
-3.12 NOTIFICATIONS (notifications.php, includes/notifications.php)
+3.12 NOTIFICATIONS (notifications/notifications.php, includes/notifications.php)
   What: A bell with unread count for overdue invoices, failed backups,
   services that are down and urgent tickets. Each event is stored once
   (de-duplicated) and emailed once to the notification address
@@ -285,13 +285,13 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   breaks removed from addresses and subjects); TLS used when the server
   offers it; the outbox is visible only to admins.
 
-3.14 PASSWORD RESET AND INVITATIONS (forgot.php, reset.php, invite.php)
+3.14 PASSWORD RESET AND INVITATIONS (auth/forgot.php, auth/reset.php, auth/invite.php)
   What: Self-service reset by email link; admins can invite a new member by
   email so no password ever has to be passed on.
   Security: see 2.1 (hashed single-use links, rate limits, identical answers,
   other sessions ended after a reset).
 
-3.15 TEAM AND SETTINGS (settings.php and includes/settings/*)
+3.15 TEAM AND SETTINGS (settings/settings.php and includes/settings/*)
   What: Tabs for Account (password, two-step, email opt-in, require two-step),
   Integrations, Team (add, disable, change role, reset password or two-step,
   invite), Company details, Email, Uptime Kuma, and Tests (the documented
@@ -307,17 +307,17 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   spreadsheet formula injection neutralised. The report contents are demo
   figures at the moment.
   Backups: backup records and a failure notification.
-  Activity logs (logs.php): search, filter, export and clear by age (admin).
+  Activity logs (system/logs.php): search, filter, export and clear by age (admin).
   Security: sign-in; admin only where data is sensitive; actions logged; log
   entries are deleted automatically after 12 months (see 4).
 
-3.17 UPTIME (uptime.php, monitoring_uptime.php, kuma_api.php, kuma_poll.php)
+3.17 UPTIME (monitoring/uptime.php, monitoring/monitoring_uptime.php, api/kuma_api.php, bin/kuma_poll.php)
   What: Status page in the style of Uptime Kuma, fed from the Kuma API, plus
   endpoint checks of your own services.
   Security: API key stored encrypted; outbound calls pass the SSRF guard;
   results older than 30 days are deleted.
 
-3.18 PRIVACY TOOLS (privacy.php, privacybeleid.php, purge.php)
+3.18 PRIVACY TOOLS (privacy/privacy.php, privacy/privacybeleid.php, bin/purge.php)
   What: A privacy-policy page, a page to look up what is held about an email
   address, download it as JSON (right of access / portability), and
   anonymise a user (right to erasure), plus the daily retention job.
@@ -338,7 +338,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   contrast rules in both themes; semantic headings, labels, focus styles and
   ARIA roles on the stacked table cards. All scripts and styles obey the CSP.
 
-3.21 DEMO DATA (includes/demo.php, demo_data.php)
+3.21 DEMO DATA (includes/demo.php, system/demo_data.php)
   What: Optional fake companies, users, tickets, invoices and appointments
   for demonstrations.
   Security and law: clearly marked as fake (is_demo), removed with one click
@@ -379,8 +379,8 @@ after the user consents.
   Browser storage              theme, sidebar, translate         in the browser
                                consent
 
-The retention job (purge.php) is run once a day from the Windows Task
-Scheduler: php C:\xampp\htdocs\Websites\test\purge.php. If it is not
+The retention job (bin/purge.php) is run once a day from the Windows Task
+Scheduler: php C:\xampp\htdocs\Websites\test\bin\purge.php. If it is not
 scheduled, the "keep for X" promises above are NOT kept automatically.
 (Some of the short-lived tables are also cleaned while the system is used.)
 
@@ -421,9 +421,9 @@ The mapping below shows which legal duty each technical measure supports.
   52 and the Dutch VAT act) and then removed together with the customer data.
 
 5.5 Rights of the data subject, AVG art. 12 to 22
-  - Access (art. 15) and portability (art. 20): privacy.php finds a person by
+  - Access (art. 15) and portability (art. 20): privacy/privacy.php finds a person by
     email and downloads what is held as JSON.
-  - Erasure (art. 17): privacy.php anonymises a customer user: name, email and
+  - Erasure (art. 17): privacy/privacy.php anonymises a customer user: name, email and
     country are replaced, open sessions and their IP addresses are deleted,
     and the person's name in the activity log is replaced. Invoices are kept
     for the 7 years because the law requires it (art. 17(3)(b)); the page
@@ -491,7 +491,7 @@ The software cannot do these for you:
   4. Run the HTTPS certificate, server updates, firewall and physical or
      cloud security of the machine. XAMPP as delivered is a development
      package: before going live, secure it (see section 9).
-  5. Schedule purge.php, run_recurring.php and database backups, and test a
+  5. Schedule bin/purge.php, bin/run_recurring.php and database backups, and test a
      restore.
   6. Train staff: no sensitive categories of data (health, religion, BSN, and
      so on) in free-text notes, tickets or appointment descriptions; use
@@ -521,7 +521,7 @@ hidden in the software, but they matter for compliance.
      appointments where they are the contact, and notification or outbox
      text that contains their email address. Until this is extended, those
      items must be checked and edited by hand when a request comes in.
-     Recommended: extend privacy.php (export and anonymise) to these tables.
+     Recommended: extend privacy/privacy.php (export and anonymise) to these tables.
      (Outbox rows disappear after 30 days, notifications after 90.)
 
   B. The processing register (docs/verwerkingsregister.md) was written before
@@ -531,7 +531,7 @@ hidden in the software, but they matter for compliance.
 
   C. Tickets, notes and appointments have no automatic retention period. They
      stay until someone deletes them. Decide a period (for example 2 years
-     after closing) and add it to purge.php, or keep a manual review routine.
+     after closing) and add it to bin/purge.php, or keep a manual review routine.
 
   D. The anonymise action keeps a person's invoices for 7 years (legal) but
      the invoice still carries the name and address as written. This is
@@ -591,7 +591,7 @@ hidden in the software, but they matter for compliance.
 
   [ ] Serve only over HTTPS with a valid certificate (the cookie then gets
       the __Host- prefix and HSTS switches on automatically).
-  [ ] Delete or block setup.php after installing (Apache already denies it).
+  [ ] Delete or block bin/setup.php after installing (Apache already denies it).
   [ ] Change the database root password, create the limited application
       account, and keep config.local.php outside any public backup.
   [ ] Give every real person an own account; give the built-in admin a long
@@ -600,7 +600,7 @@ hidden in the software, but they matter for compliance.
       SMTP_PASSWORD, EMAIL_FROM, EMAIL_TARGET) and Settings > Company details
       (BTW number, IBAN).
   [ ] Make sure demo data is removed.
-  [ ] Schedule daily:  purge.php  and  run_recurring.php
+  [ ] Schedule daily:  bin/purge.php  and  bin/run_recurring.php
   [ ] Schedule database backups; test restoring one; encrypt the backups.
   [ ] Keep PHP, MariaDB and Apache updated; turn off directory listing;
       restrict the server firewall to ports 80 and 443.

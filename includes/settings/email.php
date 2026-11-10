@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/mailer.php';
+require_once dirname(__DIR__) . '/modules/mailer.php';
 
 function tab_handle(PDO $pdo, array $admin): void
 {

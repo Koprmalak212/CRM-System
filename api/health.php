@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Stateless: no session, no cookies. Keys come from Settings > Integrations and are stored only as SHA-256 hashes.
  */
 define('API_REQUEST', true);
-require __DIR__ . '/../includes/bootstrap.php';
+require __DIR__ . '/../includes/core/bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');

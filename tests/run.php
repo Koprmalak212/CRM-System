@@ -15,15 +15,30 @@ const TESTS_DIR = __DIR__;   // the staged parts in tests/parts/ use this, becau
 
 define('API_REQUEST', true);                 // no session or cookies for the in-process part
 $_SERVER['REMOTE_ADDR'] = '198.51.100.77';   // its own address, so it never shares a rate-limit bucket with the HTTP tests
-require __DIR__ . '/../includes/bootstrap.php';
-require __DIR__ . '/../includes/kuma.php';
-require __DIR__ . '/../includes/notes.php';
-require __DIR__ . '/../includes/csv.php';
-require __DIR__ . '/../includes/notifications.php';
-require __DIR__ . '/../includes/twofactor.php';
-require __DIR__ . '/../includes/mailer.php';
+require __DIR__ . '/../includes/core/bootstrap.php';
+
+/** Every PHP file of the program (pages, includes, api, bin) for the source-scanning tests; the tests, database dumps and assets are left out. */
+function app_source_files(): array
+{
+    $out = [];
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator((string) realpath(__DIR__ . '/..'), FilesystemIterator::SKIP_DOTS));
+    foreach ($it as $f) {
+        $p = str_replace('\\', '/', $f->getPathname());
+        if ($f->getExtension() === 'php' && !preg_match('#/(tests|database|assets|storage|node_modules|\.git|\.impeccable)/#', $p)) { $out[] = $p; }
+    }
+    sort($out);
+    return $out;
+}
+
+require __DIR__ . '/../includes/modules/kuma.php';
+require __DIR__ . '/../includes/modules/notes.php';
+require __DIR__ . '/../includes/modules/csv.php';
+require __DIR__ . '/../includes/modules/notifications.php';
+require __DIR__ . '/../includes/modules/twofactor.php';
+require __DIR__ . '/../includes/modules/mailer.php';
 
 $base = rtrim((string) (getenv('TEST_BASE') ?: 'http://localhost/Websites/test'), '/');
+$basePath = rtrim((string) parse_url($base, PHP_URL_PATH), '/');   // /Websites/test: redirects now carry the full path
 $adminUser = (string) (getenv('TEST_ADMIN_USER') ?: 'admin');
 $adminPass = (string) (getenv('TEST_ADMIN_PASS') ?: 'admin');
 $mock = 'http://127.0.0.1:3199';
@@ -60,8 +75,8 @@ function csrf_from(string $html): string { return preg_match('/name="csrf" value
 function login(string $base, string $user, string $pass): string
 {
     $jar = tempnam(sys_get_temp_dir(), 'kj');
-    $p = http('GET', "$base/login.php", ['jar' => $jar]);
-    http('POST', "$base/login.php", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($p['body']), 'username' => $user, 'password' => $pass])]);
+    $p = http('GET', "$base/auth/login.php", ['jar' => $jar]);
+    http('POST', "$base/auth/login.php", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($p['body']), 'username' => $user, 'password' => $pass])]);
     return $jar;
 }
 function token(string $base, string $jar): string { return csrf_from(http('GET', "$base/index.php", ['jar' => $jar])['body']); }
@@ -69,8 +84,8 @@ function api(string $base, string $jar, string $method, array $data = [], ?strin
 {
     $csrf ??= token($base, $jar);
     $hdr = ['Accept: application/json', 'X-CSRF-Token: ' . $csrf];
-    if (in_array($method, ['PUT', 'DELETE'], true)) { $hdr[] = 'Content-Type: application/json'; return http($method, "$base/kuma_api.php", ['jar' => $jar, 'headers' => $hdr, 'body' => json_encode($data)]); }
-    return http($method, "$base/kuma_api.php", ['jar' => $jar, 'headers' => $hdr, 'body' => http_build_query($data)]);
+    if (in_array($method, ['PUT', 'DELETE'], true)) { $hdr[] = 'Content-Type: application/json'; return http($method, "$base/api/kuma_api.php", ['jar' => $jar, 'headers' => $hdr, 'body' => json_encode($data)]); }
+    return http($method, "$base/api/kuma_api.php", ['jar' => $jar, 'headers' => $hdr, 'body' => http_build_query($data)]);
 }
 function expire_cache(): void   // pretend the poll interval has passed, keeping the last good data
 {
@@ -176,37 +191,37 @@ try {
     if (!$mockUp) { check(false, 'mock Kuma started on 127.0.0.1:3199 (is the port free?)'); throw new RuntimeException('mock server unavailable'); }
     section('5. Settings endpoints over HTTP');
     $pdo->exec('DELETE FROM kuma_settings'); kuma_cache_clear();
-    $anon = http('GET', "$base/kuma_api.php", ['headers' => ['Accept: application/json']]);
-    same($anon['code'], 401, 'signed-out GET kuma_api.php is 401');
-    same(http('GET', "$base/monitoring_uptime.php")['code'], 401, 'signed-out GET monitoring_uptime.php is 401');
+    $anon = http('GET', "$base/api/kuma_api.php", ['headers' => ['Accept: application/json']]);
+    same($anon['code'], 401, 'signed-out GET api/kuma_api.php is 401');
+    same(http('GET', "$base/monitoring/monitoring_uptime.php")['code'], 401, 'signed-out GET monitoring/monitoring_uptime.php is 401');
 
     $admin = login($base, $adminUser, $adminPass);
     check(str_contains(http('GET', "$base/index.php", ['jar' => $admin])['body'], 'Overview'), 'admin signed in (set TEST_ADMIN_PASS if you changed it)');
     // a normal user, created through the real Team form
     $pdo->prepare('DELETE FROM admins WHERE username = ?')->execute([$testUser]);
-    $team = http('GET', "$base/settings.php?tab=team", ['jar' => $admin]);
-    $created = http('POST', "$base/settings.php?tab=team", ['jar' => $admin, 'body' => http_build_query(['csrf' => csrf_from($team['body']), 'tab' => 'team', 'action' => 'add_user', 'username' => $testUser, 'name' => 'Kuma Tester', 'email' => 'kuma.tester@example.test', 'role' => 'user', 'perm' => 'manage'])]);
-    $tmpPw = preg_match('/select-all">([^<]+)</', http('GET', "$base/settings.php?tab=team", ['jar' => $admin])['body'], $m) ? html_entity_decode($m[1]) : '';
+    $team = http('GET', "$base/settings/settings.php?tab=team", ['jar' => $admin]);
+    $created = http('POST', "$base/settings/settings.php?tab=team", ['jar' => $admin, 'body' => http_build_query(['csrf' => csrf_from($team['body']), 'tab' => 'team', 'action' => 'add_user', 'username' => $testUser, 'name' => 'Kuma Tester', 'email' => 'kuma.tester@example.test', 'role' => 'user', 'perm' => 'manage'])]);
+    $tmpPw = preg_match('/select-all">([^<]+)</', http('GET', "$base/settings/settings.php?tab=team", ['jar' => $admin])['body'], $m) ? html_entity_decode($m[1]) : '';
     $pdo->prepare('UPDATE admins SET must_change_password = 0 WHERE username = ?')->execute([$testUser]);
     $user = login($base, $testUser, $tmpPw);
     check(str_contains(http('GET', "$base/index.php", ['jar' => $user])['body'], 'Overview'), 'normal test user signed in');
 
-    same(http('GET', "$base/kuma_api.php", ['jar' => $user])['code'], 403, 'normal user: GET kuma_api.php is 403');
+    same(http('GET', "$base/api/kuma_api.php", ['jar' => $user])['code'], 403, 'normal user: GET api/kuma_api.php is 403');
     same(api($base, $user, 'PUT', ['kumaUrl' => "$mock", 'apiKey' => 'goodkey', 'pollIntervalSeconds' => 30])['code'], 403, 'normal user: PUT is 403');
     same(api($base, $user, 'POST', ['action' => 'test', 'kumaUrl' => $mock, 'apiKey' => 'goodkey'])['code'], 403, 'normal user: test connection is 403');
     same(api($base, $user, 'DELETE')['code'], 403, 'normal user: DELETE is 403');
-    same(http('GET', "$base/settings.php?tab=kuma", ['jar' => $user])['code'], 403, 'normal user: the settings tab is 403 on the server');
-    check(!str_contains(http('GET', "$base/settings.php", ['jar' => $user])['body'], 'tab=kuma'), 'normal user: the tab is hidden from the menu');
-    check(str_contains(http('GET', "$base/settings.php", ['jar' => $admin])['body'], 'tab=kuma'), 'admin: the "Kuma API Key" tab is shown');
+    same(http('GET', "$base/settings/settings.php?tab=kuma", ['jar' => $user])['code'], 403, 'normal user: the settings tab is 403 on the server');
+    check(!str_contains(http('GET', "$base/settings/settings.php", ['jar' => $user])['body'], 'tab=kuma'), 'normal user: the tab is hidden from the menu');
+    check(str_contains(http('GET', "$base/settings/settings.php", ['jar' => $admin])['body'], 'tab=kuma'), 'admin: the "Kuma API Key" tab is shown');
     same((int) $pdo->query('SELECT COUNT(*) FROM kuma_settings')->fetchColumn(), 0, 'nothing was saved by the forbidden requests');
-    same(http('GET', "$base/monitoring_uptime.php", ['jar' => $user])['json']['error'] ?? null, 'not_configured', 'normal user may read the monitoring feed (same auth as other dashboard routes)');
+    same(http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $user])['json']['error'] ?? null, 'not_configured', 'normal user may read the monitoring feed (same auth as other dashboard routes)');
 
-    $g = http('GET', "$base/kuma_api.php", ['jar' => $admin]);
+    $g = http('GET', "$base/api/kuma_api.php", ['jar' => $admin]);
     same($g['code'], 200, 'admin GET works');
     same($g['json'], ['kumaUrl' => '', 'pollIntervalSeconds' => 30, 'hasApiKey' => false, 'keyLast4' => null], 'GET before setup returns defaults');
 
     same(api($base, $admin, 'PUT', ['kumaUrl' => $mock, 'apiKey' => 'goodkey', 'pollIntervalSeconds' => 30], 'wrong-token')['code'], 403, 'PUT with a wrong CSRF token is 403');
-    same(http('DELETE', "$base/kuma_api.php", ['jar' => $admin])['code'], 403, 'DELETE without a CSRF token is 403');
+    same(http('DELETE', "$base/api/kuma_api.php", ['jar' => $admin])['code'], 403, 'DELETE without a CSRF token is 403');
     $v = api($base, $admin, 'PUT', ['kumaUrl' => 'ftp://nope', 'apiKey' => 'goodkey', 'pollIntervalSeconds' => 30]);
     check($v['code'] === 422 && isset($v['json']['errors']['kumaUrl']), 'invalid URL: 422 with a field error');
     check(isset(api($base, $admin, 'PUT', ['kumaUrl' => $mock, 'apiKey' => 'goodkey', 'pollIntervalSeconds' => 5])['json']['errors']['pollIntervalSeconds']), 'interval 5 is rejected (minimum 10)');
@@ -218,10 +233,10 @@ try {
     $s1 = api($base, $admin, 'PUT', ['kumaUrl' => "$mock/", 'apiKey' => 'goodkey', 'pollIntervalSeconds' => 30]);
     same($s1['code'], 200, 'valid save is 200');
     same($s1['json'], ['ok' => true, 'kumaUrl' => $mock, 'pollIntervalSeconds' => 30, 'hasApiKey' => true, 'keyLast4' => 'dkey'], 'response has only url, interval, hasApiKey and keyLast4');
-    $g = http('GET', "$base/kuma_api.php", ['jar' => $admin]);
+    $g = http('GET', "$base/api/kuma_api.php", ['jar' => $admin]);
     same(array_keys($g['json']), ['kumaUrl', 'pollIntervalSeconds', 'hasApiKey', 'keyLast4'], 'GET exposes exactly four fields');
     check(!str_contains($s1['body'] . $g['body'], 'goodkey'), 'the API key is never in an API response');
-    $page = http('GET', "$base/settings.php?tab=kuma", ['jar' => $admin])['body'];
+    $page = http('GET', "$base/settings/settings.php?tab=kuma", ['jar' => $admin])['body'];
     check(!str_contains($page, 'goodkey') && str_contains($page, '••••••••dkey'), 'the settings page shows only a masked placeholder');
     $stored = (string) $pdo->query('SELECT api_key_enc FROM kuma_settings WHERE id = 1')->fetchColumn();
     check($stored !== '' && !str_contains($stored, 'goodkey') && secret_decrypt($stored) === 'goodkey', 'stored value is ciphertext that decrypts to the key');
@@ -232,11 +247,11 @@ try {
     $s3 = api($base, $admin, 'PUT', ['kumaUrl' => $mock, 'apiKey' => 'goodkey-two', 'pollIntervalSeconds' => 60]);
     check($s3['json']['keyLast4'] === '-two' && secret_decrypt((string) $pdo->query('SELECT api_key_enc FROM kuma_settings WHERE id = 1')->fetchColumn()) === 'goodkey-two', 'typing a new key replaces it');
     // the normal HTML form behaves the same way
-    $tok = csrf_from(http('GET', "$base/settings.php?tab=kuma", ['jar' => $admin])['body']);
-    http('POST', "$base/settings.php?tab=kuma", ['jar' => $admin, 'body' => http_build_query(['csrf' => $tok, 'tab' => 'kuma', 'action' => 'save', 'kumaUrl' => $mock, 'apiKey' => '', 'pollIntervalSeconds' => '90'])]);
+    $tok = csrf_from(http('GET', "$base/settings/settings.php?tab=kuma", ['jar' => $admin])['body']);
+    http('POST', "$base/settings/settings.php?tab=kuma", ['jar' => $admin, 'body' => http_build_query(['csrf' => $tok, 'tab' => 'kuma', 'action' => 'save', 'kumaUrl' => $mock, 'apiKey' => '', 'pollIntervalSeconds' => '90'])]);
     same((int) $pdo->query('SELECT poll_interval_s FROM kuma_settings WHERE id = 1')->fetchColumn(), 90, 'settings form: blank key keeps the key, interval saved');
-    $bad = http('POST', "$base/settings.php?tab=kuma", ['jar' => $admin, 'body' => http_build_query(['csrf' => $tok, 'tab' => 'kuma', 'action' => 'save', 'kumaUrl' => 'nope', 'apiKey' => 'SHOULD-NOT-ECHO', 'pollIntervalSeconds' => '1'])]);
-    $after = http('GET', "$base/settings.php?tab=kuma", ['jar' => $admin])['body'];
+    $bad = http('POST', "$base/settings/settings.php?tab=kuma", ['jar' => $admin, 'body' => http_build_query(['csrf' => $tok, 'tab' => 'kuma', 'action' => 'save', 'kumaUrl' => 'nope', 'apiKey' => 'SHOULD-NOT-ECHO', 'pollIntervalSeconds' => '1'])]);
+    $after = http('GET', "$base/settings/settings.php?tab=kuma", ['jar' => $admin])['body'];
     check(str_contains($after, 'Enter a full address') && !str_contains($after, 'SHOULD-NOT-ECHO'), 'form errors show per field and a typed key is never echoed back');
     same((int) $pdo->query('SELECT poll_interval_s FROM kuma_settings WHERE id = 1')->fetchColumn(), 90, 'a failed form submit changes nothing');
     $log = (string) $pdo->query("SELECT GROUP_CONCAT(CONCAT(action, ' ', target)) FROM activity_logs WHERE action LIKE 'Kuma%'")->fetchColumn();
@@ -272,38 +287,38 @@ try {
     section('7. Monitoring endpoint over HTTP');
     api($base, $admin, 'PUT', ['kumaUrl' => $mock, 'apiKey' => 'goodkey', 'pollIntervalSeconds' => 30]);   // clears the cache
     @unlink(__DIR__ . '/.mock_hits');
-    $u1 = http('GET', "$base/monitoring_uptime.php", ['jar' => $admin]);
+    $u1 = http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin]);
     check($u1['code'] === 200 && !isset($u1['json']['error']) && $u1['json']['summary'] === ['up' => 3, 'down' => 1, 'pending' => 1, 'maintenance' => 1, 'total' => 6], 'configured: summary and monitors returned');
     same($u1['json']['monitors'][0]['statusLabel'], 'down', 'down monitors are listed first');
     same(array_keys($u1['json']['monitors'][0]), ['id', 'name', 'type', 'url', 'status', 'statusLabel', 'responseTimeMs', 'certDaysRemaining', 'certValid', 'uptime24h', 'uptime30d', 'avgResponse24hMs', 'heartbeats'], 'each monitor has the documented fields plus id and history');
     check(!str_contains($u1['body'], 'goodkey') && !str_contains($u1['body'], 'Authorization'), 'the response never contains the key');
-    for ($i = 0; $i < 4; $i++) { http('GET', "$base/monitoring_uptime.php", ['jar' => $admin]); http('GET', "$base/monitoring_uptime.php", ['jar' => $user]); }
+    for ($i = 0; $i < 4; $i++) { http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin]); http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $user]); }
     same(mock_hits($mock), 1, 'ten dashboard requests reached Kuma once');
 
     set_mode('down'); expire_cache();
-    $u = http('GET', "$base/monitoring_uptime.php", ['jar' => $admin])['json'];
+    $u = http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin])['json'];
     check(($u['error'] ?? '') === 'kuma_unreachable' && ($u['stale'] ?? false) === true && $u['summary']['total'] === 6, 'Kuma returns 500: kuma_unreachable with stale data');
     check(!str_contains(json_encode($u), 'secret stack trace'), 'upstream details are never leaked');
     set_mode('unauth'); expire_cache();
-    $u = http('GET', "$base/monitoring_uptime.php", ['jar' => $admin])['json'];
+    $u = http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin])['json'];
     check(($u['error'] ?? '') === 'kuma_unauthorized' && ($u['stale'] ?? false) === true, 'Kuma returns 401: kuma_unauthorized with stale data');
     set_mode(''); expire_cache();
-    $u = http('GET', "$base/monitoring_uptime.php", ['jar' => $admin])['json'];
+    $u = http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin])['json'];
     check(!isset($u['error']) && $u['summary']['total'] === 6, 'Kuma recovers: the error clears');
 
     // poll interval is honoured: a fresh cache is reused, then refreshed after expiry
-    @unlink(__DIR__ . '/.mock_hits'); http('GET', "$base/monitoring_uptime.php", ['jar' => $admin]);
+    @unlink(__DIR__ . '/.mock_hits'); http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin]);
     same(mock_hits($mock), 0, 'inside the poll interval nothing is fetched');
-    expire_cache(); http('GET', "$base/monitoring_uptime.php", ['jar' => $admin]);
+    expire_cache(); http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin]);
     same(mock_hits($mock), 1, 'after the interval it is fetched once');
 
     $d = api($base, $admin, 'DELETE');
     check($d['code'] === 200 && $d['json']['hasApiKey'] === false && $d['json']['keyLast4'] === null && $d['json']['kumaUrl'] === $mock, 'DELETE removes the key and keeps the URL');
     same((int) $pdo->query('SELECT api_key_enc IS NULL FROM kuma_settings WHERE id = 1')->fetchColumn(), 1, 'the stored key is gone from the database');
-    same(http('GET', "$base/monitoring_uptime.php", ['jar' => $admin])['json'], ['error' => 'not_configured'], 'after removing the key: not_configured');
-    same(http('POST', "$base/monitoring_uptime.php", ['jar' => $admin, 'body' => 'x=1'])['code'], 405, 'the monitoring endpoint is read-only (POST is 405)');
-    check(str_contains(http('GET', "$base/uptime.php", ['jar' => $admin])['body'], 'monitoring_uptime.php'), 'the Uptime page loads and polls only the dashboard backend');
-    check(!str_contains(http('GET', "$base/uptime.php", ['jar' => $admin])['body'], ':3199'), 'the browser page never contains the Kuma address');
+    same(http('GET', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin])['json'], ['error' => 'not_configured'], 'after removing the key: not_configured');
+    same(http('POST', "$base/monitoring/monitoring_uptime.php", ['jar' => $admin, 'body' => 'x=1'])['code'], 405, 'the monitoring endpoint is read-only (POST is 405)');
+    check(str_contains(http('GET', "$base/monitoring/uptime.php", ['jar' => $admin])['body'], 'monitoring/monitoring_uptime.php'), 'the Uptime page loads and polls only the dashboard backend');
+    check(!str_contains(http('GET', "$base/monitoring/uptime.php", ['jar' => $admin])['body'], ':3199'), 'the browser page never contains the Kuma address');
 
     // =========================================================
     section('8. History: heartbeats, uptime percentages, events');
@@ -352,12 +367,12 @@ try {
     same(kuma_monitor_detail($pdo, 'dddddddddddddddd')['events'], [], 'an unknown but valid id returns empty history');
     check(count(kuma_recent_events($pdo)) >= 1, 'recent events across monitors are available');
 
-    same(http('GET', "$base/monitoring_uptime.php?monitor=$synthetic")['code'], 401, 'signed out: the detail endpoint is 401');
-    same(http('GET', "$base/monitoring_uptime.php?events=1")['code'], 401, 'signed out: the events endpoint is 401');
-    $hd = http('GET', "$base/monitoring_uptime.php?monitor=$synthetic", ['jar' => $admin])['json'];
+    same(http('GET', "$base/monitoring/monitoring_uptime.php?monitor=$synthetic")['code'], 401, 'signed out: the detail endpoint is 401');
+    same(http('GET', "$base/monitoring/monitoring_uptime.php?events=1")['code'], 401, 'signed out: the events endpoint is 401');
+    $hd = http('GET', "$base/monitoring/monitoring_uptime.php?monitor=$synthetic", ['jar' => $admin])['json'];
     same(array_keys($hd), ['id', 'heartbeats', 'series', 'events'], 'detail endpoint returns id, heartbeats, series and events');
-    same(http('GET', "$base/monitoring_uptime.php?monitor=" . urlencode("x' OR 1=1 --"), ['jar' => $admin])['json'], ['error' => 'not_found'], 'a hostile monitor id is answered with not_found');
-    $ev = http('GET', "$base/monitoring_uptime.php?events=1", ['jar' => $user])['json'];
+    same(http('GET', "$base/monitoring/monitoring_uptime.php?monitor=" . urlencode("x' OR 1=1 --"), ['jar' => $admin])['json'], ['error' => 'not_found'], 'a hostile monitor id is answered with not_found');
+    $ev = http('GET', "$base/monitoring/monitoring_uptime.php?events=1", ['jar' => $user])['json'];
     check(isset($ev['events']) && is_array($ev['events']), 'a normal user can read the events feed');
     check(!str_contains(json_encode($hd) . json_encode($ev), 'goodkey'), 'history responses never contain the key');
 
@@ -365,12 +380,12 @@ try {
     section('9. Saved health-API keys: show again, survive refresh');
     $pdo->exec("DELETE FROM api_keys WHERE name IN ('Persist test', 'Legacy test')");
     $mk = function (string $jar) use ($base) {
-        $page = http('GET', "$base/settings.php?tab=integrations", ['jar' => $jar]);
-        http('POST', "$base/settings.php?tab=integrations", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'tab' => 'integrations', 'action' => 'key_create', 'key_name' => 'Persist test'])]);
+        $page = http('GET', "$base/settings/settings.php?tab=integrations", ['jar' => $jar]);
+        http('POST', "$base/settings/settings.php?tab=integrations", ['jar' => $jar, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'tab' => 'integrations', 'action' => 'key_create', 'key_name' => 'Persist test'])]);
     };
     $reveal = function (string $jar, int $id, ?string $csrf = null) use ($base) {
         $csrf ??= token($base, $jar);
-        return http('POST', "$base/api_key_reveal.php", ['jar' => $jar, 'headers' => ['Accept: application/json', 'X-CSRF-Token: ' . $csrf, 'Content-Type: application/x-www-form-urlencoded'], 'body' => 'id=' . $id]);
+        return http('POST', "$base/api/api_key_reveal.php", ['jar' => $jar, 'headers' => ['Accept: application/json', 'X-CSRF-Token: ' . $csrf, 'Content-Type: application/x-www-form-urlencoded'], 'body' => 'id=' . $id]);
     };
     $mk($admin);
     $row = $pdo->query("SELECT id, key_prefix, key_hash, key_enc FROM api_keys WHERE name = 'Persist test'")->fetch();
@@ -385,7 +400,7 @@ try {
     same(http('GET', "$base/api/health.php", ['headers' => ['Authorization: Bearer ' . $plainKey]])['code'], 200, 'the shown key really works against the health API');
 
     // "refresh": the page is loaded again, and a completely new sign-in is made
-    $pageHtml = http('GET', "$base/settings.php?tab=integrations", ['jar' => $admin])['body'];
+    $pageHtml = http('GET', "$base/settings/settings.php?tab=integrations", ['jar' => $admin])['body'];
     check(str_contains($pageHtml, $row['key_prefix']) && str_contains($pageHtml, 'Show key'), 'after a refresh the key is still listed with a Show key button');
     check(!str_contains($pageHtml, $plainKey), 'the full key is never written into the page');
     $admin2 = login($base, $adminUser, $adminPass);
@@ -395,15 +410,15 @@ try {
         && !str_contains((string) $pdo->query("SELECT GROUP_CONCAT(CONCAT(target, actor)) FROM activity_logs WHERE action = 'API key shown'")->fetchColumn(), $plainKey), 'every reveal is logged, with the name and never the key');
 
     // who may show a key
-    same(http('POST', "$base/api_key_reveal.php", ['headers' => ['X-CSRF-Token: x'], 'body' => "id=$kid"])['code'], 401, 'signed out: 401');
-    same(http('GET', "$base/api_key_reveal.php?id=$kid", ['jar' => $admin])['code'], 405, 'GET is not allowed');
+    same(http('POST', "$base/api/api_key_reveal.php", ['headers' => ['X-CSRF-Token: x'], 'body' => "id=$kid"])['code'], 401, 'signed out: 401');
+    same(http('GET', "$base/api/api_key_reveal.php?id=$kid", ['jar' => $admin])['code'], 405, 'GET is not allowed');
     same($reveal($admin, $kid, 'wrong-token')['code'], 403, 'a wrong CSRF token is 403');
     same($reveal($admin, 999999)['code'], 404, 'an unknown key is 404');
     $pdo->prepare('UPDATE admins SET perm_integrations = ? WHERE username = ?')->execute(['manage', $testUser]);
     same($reveal($user, $kid)['code'], 200, 'a normal user with Can manage may show keys');
     $pdo->prepare('UPDATE admins SET perm_integrations = ? WHERE username = ?')->execute(['view', $testUser]);
     same($reveal($user, $kid)['code'], 403, 'view-only users can not show keys');
-    check(!str_contains(http('GET', "$base/settings.php?tab=integrations", ['jar' => $user])['body'], 'class="key-show'), 'view-only users do not even see the button');
+    check(!str_contains(http('GET', "$base/settings/settings.php?tab=integrations", ['jar' => $user])['body'], 'class="key-show'), 'view-only users do not even see the button');
     $pdo->prepare('UPDATE admins SET perm_integrations = ? WHERE username = ?')->execute(['none', $testUser]);
     same($reveal($user, $kid)['code'], 403, 'users with no integrations access can not show keys');
     $pdo->prepare('UPDATE admins SET perm_integrations = ? WHERE username = ?')->execute(['manage', $testUser]);
@@ -412,9 +427,9 @@ try {
     $pdo->prepare("INSERT INTO api_keys (name, key_prefix, key_hash, key_enc, scope, created_by) VALUES ('Legacy test', 'tlk_legacy00', ?, NULL, 'health:read', 1)")->execute([hash('sha256', 'tlk_legacy')]);
     $lid = (int) $pdo->query("SELECT id FROM api_keys WHERE name = 'Legacy test'")->fetchColumn();
     same($reveal($admin, $lid)['code'], 404, 'an old hash-only key can not be shown');
-    check(str_contains(http('GET', "$base/settings.php?tab=integrations", ['jar' => $admin])['body'], 'Created before keys were saved'), 'the page explains why an old key can not be shown');
-    $page = http('GET', "$base/settings.php?tab=integrations", ['jar' => $admin]);
-    http('POST', "$base/settings.php?tab=integrations", ['jar' => $admin, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'tab' => 'integrations', 'action' => 'key_revoke', 'id' => $kid])]);
+    check(str_contains(http('GET', "$base/settings/settings.php?tab=integrations", ['jar' => $admin])['body'], 'Created before keys were saved'), 'the page explains why an old key can not be shown');
+    $page = http('GET', "$base/settings/settings.php?tab=integrations", ['jar' => $admin]);
+    http('POST', "$base/settings/settings.php?tab=integrations", ['jar' => $admin, 'body' => http_build_query(['csrf' => csrf_from($page['body']), 'tab' => 'integrations', 'action' => 'key_revoke', 'id' => $kid])]);
     same($reveal($admin, $kid)['code'], 404, 'a revoked key can not be shown');
     same(http('GET', "$base/api/health.php", ['headers' => ['Authorization: Bearer ' . $plainKey]])['code'], 401, 'and it stops working at once');
     $pdo->exec("DELETE FROM api_keys WHERE name IN ('Persist test', 'Legacy test')");
@@ -433,6 +448,7 @@ try {
     require TESTS_DIR . '/parts/stage12_phone_tables.php';
     require TESTS_DIR . '/parts/stage13_followups.php';
     require TESTS_DIR . '/parts/stage14_calendar.php';
+    require TESTS_DIR . '/parts/stage15_structure.php';
 
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();

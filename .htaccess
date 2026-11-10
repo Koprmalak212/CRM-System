@@ -2,10 +2,41 @@
 Options -Indexes
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  # Production: send plain HTTP to HTTPS (localhost is left alone so local development keeps working)
+  # Production: send plain HTTP to HTTPS (localhost and private network addresses such as 10.0.0.67 are left alone, so local and LAN use keeps working)
   RewriteCond %{HTTPS} off
   RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
+  RewriteCond %{HTTP_HOST} !^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9.]+(:[0-9]+)?$
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  # Old addresses (before the pages moved into feature folders) keep working: emailed links, bookmarks.
+  # %1 is the folder the project is served from, so the redirect is correct under any path or host.
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(api_key_reveal|kuma_api)\.php$ %1/api/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(change_password|forgot|invite|login|login_2fa|logout|reset)\.php$ %1/auth/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(appointment_edit|calendar|calendar_ics)\.php$ %1/calendar/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(companies|company|company_edit)\.php$ %1/companies/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(creator|teletollie)\.php$ %1/extras/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(invoice|invoice_new|invoice_pdf|invoices|recurring)\.php$ %1/invoices/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(connections|monitoring_uptime|uptime)\.php$ %1/monitoring/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(notifications)\.php$ %1/notifications/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(privacy|privacybeleid)\.php$ %1/privacy/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(search)\.php$ %1/search/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(settings)\.php$ %1/settings/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(backups|demo_data|export|import|logs|report_download|reports)\.php$ %1/system/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(ticket|ticket_new|tickets)\.php$ %1/tickets/$1.php [R=301,L,QSA]
+  RewriteCond %{REQUEST_URI} ^(.*)/[^/]+$
+  RewriteRule ^(user|user_new|users)\.php$ %1/users/$1.php [R=301,L,QSA]
 </IfModule>
 ServerSignature Off
 <IfModule mod_setenvif.c>

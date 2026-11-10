@@ -7,7 +7,7 @@ declare(strict_types=1);
  *   C:\xampp\php\php.exe database\migrate.php
  *
  * Runs as root (the web app's own database account may not ALTER tables). Safe to run repeatedly: every step first
- * checks whether it is already done. New installs do not need this; setup.php loads schema.sql directly.
+ * checks whether it is already done. New installs do not need this; bin/setup.php loads schema.sql directly.
  *   - new tables: every "CREATE TABLE IF NOT EXISTS" statement in schema.sql is run
  *   - changes to existing tables: the steps below, one block per build stage
  */

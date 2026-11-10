@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/monitor.php';       // secret_encrypt / secret_decrypt
-require_once dirname(__DIR__) . '/twofactor.php';
+require_once dirname(__DIR__) . '/modules/monitor.php';       // secret_encrypt / secret_decrypt
+require_once dirname(__DIR__) . '/modules/twofactor.php';
 
 /** Two-step sign-in actions of the Account tab. */
 function tab_handle_2fa(PDO $pdo, array $admin, string $action): void
@@ -165,7 +165,7 @@ function tab_render(PDO $pdo, array $admin): void
   <?php if (is_admin()): ?>
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.03s" aria-labelledby="nt-h">
     <h2 id="nt-h" class="text-lg font-bold tracking-tight">Notification email</h2>
-    <p class="mt-1 text-sm text-soft">Where overdue invoices, failed backups, services that are down and urgent tickets are emailed is set together with the mail server, under <a class="underline decoration-lime decoration-2 underline-offset-4" href="settings.php?tab=email">Settings &gt; Email</a> (EMAIL_TARGET).</p>
+    <p class="mt-1 text-sm text-soft">Where overdue invoices, failed backups, services that are down and urgent tickets are emailed is set together with the mail server, under <a class="underline decoration-lime decoration-2 underline-offset-4" href="settings/settings.php?tab=email">Settings &gt; Email</a> (EMAIL_TARGET).</p>
   </section>
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="rq-h">
     <h2 id="rq-h" class="text-lg font-bold tracking-tight">Require two-step for admins</h2>

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . '/../kuma.php';
+require_once __DIR__ . '/../modules/kuma.php';
 
 function tab_handle(PDO $pdo, array $admin): void
 {
@@ -99,7 +99,7 @@ function tab_render(PDO $pdo, array $admin): void
     });
     btn.disabled = true; btn.textContent = 'Testing…';
     out.hidden = false; out.className = 'max-w-xl text-sm font-semibold text-soft'; out.textContent = 'Contacting Kuma…';
-    fetch('kuma_api.php', { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-CSRF-Token': f.csrf.value }, body: body })
+    fetch('api/kuma_api.php', { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-CSRF-Token': f.csrf.value }, body: body })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         out.textContent = j.message || 'The test did not return a result.';

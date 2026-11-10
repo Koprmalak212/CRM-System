@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . '/../monitor.php';
+require_once __DIR__ . '/../modules/monitor.php';
 
 /** Reads and validates the add/edit form. Returns [clean values, error messages]. */
 function read_endpoint_form(bool $isEdit, ?array $existing): array
@@ -90,7 +90,7 @@ function tab_handle(PDO $pdo, array $admin): void
             [$d, $errors] = read_endpoint_form($action === 'edit', $existing);
             if ($errors) {
                 $_SESSION['ep_form'] = ['id' => $id, 'values' => $d + ['secret_set' => !empty($existing['auth_secret_enc'])], 'errors' => $errors];
-                $GLOBALS['tab_redirect'] = 'settings.php?tab=integrations&' . ($action === 'edit' ? 'edit=' . $id : 'add=1') . '#endpoint-form';
+                $GLOBALS['tab_redirect'] = 'settings/settings.php?tab=integrations&' . ($action === 'edit' ? 'edit=' . $id : 'add=1') . '#endpoint-form';
                 return;
             }
             if ($action === 'add') {
@@ -178,7 +178,7 @@ function tab_render(PDO $pdo, array $admin): void
 
     $scheme = !empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off' ? 'https' : 'http';
     $host = preg_match('/^[A-Za-z0-9.\-:]{1,100}$/', (string) ($_SERVER['HTTP_HOST'] ?? '')) ? $_SERVER['HTTP_HOST'] : 'localhost';
-    $apiUrl = $scheme . '://' . $host . rtrim(str_replace('\\', '/', dirname((string) $_SERVER['SCRIPT_NAME'])), '/') . '/api/health.php';
+    $apiUrl = $scheme . '://' . $host . rtrim(base_path(), '/') . '/api/health.php';
     ?>
 <?php if (!$manage): ?>
   <p role="note" class="rise mb-6 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-soft">You have <strong class="text-ink">view only</strong> access. You can see the results and run checks. Ask an admin for "Can manage" to add endpoints or create API keys.</p>
@@ -192,7 +192,7 @@ function tab_render(PDO $pdo, array $admin): void
     </div>
     <div class="flex flex-wrap gap-2">
       <?php if ($eps): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="integrations"><input type="hidden" name="action" value="check_all"><button class="<?= $btn ?>"><?= icon('activity', 'h-4 w-4') ?>Check all now</button></form><?php endif; ?>
-      <?php if ($manage): ?><a href="settings.php?tab=integrations&amp;add=1#endpoint-form" class="pressable inline-flex h-9 items-center gap-1.5 rounded-lg bg-lime px-3 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Add endpoint</a><?php endif; ?>
+      <?php if ($manage): ?><a href="settings/settings.php?tab=integrations&amp;add=1#endpoint-form" class="pressable inline-flex h-9 items-center gap-1.5 rounded-lg bg-lime px-3 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Add endpoint</a><?php endif; ?>
     </div>
   </div>
 
@@ -225,7 +225,7 @@ function tab_render(PDO $pdo, array $admin): void
             <div class="flex flex-wrap justify-end gap-2">
               <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="integrations"><input type="hidden" name="action" value="check"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?> hover:bg-lime hover:text-navy">Check now</button></form>
               <?php if ($manage): ?>
-                <a href="settings.php?tab=integrations&amp;edit=<?= $id ?>#endpoint-form" class="<?= $btn ?>">Edit</a>
+                <a href="settings/settings.php?tab=integrations&amp;edit=<?= $id ?>#endpoint-form" class="<?= $btn ?>">Edit</a>
                 <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="integrations"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?>"><?= $ep['enabled'] ? 'Pause' : 'Resume' ?></button></form>
                 <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="integrations"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?> hover:bg-[#FFD3CC] hover:text-[#7E160A]" aria-label="Delete <?= e($ep['name']) ?>">Delete</button></form>
               <?php endif; ?>
@@ -236,7 +236,7 @@ function tab_render(PDO $pdo, array $admin): void
       </tbody>
     </table>
   </div>
-  <p class="border-t border-line px-5 py-3 text-xs text-soft sm:px-6">Checks run when you press "Check now", or on a schedule if you run <code class="rounded bg-white/10 px-1.5 py-0.5 text-ink">check_endpoints.php</code> from Windows Task Scheduler every minute. History is kept for <?= CHECK_HISTORY_DAYS ?> days.</p>
+  <p class="border-t border-line px-5 py-3 text-xs text-soft sm:px-6">Checks run when you press "Check now", or on a schedule if you run <code class="rounded bg-white/10 px-1.5 py-0.5 text-ink">bin/check_endpoints.php</code> from Windows Task Scheduler every minute. History is kept for <?= CHECK_HISTORY_DAYS ?> days.</p>
   <?php endif; ?>
 </section>
 
@@ -265,7 +265,7 @@ function tab_render(PDO $pdo, array $admin): void
     </fieldset>
     <div class="flex flex-wrap gap-3 sm:col-span-2">
       <button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95"><?= $isEdit ? 'Save changes' : 'Add endpoint' ?></button>
-      <a href="settings.php?tab=integrations" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-white/5">Cancel</a>
+      <a href="settings/settings.php?tab=integrations" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-white/5">Cancel</a>
     </div>
   </form>
 </section>
@@ -325,7 +325,7 @@ function tab_render(PDO $pdo, array $admin): void
       var out = btn.parentNode.querySelector('.key-out'), code = out.querySelector('code'), timer = btn.dataset.timer;
       if (!out.classList.contains('hidden')) { out.classList.add('hidden'); out.classList.remove('flex'); code.textContent = ''; btn.textContent = 'Show key'; return; }
       btn.disabled = true; btn.textContent = 'Loading…';
-      fetch('api_key_reveal.php', { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-CSRF-Token': tok.value, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'id=' + encodeURIComponent(btn.dataset.id) })
+      fetch('api/api_key_reveal.php', { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-CSRF-Token': tok.value, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'id=' + encodeURIComponent(btn.dataset.id) })
         .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (r) {
           if (!r.ok || !r.j.key) { btn.textContent = 'Could not show'; return; }

@@ -38,7 +38,7 @@ function tab_handle(PDO $pdo, array $admin): void
 function tab_render(PDO $pdo, array $admin): void
 {
     $r = $pdo->query('SELECT * FROM company_profile WHERE id = 1')->fetch() ?: array_fill_keys(['name', 'address1', 'address2', 'address3', 'kvk', 'btw_number', 'iban', 'email', 'phone'], '');
-    $co = require dirname(__DIR__) . '/company.php';
+    $co = require dirname(__DIR__) . '/modules/company.php';
     $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $in = fn(string $k, string $label, string $ph = '', string $hint = '', bool $wide = false) => '<div' . ($wide ? ' class="sm:col-span-2"' : '') . '><label for="' . $k . '" class="text-sm font-semibold">' . e($label) . '</label><input id="' . $k . '" name="' . $k . '" value="' . e($r[$k]) . '" placeholder="' . e($ph) . '" class="' . $field . '">' . ($hint !== '' ? '<p class="mt-1 text-xs text-soft">' . e($hint) . '</p>' : '') . '</div>';
     ?>
