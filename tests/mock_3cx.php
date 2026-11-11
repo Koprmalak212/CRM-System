@@ -25,11 +25,18 @@ if (str_starts_with($path, '/xapi/v1/ReportCallLogData/Pbx.GetCallLogData(')) { 
     if (!in_array($_SERVER['HTTP_AUTHORIZATION'] ?? '', ['Bearer tok-api', 'Bearer tok-admin'], true)) { http_response_code(401); exit; }
     if ($mode === 'noperm') { http_response_code(403); exit; }
     if ($mode !== 'logdata' || !str_contains($path, 'periodFrom=') || !str_contains($path, 'periodTo=')) { http_response_code(404); exit; }
-    // like the PBX of the owner: SegmentId is the number of the segment within a call, so every call has SegmentId 1 (and two calls even start in the same second)
+    // like the PBX of the owner: one call is several segments that share MainCallHistoryId (a wait in the queue, the answer, a ring that nobody took)
+    $t = static fn(int $ago): string => gmdate('Y-m-d\TH:i:s\Z', time() - $ago);
+    $seg = static fn(string $main, string $hist, int $ago, string $dir, string $status, string $talk, array $x = []): array => $x + ['MainCallHistoryId' => $main, 'CallHistoryId' => $hist, 'CallId' => 1, 'Indent' => 1, 'SegmentId' => 1,
+        'StartTime' => $t($ago), 'Direction' => $dir, 'Status' => $status, 'TalkingDuration' => $talk, 'Answered' => $status !== 'Unanswered', 'SourceType' => 1, 'DestinationType' => 1,
+        'SourceDn' => '', 'SourceCallerId' => '', 'SourceDisplayName' => '', 'DestinationDn' => '', 'DestinationCallerId' => '', 'DestinationDisplayName' => ''];
+    $jan = ['SourceDn' => '10000', 'SourceCallerId' => '+31101234567', 'SourceDisplayName' => 'Jan Jansen'];
     echo json_encode(['value' => [
-        ['Id' => 501, 'SegmentId' => 1, 'StartTime' => gmdate('Y-m-d\TH:i:s\Z', time() - 600), 'SourceType' => 'ExternalLine', 'SourceCallerId' => '+31101234567', 'DestinationType' => 'Extension', 'DestinationCallerId' => '100', 'TotalDuration' => 'PT1M12S', 'Status' => 'Answered'],
-        ['Id' => 502, 'SegmentId' => 1, 'StartTime' => gmdate('Y-m-d\TH:i:s\Z', time() - 600), 'SourceType' => 'ExternalLine', 'SourceCallerId' => '+31107654321', 'DestinationType' => 'Extension', 'DestinationCallerId' => '101', 'TotalDuration' => '00:00:09', 'Status' => 'Unanswered'],
-        ['Id' => 502, 'SegmentId' => 2, 'StartTime' => gmdate('Y-m-d\TH:i:s\Z', time() - 590), 'SourceType' => 'Extension', 'SourceCallerId' => '101', 'DestinationType' => 'ExternalLine', 'DestinationCallerId' => '+31107654321', 'TotalDuration' => 'PT30S', 'Status' => 'Answered'],
+        $seg('m-1', 'h-1a', 600, 'Inbound', 'Waiting', 'PT24S', $jan + ['DestinationDn' => '800', 'DestinationDisplayName' => 'Support queue']),
+        $seg('m-1', 'h-1b', 590, 'Inbound', 'Answered', 'PT2M20.049S', $jan + ['DestinationDn' => '100', 'DestinationDisplayName' => 'Noor Haddad']),
+        $seg('m-1', 'h-1c', 580, 'Inbound', 'Unanswered', 'PT0S', $jan + ['DestinationDn' => '101', 'DestinationDisplayName' => 'Sam Rivera']),
+        $seg('m-2', 'h-2a', 500, 'Inbound', 'Unanswered', 'PT0S', ['SourceCallerId' => '+31107654321', 'SourceDisplayName' => '+31107654321', 'DestinationDn' => '101', 'DestinationDisplayName' => 'Sam Rivera']),
+        $seg('m-3', 'h-3a', 400, 'Outbound', 'Answered', 'PT30S', ['SourceDn' => '100', 'SourceCallerId' => '100', 'SourceDisplayName' => 'Noor Haddad', 'DestinationCallerId' => '+31201112222', 'DestinationDisplayName' => 'Piet Bakker']),
     ]]);
     exit;
 }

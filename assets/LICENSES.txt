@@ -11,6 +11,14 @@ Icons (drawn as inline SVG in includes/bootstrap.php)
   Shapes follow the Lucide icon set, ISC License. Copyright (c) for Lucide Contributors, and portions Copyright (c) 2013-2022 Cole Bemis (Feather), MIT.
   Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
 
+Service logos (assets/img/services/, optional)
+  The logos of 3CX, Yeastar, Twilio and Short.io are trademarks of their owners. They are not part of the software itself: copies taken from the websites of the services are in this folder for labelling the services, and can be replaced. A file named after the service
+  (threecx.svg, yeastar.png, twilio.svg, shortio.svg) placed there is shown next to the service name; without one a plain badge with the name is shown.
+  assets/img/services/threecx.png is the logo that 3CX shows on its own website (https://www.3cx.com/wp-content/uploads/2023/07/logo-3.png, 160 x 72 pixels), copied on 11 November 2026 to label 3CX in the lists. 3CX is a trademark of 3CX.
+  assets/img/services/yeastar.png is the white logo that Yeastar offers on its own website for dark backgrounds (https://www.yeastar.com/wp-content/uploads/2020/04/yeastar-logo-white.png, 267 x 81 pixels), copied on 11 November 2026. Yeastar is a trademark of Yeastar Information Technology Co., Ltd.
+  assets/img/services/twilio.svg is the Twilio logo from the website of Twilio (https://www.twilio.com/content/dam/twilio-com/core-assets/customer-logos/t-z/twilio.svg), copied on 11 November 2026. Twilio is a trademark of Twilio Inc.
+  assets/img/services/shortio.png is the logo for dark backgrounds from the website of Short.io (https://www.short.io/_astro/logo_wide-on-dark.Dz5jCKPh_Z2aKboC.png, 126 x 25 pixels), copied on 11 November 2026. Short.io is a trademark of its owner.
+
 Telecomlijn logos (assets/telecomlijn-logo-*.png)
   Owned by Telecomlijn. Used in this internal tool by the owner's own permission.
 

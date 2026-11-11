@@ -22,7 +22,7 @@ function collect_subject(PDO $pdo, string $email): array
     }
     $comm = [];
     if ($user) {
-        $cm = $pdo->prepare('SELECT provider, kind, direction, from_number, to_number, started_at, duration_s, status, body FROM comm_log WHERE user_id = ? ORDER BY started_at DESC LIMIT 5000');
+        $cm = $pdo->prepare('SELECT provider, kind, direction, from_number, to_number, remote_name, started_at, duration_s, status, body FROM comm_log WHERE user_id = ? ORDER BY started_at DESC LIMIT 5000');
         $cm->execute([$user['id']]);
         $comm = $cm->fetchAll();
     }
@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validEmail) {
             try {
                 $pdo->prepare('DELETE FROM connections WHERE user_id = ?')->execute([$id]);
                 // calls and messages: the person link, the matching key, the message text and the person's own number go; the rest is a company record
-                $pdo->prepare("UPDATE comm_log SET user_id = NULL, party_key = '', body = '', from_number = IF(direction = 'in', '', from_number), to_number = IF(direction = 'out', '', to_number) WHERE user_id = ?")->execute([$id]);
+                $pdo->prepare("UPDATE comm_log SET user_id = NULL, party_key = '', body = '', remote_name = '', from_number = IF(direction = 'in', '', from_number), to_number = IF(direction = 'out', '', to_number) WHERE user_id = ?")->execute([$id]);
                 $pdo->prepare("UPDATE activity_logs SET actor = 'anonymised', ip = '0.0.0.0' WHERE actor = ?")->execute([$email]);
                 // email to ticket: the address goes from the tickets, the replies and the list of messages read; the ticket itself is a company record
                 $pdo->prepare("UPDATE tickets SET requester_email = '' WHERE requester_email = ?")->execute([$email]);

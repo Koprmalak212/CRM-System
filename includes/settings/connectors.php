@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // Settings, Connectors: 3CX, Yeastar, Twilio and Short.io. Admins only (checked in settings.php and again here).
 require_once dirname(__DIR__) . '/modules/connectors.php';
+require_once dirname(__DIR__) . '/modules/comm.php';   // service_badge()
 
 function tab_handle(PDO $pdo, array $admin): void
 {
@@ -67,7 +68,7 @@ function tab_render(PDO $pdo, array $admin): void
     ?>
 <section id="c-<?= e($p) ?>" class="rise mt-6 max-w-3xl rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="c-<?= e($p) ?>-h">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <h3 id="c-<?= e($p) ?>-h" class="text-base font-bold"><?= e($d['name']) ?> <span class="ml-1 text-sm font-normal text-soft">gives you <?= e($d['gives']) ?></span></h3>
+    <h3 id="c-<?= e($p) ?>-h" class="text-base font-bold"><?= service_badge($p, $d['name']) ?> <span class="ml-1 text-sm font-normal text-soft">gives you <?= e($d['gives']) ?></span></h3>
     <span class="text-sm font-semibold"><?= $c['enabled'] ? 'On' : 'Off' ?></span>
   </div>
   <p class="mt-1 text-sm text-soft"><?= e($d['help']) ?></p>

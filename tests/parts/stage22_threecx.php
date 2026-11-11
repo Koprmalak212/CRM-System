@@ -38,16 +38,57 @@ try {
     connector_trace(null, true);
     [$s, $m] = $try22('logdata', 'apiclient', 'apisecret');
     $tr22 = implode("\n", connector_trace());
-    check($s === 'ok' && str_contains($tr22, 'GetCallLogData(periodFrom=') && str_contains($tr22, 'form 1 of 4') && str_contains($tr22, 'TotalDuration') && !str_contains($tr22, 'CallHistoryView'), 'the call-log function with a period is tried first and works, without ever asking for the whole history', $tr22);
+    check($s === 'ok' && str_contains($tr22, 'GetCallLogData(periodFrom=') && str_contains($tr22, 'form 1 of 4') && str_contains($tr22, 'TalkingDuration') && !str_contains($tr22, 'CallHistoryView'), 'the call-log function with a period is tried first and works, without ever asking for the whole history', $tr22);
     connector_trace(null, true);
     $res22 = threecx_collect(['base_url' => 'http://127.0.0.1:3198/logdata', 'verify_tls' => 1, 'account_ref' => 'apiclient'], 'apisecret', time() - 35 * 86400);
     $syncTrace22 = implode("\n", connector_trace());
-    same([$res22['state'], count($res22['calls'])], ['ok', 3], 'and a sync through it reads three records, although every one has SegmentId 1');
-    same(count(array_unique(array_column($res22['calls'], 'external_id'))), 3, 'each of them gets its own ID, so none can replace another');
+    same([$res22['state'], count($res22['calls'])], ['ok', 3], 'a sync through it makes five segments into three calls (a call that was queued, answered and rung elsewhere is one call)');
+    $byId22 = array_column($res22['calls'], null, 'external_id');
+    $c1 = $byId22['mm-1'] ?? [];
+    check($c1 && $c1['direction'] === 'in' && $c1['status'] === 'answered' && $c1['duration_s'] === 140 && $c1['from'] === '+31101234567' && $c1['to'] === '100', 'the call: incoming, answered, 140 seconds (waiting and the unanswered ring are not counted), from the caller to the colleague who answered', json_encode($c1));
+    check(($c1['remote_name'] ?? '') === 'Jan Jansen' && ($c1['staff_name'] ?? '') === 'Noor Haddad', 'and it carries the names the PBX has: the caller, and the colleague who took the call (not the queue)');
+    $c2 = $byId22['mm-2'] ?? [];
+    check($c2 && $c2['status'] === 'missed' && $c2['duration_s'] === 0 && $c2['remote_name'] === '' && $c2['staff_name'] === 'Sam Rivera', 'a call nobody answered is missed, with no length, and a "name" that is only the number again is left out');
+    $c3 = $byId22['mm-3'] ?? [];
+    check($c3 && $c3['direction'] === 'out' && $c3['status'] === 'answered' && $c3['duration_s'] === 30 && $c3['to'] === '+31201112222' && $c3['remote_name'] === 'Piet Bakker' && $c3['staff_name'] === 'Noor Haddad', 'an outgoing call has the colleague who made it and the person that was called');
     $ids22 = array_column($res22['calls'], 'external_id');
     $again22 = threecx_collect(['base_url' => 'http://127.0.0.1:3198/logdata', 'verify_tls' => 1, 'account_ref' => 'apiclient'], 'apisecret', time() - 35 * 86400);
     check(array_column($again22['calls'], 'external_id') === $ids22, 'and the same record gets the same ID at the next sync, so it is updated and not added again');
-    check(str_contains($syncTrace22, 'ID fields of the first records: #1 Id=501 SegmentId=1 | #2 Id=502 SegmentId=1'), 'the log shows the ID fields of the first records', $syncTrace22);
+    check(str_contains($syncTrace22, 'ID fields of the first records: #1 MainCallHistoryId=m-1 CallHistoryId=h-1a') && str_contains($syncTrace22, '5 segments read, made into 3 calls'), 'the log shows the ID fields of the first records, and how many segments became how many calls', $syncTrace22);
+    // stored, and shown on the Calls page: the names, the Staff filter, the Person column
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
+    comm_store($pdo, array_map(static fn($r) => ['provider' => 'zz22'] + $r, $res22['calls']), false);
+    same((string) $pdo->query("SELECT CONCAT(remote_name, '|', staff_name) FROM comm_log WHERE provider = 'zz22' AND external_id = 'mm-1'")->fetchColumn(), 'Jan Jansen|Noor Haddad', 'the names are stored with the call');
+    $page22 = http('GET', "$base/calls/calls.php?q=%2B3110", ['jar' => $admin])['body'];
+    check(str_contains($page22, 'Jan Jansen') && str_contains($page22, '(phone system)') && str_contains($page22, 'Noor Haddad'), 'the Calls page shows the name from the phone system in the Person column when nobody in the CRM matches, and the colleague under Staff');
+    $staff22 = http('GET', "$base/calls/calls.php?staff=" . urlencode('Sam Rivera'), ['jar' => $admin])['body'];
+    check(str_contains($staff22, '+31107654321') && !str_contains($staff22, '+31101234567') && str_contains($staff22, 'name="staff"') && str_contains($staff22, '>Noor Haddad<'), 'the Staff filter lists the colleagues and shows only the calls of the one chosen');
+    check(str_contains(http('GET', "$base/calls/calls.php?q=Piet", ['jar' => $admin])['body'], '+31201112222'), 'and the number box also finds a call by the name of the caller or the colleague');
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
+    // service badges: a logo when there is a file, otherwise a plain badge; the file name is never taken from outside
+    $svcDir22 = TESTS_DIR . '/../assets/img/services';
+    $madeDir22 = !is_dir($svcDir22) && @mkdir($svcDir22, 0775, true);
+    check(str_contains(service_badge('zzlogo22', 'ZZ Logo'), 'ZZL') && !str_contains(service_badge('zzlogo22', 'ZZ Logo'), '<img'), 'a service without a logo file gets a plain badge with its name');
+    file_put_contents($svcDir22 . '/zzlogo22.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>');
+    $withLogo22 = service_badge('zzlogo22', 'ZZ Logo');
+    check(str_contains($withLogo22, '<img src="assets/img/services/zzlogo22.svg"') && str_contains($withLogo22, 'ZZ Logo'), 'a service with a logo file shows the logo and its name');
+    @unlink($svcDir22 . '/zzlogo22.svg');
+    if ($madeDir22) { @rmdir($svcDir22); }
+    check(!str_contains(service_badge('../../includes/config.local', 'x'), '<img') && !str_contains(service_badge("zz\"><script>", 'x'), '<script>'), 'a service name with path or markup characters never gives a file or a tag');
+    check(str_contains(http('GET', "$base/settings/settings.php?tab=connectors", ['jar' => $admin])['body'], '>3CX</span>'), 'the connector cards show the service badge');
+    // a sync keeps what is already stored: new calls are added, old ones are left alone, recent ones are refreshed
+    $mk22 = static fn(string $id, int $agoDays, int $dur, string $name) => ['provider' => 'zz22', 'kind' => 'call', 'external_id' => $id, 'direction' => 'in', 'from' => '+31100000001', 'to' => '100', 'remote_name' => $name, 'staff_name' => 'Staff',
+        'party_key' => '100000001', 'started_at' => date('Y-m-d H:i:s', time() - $agoDays * 86400 - ($agoDays === 0 ? 3600 : 0)), 'duration_s' => $dur, 'status' => 'answered', 'body' => ''];
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
+    same(comm_store($pdo, [$mk22('old', 10, 5, 'Old name'), $mk22('fresh', 0, 5, 'Old name')], false), 2, 'two calls are stored');
+    same(comm_store_stats(), ['new' => 2, 'refreshed' => 0, 'kept' => 0], 'both are new');
+    $pdo->exec("UPDATE comm_log SET user_id = NULL, company_id = NULL WHERE provider = 'zz22'");
+    comm_store($pdo, [$mk22('old', 10, 99, 'New name'), $mk22('fresh', 0, 99, 'New name'), $mk22('extra', 3, 7, 'Extra')], false);
+    same(comm_store_stats(), ['new' => 1, 'refreshed' => 1, 'kept' => 1], 'at the next sync one call is new, the recent one is updated and the old one is kept');
+    same($pdo->query("SELECT CONCAT(duration_s, '|', remote_name) FROM comm_log WHERE provider = 'zz22' AND external_id = 'old'")->fetchColumn(), '5|Old name', 'a call from 10 days ago is left exactly as it was, although the service now says something else');
+    same($pdo->query("SELECT CONCAT(duration_s, '|', remote_name) FROM comm_log WHERE provider = 'zz22' AND external_id = 'fresh'")->fetchColumn(), '99|New name', 'a call from today is updated (it can still change)');
+    check(str_contains(connector_ok_text('3CX', 3, true), '1 new, 1 updated') && str_contains(connector_ok_text('3CX', 3, true), '1 already stored and kept as they were'), 'the message after a sync says what was new, updated and kept');
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
     $storeRows22 = array_map(fn($r) => $r + ['kind' => 'call'], [['provider' => 'zz22', 'external_id' => 'a', 'direction' => 'in', 'from' => '1', 'to' => '2', 'party_key' => '', 'started_at' => date('Y-m-d H:i:s'), 'duration_s' => 1, 'status' => 'answered', 'body' => ''], ['provider' => 'zz22', 'external_id' => 'a', 'direction' => 'in', 'from' => '3', 'to' => '4', 'party_key' => '', 'started_at' => date('Y-m-d H:i:s'), 'duration_s' => 2, 'status' => 'answered', 'body' => ''], ['provider' => 'zz22', 'external_id' => 'b', 'direction' => 'in', 'from' => '5', 'to' => '6', 'party_key' => '', 'started_at' => date('Y-m-d H:i:s'), 'duration_s' => 3, 'status' => 'answered', 'body' => '']]);
     same(comm_store($pdo, $storeRows22, false), 2, 'records that share an ID are counted once: three records with two different IDs are two stored rows, not three');
     $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
@@ -96,6 +137,7 @@ try {
     same($pdo->query("SELECT CONCAT(enabled, base_url, account_ref) FROM connectors WHERE provider = 'threecx'")->fetchColumn() ?: null, $saved22 ? $saved22['enabled'] . $saved22['base_url'] . $saved22['account_ref'] : null, 'testing never changes the saved connector settings');
     $pdo->exec("DELETE FROM connector_log WHERE provider = 'threecx'");
 } finally {
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
     $pdo->exec("DELETE FROM connector_log WHERE provider = 'threecx'");
     foreach ($logBackup22 as $row22) { $cols22 = array_keys($row22); $pdo->prepare('INSERT INTO connector_log (`' . implode('`,`', $cols22) . '`) VALUES (' . implode(',', array_fill(0, count($cols22), '?')) . ')')->execute(array_values($row22)); }
     if (is_resource($proc22)) { proc_terminate($proc22); proc_close($proc22); }

@@ -498,6 +498,8 @@ CREATE TABLE IF NOT EXISTS comm_log (
   direction ENUM('in','out','internal') NOT NULL,
   from_number VARCHAR(40) NOT NULL DEFAULT '',
   to_number VARCHAR(40) NOT NULL DEFAULT '',
+  remote_name VARCHAR(120) NOT NULL DEFAULT '',          -- the name the phone system has for the other party (caller or called person), when it knows one
+  staff_name VARCHAR(120) NOT NULL DEFAULT '',           -- the colleague who took or made the call, as named by the phone system
   party_key VARCHAR(12) NOT NULL DEFAULT '',             -- last 9 digits of the number outside the company, for matching
   started_at DATETIME NOT NULL,
   duration_s INT UNSIGNED NOT NULL DEFAULT 0,

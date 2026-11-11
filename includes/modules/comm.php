@@ -9,6 +9,26 @@ declare(strict_types=1);
 const COMM_RETENTION_MONTHS = 12;   // calls and messages hold phone numbers (and sometimes text): removed by bin/purge.php after this long
 
 const COMM_SERVICES = ['threecx' => '3CX', 'yeastar' => 'Yeastar', 'twilio' => 'Twilio'];
+
+/**
+ * A service as a small badge: its logo when there is a file for it (assets/img/services/<service>.svg, .png or .webp), otherwise a plain rounded
+ * mark with the name, so every service looks the same. $name overrides the label (Short.io is not in COMM_SERVICES). The logo files are the
+ * logos of the services and belong to their owners: put your own copy there. A file name is never taken from the request.
+ */
+function service_badge(string $provider, ?string $name = null): string
+{
+    $name ??= COMM_SERVICES[$provider] ?? ucfirst($provider);
+    $logo = '';
+    if (preg_match('/^[a-z0-9]{2,20}$/', $provider)) {
+        foreach (['svg', 'png', 'webp'] as $ext) {
+            if (is_file(dirname(__DIR__, 2) . '/assets/img/services/' . $provider . '.' . $ext)) { $logo = 'assets/img/services/' . $provider . '.' . $ext; break; }
+        }
+    }
+    $mark = $logo !== ''
+        ? '<span class="inline-grid h-7 shrink-0 place-items-center rounded-md bg-navy px-1.5"><img src="' . e($logo) . '" alt="" width="64" height="20" class="h-5 w-auto max-w-[6rem] object-contain"></span>'   // on a dark chip: many logos have white parts that would vanish on the light theme
+        : '<span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-md bg-ink/10 px-1 text-[10px] font-bold leading-none" aria-hidden="true">' . e(mb_strtoupper(mb_substr(preg_replace('/[^A-Za-z0-9]/', '', $name) ?: $name, 0, 3))) . '</span>';
+    return '<span class="inline-flex items-center gap-2 whitespace-nowrap">' . $mark . '<span' . ($logo !== '' ? ' class="sr-only"' : '') . '>' . e($name) . '</span></span>';   // next to a logo the name is for screen readers only: the logo says it
+}
 const COMM_KINDS = ['call' => 'Calls', 'sms' => 'Messages'];
 const COMM_DIRECTIONS = ['in' => 'Incoming', 'out' => 'Outgoing', 'internal' => 'Internal'];
 const COMM_STATUSES = ['answered' => 'Answered', 'missed' => 'Missed', 'busy' => 'Busy', 'failed' => 'Failed', 'delivered' => 'Delivered', 'sent' => 'Sent', 'received' => 'Received', 'queued' => 'Queued', 'other' => 'Other'];
@@ -81,6 +101,9 @@ function comm_filters(array $q): array
     if ($co === 'none') { $w[] = 'c.company_id IS NULL'; $f['company'] = 'none'; }
     elseif (ctype_digit($co) && (int) $co > 0) { $w[] = 'c.company_id = ?'; $a[] = (int) $co; $f['company'] = $co; }
     else { $f['company'] = ''; }
+    $sf = mb_substr(trim((string) ($q['staff'] ?? '')), 0, 120);   // a colleague, by the name the phone system gives
+    if ($sf !== '') { $w[] = 'c.staff_name = ?'; $a[] = $sf; }
+    $f['staff'] = $sf;
     $pe = (string) ($q['person'] ?? '');
     if (ctype_digit($pe) && (int) $pe > 0) { $w[] = 'c.user_id = ?'; $a[] = (int) $pe; $f['person'] = $pe; } else { $f['person'] = ''; }
     foreach (['from' => '>=', 'to' => '<='] as $k => $op) {
@@ -93,7 +116,7 @@ function comm_filters(array $q): array
     if ($s !== '') {
         $s = mb_substr($s, 0, 60); $f['q'] = $s;
         $like = '%' . addcslashes($s, '%_\\') . '%';
-        $w[] = '(c.from_number LIKE ? OR c.to_number LIKE ? OR c.body LIKE ?)'; array_push($a, $like, $like, $like);
+        $w[] = '(c.from_number LIKE ? OR c.to_number LIKE ? OR c.body LIKE ? OR c.remote_name LIKE ? OR c.staff_name LIKE ?)'; array_push($a, $like, $like, $like, $like, $like);
     } else { $f['q'] = ''; }
     return [$w ? 'WHERE ' . implode(' AND ', $w) : '', $a, $f];
 }

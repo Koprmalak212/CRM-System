@@ -109,4 +109,10 @@ if (!col_exists($pdo, 'ticket_comments', 'source')) {
     say('ticket_comments.source added');
 }
 
+// ---- Calls: the names the phone system has for the caller and for the colleague who handled the call
+if (!col_exists($pdo, 'comm_log', 'staff_name')) {
+    $pdo->exec("ALTER TABLE comm_log ADD COLUMN remote_name VARCHAR(120) NOT NULL DEFAULT '' AFTER to_number, ADD COLUMN staff_name VARCHAR(120) NOT NULL DEFAULT '' AFTER remote_name");
+    say('comm_log.remote_name and staff_name added');
+}
+
 echo "Database is up to date.\n";

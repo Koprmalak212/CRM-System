@@ -258,7 +258,7 @@ function connector_direction(string $d): string
 }
 
 /** One normalised record of a call or message, or null when it is unusable. */
-function comm_row(string $provider, string $kind, mixed $id, string $dir, mixed $from, mixed $to, mixed $when, mixed $dur, string $status, mixed $body = ''): ?array
+function comm_row(string $provider, string $kind, mixed $id, string $dir, mixed $from, mixed $to, mixed $when, mixed $dur, string $status, mixed $body = '', mixed $remote = '', mixed $staff = ''): ?array
 {
     $id = trim((string) $id);
     $ts = connector_time($when);
@@ -266,7 +266,10 @@ function comm_row(string $provider, string $kind, mixed $id, string $dir, mixed 
     $from = mb_substr(trim((string) $from), 0, 40); $to = mb_substr(trim((string) $to), 0, 40);
     return ['provider' => $provider, 'kind' => $kind, 'external_id' => $id, 'direction' => $dir, 'from' => $from, 'to' => $to,
         'party_key' => $dir === 'in' ? phone_key($from) : ($dir === 'out' ? phone_key($to) : ''), 'started_at' => date('Y-m-d H:i:s', $ts),
-        'duration_s' => min(86400 * 7, connector_duration($dur)), 'status' => $status, 'body' => mb_substr((string) $body, 0, 1000), 'ts' => $ts];
+        'duration_s' => min(86400 * 7, connector_duration($dur)), 'status' => $status, 'body' => mb_substr((string) $body, 0, 1000), 'ts' => $ts,
+        // names from the phone system; a "name" that is only the number again is no name
+        'remote_name' => preg_match('/^[\d\s+()\-]*$/', trim((string) $remote)) ? '' : mb_substr(trim((string) $remote), 0, 120),
+        'staff_name' => preg_match('/^[\d\s+()\-]*$/', trim((string) $staff)) ? '' : mb_substr(trim((string) $staff), 0, 120)];
 }
 
 // ---- Twilio
@@ -424,6 +427,7 @@ function threecx_collect(array $c, string $secret, int $since): array
     if ($st !== 'ok') { if ($why !== '') { connector_trace('3CX: ' . $why); } return ['state' => $st, 'calls' => [], 'sms' => []]; }
     $base = rtrim((string) $c['base_url'], '/');
     $calls = [];
+    $all = [];   // the segments inside the period
     for ($page = 0; $page < 10; $page++) {
         $r = threecx_history($c, $token, $since, 200, $page * 200);
         if ($r['state'] === 'unreachable') { connector_trace('3CX: signed in, but the PBX did not answer the call-history request in time'); }
@@ -443,19 +447,63 @@ function threecx_collect(array $c, string $secret, int $since): array
             if (!is_array($it)) { continue; }
             $when = connector_time($it['StartTime'] ?? null);
             if ($when !== null && $when < $since) { continue; }   // the form without a start date returns older records too
-            $srcExt = stripos((string) ($it['SourceType'] ?? ''), 'extern') !== false || stripos((string) ($it['SourceType'] ?? ''), 'line') !== false || stripos((string) ($it['SourceType'] ?? ''), 'trunk') !== false;
-            $dstExt = stripos((string) ($it['DestinationType'] ?? ''), 'extern') !== false || stripos((string) ($it['DestinationType'] ?? ''), 'line') !== false || stripos((string) ($it['DestinationType'] ?? ''), 'trunk') !== false;
-            $dir = isset($it['Direction']) ? connector_direction((string) $it['Direction']) : ($srcExt ? 'in' : ($dstExt ? 'out' : 'internal'));
-            $answered = array_key_exists('Answered', $it) ? (bool) $it['Answered'] : (stripos((string) ($it['Status'] ?? ''), 'answer') !== false);
-            $row = comm_row('threecx', 'call', threecx_external_id($it), $dir,
-                $it['SourceCallerId'] ?? $it['SourceDn'] ?? '', $it['DestinationCallerId'] ?? $it['DestinationDn'] ?? '', $it['StartTime'] ?? null,
-                threecx_seconds($it['TalkingDuration'] ?? $it['Talking'] ?? $it['TotalDuration'] ?? 0), $answered ? 'answered' : 'missed');
-            if ($row !== null) { $calls[] = $row; }
+            $all[] = $it;
         }
-        if (count($items) < 200 || count($calls) >= CONNECTOR_MAX_RECORDS) { break; }
+        if (count($items) < 200 || count($all) >= CONNECTOR_MAX_RECORDS) { break; }
     }
-    connector_trace('3CX: ' . count($calls) . ' call records read');
+    // one call is several segments (queue, the answer, a transfer): they share MainCallHistoryId and become one row
+    $groups = [];
+    foreach ($all as $it) {
+        $main = $it['MainCallHistoryId'] ?? null;
+        $groups[is_string($main) && $main !== '' ? 'm' . $main : threecx_external_id($it)][] = $it;
+    }
+    foreach ($groups as $key => $segs) {
+        $row = threecx_call((string) $key, $segs);
+        if ($row !== null) { $calls[] = $row; }
+    }
+    connector_trace('3CX: ' . count($all) . ' segments read, made into ' . count($calls) . ' calls');
     return ['state' => 'ok', 'calls' => $calls, 'sms' => []];
+}
+
+/** The first of these values that is not empty, as text. */
+function threecx_first(mixed ...$values): string
+{
+    foreach ($values as $v) { if (is_scalar($v) && trim((string) $v) !== '') { return trim((string) $v); } }
+    return '';
+}
+
+/**
+ * One call from its segments (the records of 3CX that share a MainCallHistoryId, for example a wait in the queue, the answer, a transfer).
+ *   when: the start of the first segment. direction: from the first segment. answered: a segment has the status Answered.
+ *   length: the talking time of the answered segments (waiting and ringing are not counted).
+ *   from/to: the numbers (for an incoming call the colleague who answered, else the one first rung). The names are those the PBX knows:
+ *   remote_name is the other party, staff_name the colleague who took (incoming) or made (outgoing, internal) the call.
+ * Returns null when the call can not be used (no start time).
+ */
+function threecx_call(string $key, array $segs): ?array
+{
+    usort($segs, static fn($a, $b) => strcmp((string) ($a['StartTime'] ?? ''), (string) ($b['StartTime'] ?? '')) ?: ((int) ($a['Indent'] ?? 0) <=> (int) ($b['Indent'] ?? 0)));
+    $first = $segs[0];
+    $isType = static fn(mixed $t, array $words): bool => (bool) array_filter($words, static fn($w) => stripos((string) $t, $w) !== false);
+    $dir = isset($first['Direction']) ? connector_direction((string) $first['Direction'])
+        : ($isType($first['SourceType'] ?? '', ['extern', 'line', 'trunk']) ? 'in' : ($isType($first['DestinationType'] ?? '', ['extern', 'line', 'trunk']) ? 'out' : 'internal'));
+    $won = array_values(array_filter($segs, static fn($s) => isset($s['Status']) ? strcasecmp((string) $s['Status'], 'Answered') === 0 : !empty($s['Answered'])));
+    $talk = 0;
+    foreach ($won as $s) { $talk += threecx_seconds($s['TalkingDuration'] ?? $s['Talking'] ?? $s['TotalDuration'] ?? 0); }
+    $taker = $won[0] ?? $first;   // the segment of the colleague who answered
+    $last = $segs[count($segs) - 1];
+    if ($dir === 'in') {
+        $from = threecx_first($first['SourceCallerId'] ?? '', $first['SourceDn'] ?? '');
+        $to = threecx_first($taker['DestinationCallerId'] ?? '', $taker['DestinationDn'] ?? '');
+        $remote = threecx_first($first['SourceDisplayName'] ?? '');
+        $staff = threecx_first($taker['DestinationDisplayName'] ?? '');
+    } else {
+        $from = threecx_first($first['SourceCallerId'] ?? '', $first['SourceDn'] ?? '');
+        $to = threecx_first($first['DestinationCallerId'] ?? '', $first['DestinationDn'] ?? '');
+        $remote = threecx_first($dir === 'out' ? $last['DestinationDisplayName'] ?? '' : $first['DestinationDisplayName'] ?? '');
+        $staff = threecx_first($first['SourceDisplayName'] ?? '');
+    }
+    return comm_row('threecx', 'call', $key, $dir, $from, $to, $first['StartTime'] ?? null, $talk, $won ? 'answered' : 'missed', '', $remote, $staff);
 }
 
 // ---- Yeastar (P-Series OpenAPI 1.0)
@@ -665,19 +713,48 @@ function connector_test(string $p, array $c, string $secret): array
     return ['invalid', 'Unknown service.'];
 }
 
-/** Stores normalised calls and messages; returns how many were written. */
+const COMM_REFRESH_DAYS = 2;   // a call or message that is already stored is only updated while it is this recent; older ones are kept as they were
+
+/** What the last comm_store() did: new rows, rows refreshed (recent ones that were stored before) and rows kept as they were. */
+function comm_store_stats(?array $set = null): array
+{
+    static $stats = ['new' => 0, 'refreshed' => 0, 'kept' => 0];
+    if ($set !== null) { $stats = $set; }
+    return $stats;
+}
+
+/**
+ * Stores normalised calls and messages; returns how many different records there were.
+ * A record that is not stored yet is added. One that IS stored is left exactly as it was, with one exception: while it is less than
+ * COMM_REFRESH_DAYS old it is updated, because a call can still change then (a transfer adds a segment, a call in progress gets its length).
+ * So the history that was synced earlier is never overwritten by a later sync, also when the service answers differently or has dropped the call.
+ * The person and company a record was matched to are never touched. See comm_store_stats() for the counts.
+ */
 function comm_store(PDO $pdo, array $rows, bool $keepText): int
 {
-    $ins = $pdo->prepare('INSERT INTO comm_log (provider, kind, external_id, direction, from_number, to_number, party_key, started_at, duration_s, status, body, synced_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())
-        ON DUPLICATE KEY UPDATE direction = VALUES(direction), from_number = VALUES(from_number), to_number = VALUES(to_number), party_key = VALUES(party_key), started_at = VALUES(started_at),
-        duration_s = VALUES(duration_s), status = VALUES(status), body = VALUES(body), synced_at = NOW()');
+    $recent = 'started_at >= NOW() - INTERVAL ' . COMM_REFRESH_DAYS . ' DAY';   // evaluated on the stored row: started_at itself is assigned last
+    $keep = static fn(string $col): string => "$col = IF($recent, VALUES($col), $col)";
+    $ins = $pdo->prepare('INSERT INTO comm_log (provider, kind, external_id, direction, from_number, to_number, remote_name, staff_name, party_key, started_at, duration_s, status, body, synced_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())
+        ON DUPLICATE KEY UPDATE ' . implode(', ', array_map($keep, ['direction', 'from_number', 'to_number', 'remote_name', 'staff_name', 'party_key', 'duration_s', 'status', 'body', 'synced_at'])) . ', ' . $keep('started_at'));
+    $stats = ['new' => 0, 'refreshed' => 0, 'kept' => 0];
     $seen = [];   // the records that end up as a row: one per (service, kind, ID); records with the same ID replace each other
     foreach (array_slice($rows, 0, CONNECTOR_MAX_RECORDS * 2) as $r) {
-        $ins->execute([$r['provider'], $r['kind'], $r['external_id'], $r['direction'], $r['from'], $r['to'], $r['party_key'], $r['started_at'], $r['duration_s'], $r['status'],
+        $ins->execute([$r['provider'], $r['kind'], $r['external_id'], $r['direction'], $r['from'], $r['to'], $r['remote_name'] ?? '', $r['staff_name'] ?? '', $r['party_key'], $r['started_at'], $r['duration_s'], $r['status'],
             ($keepText && $r['kind'] === 'sms') ? $r['body'] : '']);
-        $seen[$r['provider'] . '|' . $r['kind'] . '|' . $r['external_id']] = true;
+        $id = $r['provider'] . '|' . $r['kind'] . '|' . $r['external_id'];
+        if (!isset($seen[$id])) { $n = $ins->rowCount(); $stats[$n === 1 ? 'new' : ($n === 0 ? 'kept' : 'refreshed')]++; }   // 1 = added, 2 = updated, 0 = nothing changed
+        $seen[$id] = true;
     }
+    comm_store_stats($stats);
     return count($seen);
+}
+
+/** The message after a good sync: for calls and messages with what was new and what was left as it was. */
+function connector_ok_text(string $name, int $count, bool $hasStats): string
+{
+    if (!$hasStats) { return $name . ': ' . $count . ' record' . ($count === 1 ? '' : 's') . ' up to date.'; }
+    $s = comm_store_stats();
+    return $name . ': ' . $count . ' record' . ($count === 1 ? '' : 's') . ' read. ' . $s['new'] . ' new, ' . $s['refreshed'] . ' updated (from the last ' . COMM_REFRESH_DAYS . ' days), ' . $s['kept'] . ' already stored and kept as they were.';
 }
 
 /**
@@ -714,13 +791,14 @@ function connector_sync(PDO $pdo, string $p, bool $manual = false): array
             }
         }
         $pdo->prepare('UPDATE connectors SET last_sync_at = NOW(), last_state = ?, last_count = ? WHERE provider = ?')->execute([$res['state'], $count, $p]);
+        if ($res['state'] === 'ok' && $p !== 'shortio') { $st = comm_store_stats(); connector_trace('Stored: ' . $st['new'] . ' new, ' . $st['refreshed'] . ' updated (from the last ' . COMM_REFRESH_DAYS . ' days), ' . $st['kept'] . ' already stored and left as they were.'); }
         if ($manual || $res['state'] !== $c['last_state']) {   // a scheduled run is only written down when the result changed, so the log does not fill up every 5 minutes
-            connector_log_add($pdo, $p, $manual ? 'sync' : 'scheduled', $res['state'], $res['state'] === 'ok' ? $count . ' record' . ($count === 1 ? '' : 's') . ' up to date.' : connector_state_text($res['state']));
+            connector_log_add($pdo, $p, $manual ? 'sync' : 'scheduled', $res['state'], $res['state'] === 'ok' ? connector_ok_text($defs[$p]['name'], $count, $p !== 'shortio') : connector_state_text($res['state']));
         }
         if ($manual || $res['state'] !== $c['last_state'] && $res['state'] !== 'ok') {
             log_activity($res['state'] === 'ok' ? 'info' : 'warning', $defs[$p]['name'] . ' sync', $res['state'] . ' · ' . $count . ' records');
         }
-        return ['state' => $res['state'], 'count' => $count, 'message' => $res['state'] === 'ok' ? $defs[$p]['name'] . ': ' . $count . ' record' . ($count === 1 ? '' : 's') . ' up to date.' : connector_state_text($res['state'])];
+        return ['state' => $res['state'], 'count' => $count, 'message' => $res['state'] === 'ok' ? connector_ok_text($defs[$p]['name'], $count, $p !== 'shortio') : connector_state_text($res['state'])];
     } finally {
         $pdo->prepare('SELECT RELEASE_LOCK(?)')->execute(['connector_sync_' . $p]);
     }
