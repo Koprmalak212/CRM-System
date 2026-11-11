@@ -48,7 +48,7 @@ function tab_handle(PDO $pdo, array $admin): void
         $pw = temp_password();
         $pdo->prepare('INSERT INTO admins (username, email, name, password_hash, role, perm_integrations, must_change_password) VALUES (?,?,?,?,?,?,1)')
             ->execute([$username, $email, $name, hash_password($pw), $role, $perm]);
-        $_SESSION['temp_pw'] = ['username' => $username, 'password_enc' => secret_encrypt($pw), 'kind' => 'created'];   // encrypted while it waits to be shown once
+        $_SESSION['temp_pw'] = ['username' => $username, 'name' => $name, 'password_enc' => secret_encrypt($pw), 'kind' => 'created'];   // encrypted while it waits to be shown once
         log_activity('warning', 'Team member added', $username . ' · ' . $role . ' · integrations ' . $perm);
         flash('Account created for ' . $name . '. Copy the temporary password now: it will not be shown again.');
         return;
@@ -144,7 +144,7 @@ function tab_handle(PDO $pdo, array $admin): void
         if ($isSelf) { flash('Change your own password from the Account tab.', 'bad'); return; }
         $pw = temp_password();
         $pdo->prepare('UPDATE admins SET password_hash = ?, must_change_password = 1, session_epoch = session_epoch + 1 WHERE id = ?')->execute([hash_password($pw), $id]);
-        $_SESSION['temp_pw'] = ['username' => $target['username'], 'password_enc' => secret_encrypt($pw), 'kind' => 'reset'];
+        $_SESSION['temp_pw'] = ['username' => $target['username'], 'name' => (string) $target['name'], 'password_enc' => secret_encrypt($pw), 'kind' => 'reset'];
         log_activity('warning', 'Password reset by admin', $target['username']);
         flash('A new temporary password was set for ' . $target['name'] . '. Copy it now: it will not be shown again.');
         return;
@@ -160,12 +160,35 @@ function tab_render(PDO $pdo, array $admin): void
     $invites = $pdo->query('SELECT id, email, username, name, role, expires_at, created_at FROM invitations WHERE used_at IS NULL AND expires_at > NOW() ORDER BY id DESC')->fetchAll();
     $temp = $_SESSION['temp_pw'] ?? null;
     unset($_SESSION['temp_pw']);
-    if ($temp) { $temp['password'] = secret_decrypt((string) ($temp['password_enc'] ?? '')); }
+    if ($temp) {
+        $temp['password'] = secret_decrypt((string) ($temp['password_enc'] ?? ''));
+        $https = !empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+        $loginBase = mail_base_url($pdo) ?? (($https ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(base_path(), '/'));
+        $temp['message'] = 'Hello ' . ($temp['name'] ?? $temp['username']) . ",
+
+"
+            . (($temp['kind'] ?? '') === 'reset' ? "Your password for Telecomlijn Admin was reset.
+
+" : "An account was created for you in Telecomlijn Admin.
+
+")
+            . 'Sign in at: ' . $loginBase . "/auth/login.php
+"
+            . 'Username: ' . $temp['username'] . "
+"
+            . 'Temporary password: ' . $temp['password'] . "
+
+"
+            . "At your first sign-in you will be asked to choose your own password. Please do that straight away and do not share it with anyone.
+";
+    }
     ?>
 <?php if ($temp): ?>
   <div role="alert" class="rise mb-6 rounded-2xl border border-butter/30 bg-butter-100 p-5">
     <p class="font-semibold text-butter">Temporary password for <span class="notranslate"><?= e($temp['username']) ?></span>. Copy it now, it will not be shown again.</p>
-    <p class="mt-2 break-all rounded-xl bg-deep p-3 text-sm text-ink notranslate select-all"><?= e($temp['password']) ?></p>
+    <label for="temp-msg" class="mt-3 block text-sm font-semibold">Message to send</label>
+    <textarea id="temp-msg" readonly rows="10" class="mt-1.5 w-full rounded-xl border border-line bg-deep p-3 text-sm text-ink notranslate select-all"><?= e($temp['message']) ?></textarea>
+    <button type="button" class="pressable mt-2 inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold hover:bg-lime hover:text-navy" onclick="var t=document.getElementById('temp-msg');t.select();var b=this;(navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).catch(function(){document.execCommand('copy');}).then(function(){b.textContent='Copied';});">Copy message</button>
     <p class="mt-2 text-sm text-soft">They must choose their own password at first sign-in. Send it to them through a safe channel, not by email in plain text if you can avoid it.</p>
   </div>
 <?php endif; ?>
