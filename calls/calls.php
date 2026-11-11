@@ -29,19 +29,18 @@ $calls30 = (int) $pdo->query("SELECT COUNT(*) FROM comm_log WHERE kind = 'call' 
 $missed30 = (int) $pdo->query("SELECT COUNT(*) FROM comm_log WHERE kind = 'call' AND direction = 'in' AND status = 'missed' AND started_at >= NOW() - INTERVAL 30 DAY")->fetchColumn();
 $sms30 = (int) $pdo->query("SELECT COUNT(*) FROM comm_log WHERE kind = 'sms' AND started_at >= NOW() - INTERVAL 30 DAY")->fetchColumn();
 $companies = $pdo->query('SELECT DISTINCT co.id, co.name FROM companies co JOIN comm_log c ON c.company_id = co.id ORDER BY co.name LIMIT 500')->fetchAll();
-$people = $pdo->query('SELECT DISTINCT u.id, u.name FROM users u JOIN comm_log c ON c.user_id = u.id ORDER BY u.name LIMIT 500')->fetchAll();
-$staffList = $pdo->query("SELECT DISTINCT staff_name FROM comm_log WHERE staff_name <> '' ORDER BY staff_name LIMIT 300")->fetchAll(PDO::FETCH_COLUMN);
+// every name there is to pick from: people in the CRM who have calls, and the callers and colleagues the phone system names (UNION leaves out doubles)
+$names = $pdo->query("SELECT name FROM (SELECT u.name AS name FROM users u JOIN comm_log c ON c.user_id = u.id UNION SELECT remote_name FROM comm_log WHERE remote_name <> '' UNION SELECT staff_name FROM comm_log WHERE staff_name <> '') t WHERE name <> '' ORDER BY name LIMIT 1000")->fetchAll(PDO::FETCH_COLUMN);
 $connected = (int) $pdo->query("SELECT COUNT(*) FROM connectors WHERE enabled = 1 AND provider IN ('threecx','yeastar','twilio')")->fetchColumn();
-$filtered = $f['kind'] . $f['service'] . $f['direction'] . $f['status'] . $f['company'] . $f['person'] . $f['staff'] . $f['from'] . $f['to'] . $f['q'] !== '';
+$filtered = $f['kind'] . $f['service'] . $f['direction'] . $f['status'] . $f['company'] . $f['person'] . $f['staff'] . $f['who'] . $f['from'] . $f['to'] . $f['q'] !== '';
 
 $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 $opt = static fn(array $list, string $cur, string $all) => '<option value="">' . e($all) . '</option>' . implode('', array_map(static fn($k, $v) => '<option value="' . e((string) $k) . '"' . ((string) $k === $cur ? ' selected' : '') . '>' . e((string) $v) . '</option>', array_keys($list), $list));
 $coOpts = ['none' => 'Unmatched numbers'] + array_column($companies, 'name', 'id');
-$peOpts = array_column($people, 'name', 'id');
+
 if ($f['company'] !== '' && $f['company'] !== 'none' && !isset($coOpts[$f['company']])) { $coOpts[$f['company']] = 'Company #' . $f['company']; }
-if ($f['person'] !== '' && !isset($peOpts[$f['person']])) { $peOpts[$f['person']] = 'Person #' . $f['person']; }
-$stOpts = $staffList ? array_combine($staffList, $staffList) : [];
-if ($f['staff'] !== '' && !isset($stOpts[$f['staff']])) { $stOpts[$f['staff']] = $f['staff']; }
+$whoShown = $f['who'] !== '' ? $f['who'] : $f['staff'];   // what the box shows: the name typed, or the colleague of a link
+if ($whoShown === '' && $f['person'] !== '') { $pn = $pdo->prepare('SELECT name FROM users WHERE id = ?'); $pn->execute([(int) $f['person']]); $whoShown = (string) ($pn->fetchColumn() ?: ''); }   // a link from a person's page
 
 page_start('Calls', 'calls', 'Calls and text messages from your phone systems and Twilio, matched to people and companies by phone number.');
 ?>
@@ -55,8 +54,10 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
   <div><label for="f-kind" class="text-sm font-semibold">Type</label><select id="f-kind" name="kind" class="<?= e($field) ?>"><?= $opt(COMM_KINDS, $f['kind'], 'Calls and messages') ?></select></div>
   <div><label for="f-service" class="text-sm font-semibold">Service</label><select id="f-service" name="service" class="<?= e($field) ?>"><?= $opt(COMM_SERVICES, $f['service'], 'All services') ?></select></div>
   <div><label for="f-company" class="text-sm font-semibold">Company</label><select id="f-company" name="company" class="<?= e($field) ?>"><?= $opt($coOpts, $f['company'], 'All companies') ?></select></div>
-  <div><label for="f-person" class="text-sm font-semibold">Person</label><select id="f-person" name="person" class="<?= e($field) ?>"><?= $opt($peOpts, $f['person'], 'Everyone') ?></select><?php if (!$peOpts): ?><p class="mt-1 text-xs text-soft">Nobody in the CRM is matched to a call yet. Give people and companies their phone numbers, or use Staff and the number box.</p><?php endif; ?></div>
-  <div><label for="f-staff" class="text-sm font-semibold">Staff</label><select id="f-staff" name="staff" class="<?= e($field) ?>"><?= $opt($stOpts, $f['staff'], 'All colleagues') ?></select></div>
+  <div><label for="f-who" class="text-sm font-semibold">Person</label>
+    <input id="f-who" name="who" type="search" list="f-who-list" maxlength="120" autocomplete="off" placeholder="Type or pick a name" value="<?= e($whoShown) ?>" class="<?= e($field) ?>">
+    <datalist id="f-who-list"><?php foreach ($names as $n): ?><option value="<?= e((string) $n) ?>"></option><?php endforeach; ?></datalist>
+    <p class="mt-1 text-xs text-soft"><?= count($names) ?> names to pick from: callers and colleagues from the phone system, and people in the CRM. Typing a part of a name is enough.</p></div>
   <div><label for="f-direction" class="text-sm font-semibold">Direction</label><select id="f-direction" name="direction" class="<?= e($field) ?>"><?= $opt(COMM_DIRECTIONS, $f['direction'], 'Any direction') ?></select></div>
   <div><label for="f-status" class="text-sm font-semibold">Status</label><select id="f-status" name="status" class="<?= e($field) ?>"><?= $opt(COMM_STATUSES, $f['status'], 'Any status') ?></select></div>
   <div><label for="f-from" class="text-sm font-semibold">From date</label><input id="f-from" name="from" type="date" value="<?= e($f['from']) ?>" class="<?= e($field) ?>"></div>

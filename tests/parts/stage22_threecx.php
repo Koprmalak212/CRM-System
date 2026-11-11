@@ -62,7 +62,14 @@ try {
     $page22 = http('GET', "$base/calls/calls.php?q=%2B3110", ['jar' => $admin])['body'];
     check(str_contains($page22, 'Jan Jansen') && str_contains($page22, '(phone system)') && str_contains($page22, 'Noor Haddad'), 'the Calls page shows the name from the phone system in the Person column when nobody in the CRM matches, and the colleague under Staff');
     $staff22 = http('GET', "$base/calls/calls.php?staff=" . urlencode('Sam Rivera'), ['jar' => $admin])['body'];
-    check(str_contains($staff22, '+31107654321') && !str_contains($staff22, '+31101234567') && str_contains($staff22, 'name="staff"') && str_contains($staff22, '>Noor Haddad<'), 'the Staff filter lists the colleagues and shows only the calls of the one chosen');
+    check(str_contains($staff22, '+31107654321') && !str_contains($staff22, '+31101234567') && str_contains($staff22, 'value="Sam Rivera"'), 'a link to one colleague (?staff=) still shows only that colleague\'s calls, and fills the Person box');
+    $who22 = http('GET', "$base/calls/calls.php?q=%2B31", ['jar' => $admin])['body'];
+    check(str_contains($who22, 'list="f-who-list"') && str_contains($who22, '<option value="Noor Haddad">') && str_contains($who22, '<option value="Jan Jansen">') && str_contains($who22, '<option value="Piet Bakker">') && substr_count($who22, '<option value="Noor Haddad">') === 1, 'the Person box is typable and its list holds every caller and colleague the phone system named, each once (also those who are both)');
+    $jan22 = http('GET', "$base/calls/calls.php?who=jan+jan", ['jar' => $admin])['body'];
+    check(str_contains($jan22, '+31101234567') && !str_contains($jan22, '+31107654321') && str_contains($jan22, 'value="jan jan"'), 'typing a part of a caller name finds the calls of that caller, whatever the capitals');
+    $noor22 = http('GET', "$base/calls/calls.php?who=" . urlencode('Noor Haddad'), ['jar' => $admin])['body'];
+    check(str_contains($noor22, '+31101234567') && str_contains($noor22, '+31201112222') && !str_contains($noor22, '+31107654321'), 'a colleague\'s name finds the calls they took and the ones they made');
+    check(!str_contains(http('GET', "$base/calls/calls.php?who=" . urlencode('%_'), ['jar' => $admin])['body'], '+31101234567'), 'the characters % and _ in the box are searched literally, not as wildcards');
     check(str_contains(http('GET', "$base/calls/calls.php?q=Piet", ['jar' => $admin])['body'], '+31201112222'), 'and the number box also finds a call by the name of the caller or the colleague');
     $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
     // service badges: a logo when there is a file, otherwise a plain badge; the file name is never taken from outside

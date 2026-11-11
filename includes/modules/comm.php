@@ -104,6 +104,13 @@ function comm_filters(array $q): array
     $sf = mb_substr(trim((string) ($q['staff'] ?? '')), 0, 120);   // a colleague, by the name the phone system gives
     if ($sf !== '') { $w[] = 'c.staff_name = ?'; $a[] = $sf; }
     $f['staff'] = $sf;
+    $who = mb_substr(trim((string) ($q['who'] ?? '')), 0, 120);   // a name typed or picked: a caller or colleague (as the phone system names them) or a person in the CRM
+    if ($who !== '') {
+        $lw = '%' . addcslashes($who, '%_\\') . '%';
+        $w[] = '(c.remote_name LIKE ? OR c.staff_name LIKE ? OR c.user_id IN (SELECT id FROM users WHERE name LIKE ?))';
+        array_push($a, $lw, $lw, $lw);
+    }
+    $f['who'] = $who;
     $pe = (string) ($q['person'] ?? '');
     if (ctype_digit($pe) && (int) $pe > 0) { $w[] = 'c.user_id = ?'; $a[] = (int) $pe; $f['person'] = $pe; } else { $f['person'] = ''; }
     foreach (['from' => '>=', 'to' => '<='] as $k => $op) {
