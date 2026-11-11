@@ -25,6 +25,17 @@ try {
     check($s === 'unreachable' && str_contains($m, 'Signed in') && str_contains($m, 'did not answer the call-history request in time') && str_contains(implode("\n", connector_trace()), 'curl error 28'), 'a PBX that signs in but is slow to give the call history says exactly that, and the log has the timeout', $m);
     [$s, $m] = connector_test('threecx', ['base_url' => 'http://127.0.0.1:3198/slow', 'verify_tls' => 1, 'account_ref' => 'apiclient', 'provider' => 'threecx', 'timeout' => 8], 'apisecret');
     same($s, 'ok', 'with enough time the same slow PBX connects');
+    // a PBX that refuses the question in its first form: the plainer forms are tried, and what it said is in the log
+    connector_trace(null, true);
+    [$s, $m] = $try22('noorder', 'apiclient', 'apisecret');
+    $tr22 = implode("\n", connector_trace());
+    check($s === 'ok' && str_contains($tr22, 'HTTP 500: ') && str_contains($tr22, 'Invalid property in orderby') && str_contains($tr22, 'HTTP 200') && str_contains($tr22, 'form 2 of 3') && str_contains($tr22, 'SegmentId, StartTime'), 'when 3CX refuses the first form of the question (HTTP 500), the next form is tried; the log has what 3CX said and the fields of a record', $tr22);
+    $res22 = threecx_collect(['base_url' => 'http://127.0.0.1:3198/noorder', 'verify_tls' => 1, 'account_ref' => 'apiclient'], 'apisecret', time() - 35 * 86400);
+    same([$res22['state'], count($res22['calls'])], ['ok', 1], 'a sync with that PBX stores the call of last ten minutes and leaves out the one from 90 days ago');
+    connector_trace(null, true);
+    [$s, $m] = $try22('broken', 'apiclient', 'apisecret');
+    $tr22 = implode("\n", connector_trace());
+    check($s === 'invalid' && str_contains($m, 'HTTP 500') && str_contains($m, 'send it to the developer') && substr_count($tr22, 'CallHistoryView') >= 3 && str_contains($tr22, 'CallHistoryView exists and has the fields: SegmentId, StartTime, SourceDn') && str_contains($tr22, 'GetCallLogData'), 'when no form works, the log says what the PBX offers: whether the view exists, its fields and other call-log views', $m . ' | ' . $tr22);
     same($try22('noperm', 'apiclient', 'wrong')[0], 'unauthorized', 'a real credentials refusal is still "unauthorized"');
     same($try22('api', 'apiclient', "x\r\nInjected: 1")[0], 'unauthorized', 'a secret with a line break in it is refused and breaks nothing');
     same(connector_test('threecx', ['base_url' => 'http://127.0.0.1:3197', 'verify_tls' => 1, 'account_ref' => 'a', 'provider' => 'threecx'], 'b')[0], 'unreachable', 'a PBX that does not answer is reported as unreachable, with no second try');

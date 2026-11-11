@@ -160,14 +160,16 @@ function connector_trace(?string $add = null, bool $reset = false): array
 
 /**
  * One HTTPS (or http) request.
- * @param array{headers?: list<string>, body?: ?string, basic?: ?array{0:string,1:string}, verify_tls?: bool, timeout?: int, unauthorized?: list<int>, forbidden?: bool} $o
+ * @param array{headers?: list<string>, body?: ?string, basic?: ?array{0:string,1:string}, verify_tls?: bool, timeout?: int, unauthorized?: list<int>, forbidden?: bool, max_body?: int, snippet?: bool} $o
+ *        'max_body' is the most bytes that are read (default CONNECTOR_MAX_BODY). 'snippet' => true puts the first words of an error answer (HTTP 400 and up)
+ *        in the log line: only for requests that carry no secret in their answer (a data request made with a token, never a sign-in).
  *        'forbidden' => true: an HTTP 403 gives the state "forbidden" (signed in, but not allowed to do this) instead of "unauthorized". Use it for a request made with a token that was just accepted.
  * @return array{state: string, code: int, body: string, json: mixed, oauth: string}  state: ok | unauthorized | unreachable | invalid | busy. Never carries the secret or upstream
  *         error text; the one exception is 'oauth': the short error code of a refused sign-in (for example invalid_client), only when it is made of lowercase letters and underscores.
  */
 function connector_http(string $method, string $url, array $o = []): array
 {
-    $o += ['headers' => [], 'body' => null, 'basic' => null, 'verify_tls' => true, 'timeout' => CONNECTOR_TIMEOUT_S, 'unauthorized' => [401, 403]];
+    $o += ['headers' => [], 'body' => null, 'basic' => null, 'verify_tls' => true, 'timeout' => CONNECTOR_TIMEOUT_S, 'unauthorized' => [401, 403], 'max_body' => CONNECTOR_MAX_BODY, 'snippet' => false];
     $fail = static fn(string $s, int $code = 0, string $oauth = ''): array => ['state' => $s, 'code' => $code, 'body' => '', 'json' => null, 'oauth' => $oauth];
     $p = parse_url($url);
     if (!$p || empty($p['scheme']) || empty($p['host']) || !in_array(strtolower((string) $p['scheme']), ['http', 'https'], true)) { connector_trace($method . ' not sent: the address is not a valid http or https address'); return $fail('unreachable'); }
@@ -193,9 +195,10 @@ function connector_http(string $method, string $url, array $o = []): array
         $opts[CURLOPT_RESOLVE] = [$host . ':' . $port . ':' . $ips[0]];
     }
     $body = '';
-    $opts[CURLOPT_WRITEFUNCTION] = static function ($c, string $chunk) use (&$body): int {
+    $limit = (int) $o['max_body'];
+    $opts[CURLOPT_WRITEFUNCTION] = static function ($c, string $chunk) use (&$body, $limit): int {
         $body .= $chunk;
-        return strlen($body) > CONNECTOR_MAX_BODY ? 0 : strlen($chunk);
+        return strlen($body) > $limit ? 0 : strlen($chunk);
     };
     $ch = curl_init($url);
     curl_setopt_array($ch, $opts);
@@ -208,7 +211,8 @@ function connector_http(string $method, string $url, array $o = []): array
     if ($errno !== 0) { connector_trace($what . ' -> no answer: ' . $curlErr . ' (curl error ' . $errno . ')'); return $fail('unreachable', $code); }
     $err = json_decode($body, true);
     $oauth = is_array($err) && is_string($err['error'] ?? null) && preg_match('/^[a-z_]{3,40}$/', $err['error']) ? $err['error'] : '';
-    connector_trace($what . ' -> HTTP ' . $code . ($oauth !== '' ? ', ' . $oauth : '') . ($code >= 200 && $code <= 299 ? ' (' . strlen($body) . ' bytes, ' . (is_array($err) ? 'JSON' : 'not JSON') . ')' : ''));
+    $snip = !empty($o['snippet']) && $code >= 400 ? ': ' . mb_substr(trim(preg_replace('/[^\x20-\x7E]+/', ' ', $body) ?? ''), 0, 240) : '';
+    connector_trace($what . ' -> HTTP ' . $code . ($oauth !== '' ? ', ' . $oauth : '') . $snip . ($code >= 200 && $code <= 299 ? ' (' . strlen($body) . ' bytes, ' . (is_array($err) ? 'JSON' : 'not JSON') . ')' : ''));
     if (!empty($o['forbidden']) && $code === 403) { return $fail('forbidden', $code, $oauth); }
     if (in_array($code, $o['unauthorized'], true)) { return $fail('unauthorized', $code, $oauth); }
     if ($code === 429) { return $fail('busy', $code); }
@@ -341,6 +345,49 @@ function threecx_token(array $c, string $secret): array
     return [$l['state'] === 'unreachable' || $l['state'] === 'busy' ? $l['state'] : 'unauthorized', '', 'The PBX refused both: the API client (Client ID and secret) and a Management Console login with the same values.' . $why];
 }
 
+/**
+ * Asks 3CX for call history. PBXs differ in what they accept for this view, so the question is asked in up to three forms, each plainer than the
+ * last: newest first with a start date, with a start date only, and with neither (the caller then drops records before $since). The next form is
+ * tried only after an answer of the "invalid" kind (a refused question, HTTP 400 or 500): a refusal of the sign-in, a missing permission, no answer
+ * and "busy" would not change with another form. Every request is in the log. Returns the connector_http() result plus 'form' (1 to 3).
+ */
+function threecx_history(array $c, string $token, int $since, int $top, int $skip): array
+{
+    $base = rtrim((string) $c['base_url'], '/');
+    $from = '$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', $since));
+    $forms = ['$orderby=' . rawurlencode('StartTime desc') . '&' . $from, $from, ''];
+    $r = [];
+    foreach ($forms as $i => $extra) {
+        $q = '$top=' . $top . '&$skip=' . $skip . ($extra !== '' ? '&' . $extra : '');
+        $r = connector_http('GET', $base . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => (bool) $c['verify_tls'], 'forbidden' => true, 'snippet' => true,
+            'timeout' => (int) ($c['timeout'] ?? CONNECTOR_SLOW_TIMEOUT_S), 'headers' => ['Authorization: Bearer ' . $token]]);
+        $r['form'] = $i + 1;
+        if ($r['state'] !== 'invalid') { break; }
+    }
+    return $r;
+}
+
+/**
+ * When the call history can not be read, asks the PBX what it offers (its OData description, /xapi/v1/$metadata) and writes the useful part to the
+ * log: whether CallHistoryView exists, which fields it has, and which other call-log views or functions there are. Only names, nothing else.
+ */
+function threecx_diagnose(array $c, string $token): void
+{
+    $r = connector_http('GET', rtrim((string) $c['base_url'], '/') . '/xapi/v1/$metadata', ['verify_tls' => (bool) $c['verify_tls'], 'max_body' => 16777216, 'timeout' => (int) ($c['timeout'] ?? CONNECTOR_SLOW_TIMEOUT_S),
+        'headers' => ['Authorization: Bearer ' . $token, 'Accept: application/xml']]);
+    if ($r['state'] !== 'ok') { connector_trace('3CX: the description of the API (/xapi/v1/$metadata) could not be read'); return; }
+    $xml = $r['body'];
+    if (preg_match('/<EntityType Name="CallHistoryView"[^>]*>(.*?)<\/EntityType>/s', $xml, $m)) {
+        preg_match_all('/<Property Name="([A-Za-z0-9_]{1,40})"/', $m[1], $p);
+        connector_trace('3CX: CallHistoryView exists and has the fields: ' . implode(', ', array_slice($p[1], 0, 40)));
+    } else {
+        connector_trace('3CX: CallHistoryView is NOT part of the API of this PBX');
+    }
+    preg_match_all('/Name="([A-Za-z0-9_.]*(?:CallLog|CallHistory|CallReport)[A-Za-z0-9_.]*)"/i', $xml, $n);
+    $names = array_values(array_unique($n[1]));
+    connector_trace('3CX: other call views and functions in the API: ' . ($names ? implode(', ', array_slice($names, 0, 12)) : 'none found'));
+}
+
 function threecx_collect(array $c, string $secret, int $since): array
 {
     [$st, $token, $why] = threecx_token($c, $secret);
@@ -348,13 +395,15 @@ function threecx_collect(array $c, string $secret, int $since): array
     $base = rtrim((string) $c['base_url'], '/');
     $calls = [];
     for ($page = 0; $page < 3; $page++) {
-        $q = '$top=200&$skip=' . ($page * 200) . '&$orderby=' . rawurlencode('StartTime desc') . '&$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', $since));
-        $r = connector_http('GET', $base . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => (bool) $c['verify_tls'], 'forbidden' => true, 'timeout' => (int) ($c['timeout'] ?? CONNECTOR_SLOW_TIMEOUT_S), 'headers' => ['Authorization: Bearer ' . $token]]);
+        $r = threecx_history($c, $token, $since, 200, $page * 200);
         if ($r['state'] === 'unreachable') { connector_trace('3CX: signed in, but the PBX did not answer the call-history request in time'); }
         if ($r['state'] !== 'ok' || !is_array($r['json'])) { return ['state' => $r['state'] === 'ok' ? 'invalid' : $r['state'], 'calls' => [], 'sms' => []]; }
         $items = (array) ($r['json']['value'] ?? []);
+        if ($page === 0) { connector_trace('3CX: call history read in form ' . $r['form'] . ' of 3; ' . ($items && is_array($items[0]) ? 'fields of the first record: ' . implode(', ', array_slice(array_keys($items[0]), 0, 30)) : 'no records in the period')); }
         foreach ($items as $it) {
             if (!is_array($it)) { continue; }
+            $when = connector_time($it['StartTime'] ?? null);
+            if ($when !== null && $when < $since) { continue; }   // the form without a start date returns older records too
             $srcExt = stripos((string) ($it['SourceType'] ?? ''), 'extern') !== false || stripos((string) ($it['SourceType'] ?? ''), 'line') !== false || stripos((string) ($it['SourceType'] ?? ''), 'trunk') !== false;
             $dstExt = stripos((string) ($it['DestinationType'] ?? ''), 'extern') !== false || stripos((string) ($it['DestinationType'] ?? ''), 'line') !== false || stripos((string) ($it['DestinationType'] ?? ''), 'trunk') !== false;
             $dir = isset($it['Direction']) ? connector_direction((string) $it['Direction']) : ($srcExt ? 'in' : ($dstExt ? 'out' : 'internal'));
@@ -557,9 +606,13 @@ function connector_test(string $p, array $c, string $secret): array
         case 'threecx':
             [$st, $token, $why] = threecx_token($c, $secret);
             if ($st !== 'ok') { return [$st, connector_state_text($st) . ($why !== '' ? ' ' . $why : '')]; }
-            // only the last day, newest first: an unfiltered question makes a PBX with a large history read all of it
-            $q = '$top=1&$orderby=' . rawurlencode('StartTime desc') . '&$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', time() - 86400));
-            $r = connector_http('GET', rtrim((string) $c['base_url'], '/') . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => $tls, 'forbidden' => true, 'timeout' => (int) ($c['timeout'] ?? CONNECTOR_SLOW_TIMEOUT_S), 'headers' => ['Authorization: Bearer ' . $token]]);
+            // only the last day: a question without a period makes a PBX with a large history read all of it
+            $r = threecx_history($c, $token, time() - 86400, 1, 0);
+            if ($r['state'] === 'ok' && is_array($r['json'])) { $first = (array) ($r['json']['value'] ?? []); connector_trace('3CX: call history read in form ' . $r['form'] . ' of 3' . ($first && is_array($first[0]) ? '; fields of the first record: ' . implode(', ', array_slice(array_keys($first[0]), 0, 30)) : '; no calls in the last day')); }
+            if ($r['state'] === 'invalid') {
+                threecx_diagnose($c, $token);
+                return ['invalid', 'Signed in (the credentials and the permissions are right), but 3CX would not answer the call-history request' . ($r['code'] > 0 ? ' (HTTP ' . $r['code'] . ')' : '') . ', not even in the plainest form. The log below shows what 3CX said and which call-history views and fields this PBX offers: send it to the developer.'];
+            }
             if ($r['state'] === 'unreachable') { return ['unreachable', 'Signed in (the credentials and the permissions are right), but 3CX did not answer the call-history request in time. 3CX can be slow with a large call history. Press Test connection again; if it keeps timing out, the call history of this PBX is too slow to read and your 3CX partner should be asked about the response time of /xapi/v1/CallHistoryView.']; }
             if ($r['state'] === 'forbidden') { return ['forbidden', 'Signed in, but 3CX refused the call history (HTTP 403). The credentials are right: the API client is not allowed to read call history. In the 3CX Management Console open Integrations, API, edit this client, make sure it may use the Configuration API (XAPI) and give it a role that may see call reports (to confirm that this is the cause, try the system owner or admin role first).']; }
             return $r['state'] === 'ok' && is_array($r['json']) ? ['ok', 'Connected to 3CX. The call history can be read.'] : [$r['state'] === 'ok' ? 'invalid' : $r['state'], connector_state_text($r['state'] === 'ok' ? 'invalid' : $r['state'])];
