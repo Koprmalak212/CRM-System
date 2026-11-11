@@ -10,7 +10,10 @@ const TEST_RESULTS = [
     'info' => ['Note', 'bg-white/10 text-ink'],
 ];
 
-/** Copies the documented baseline into the database the first time, and again whenever its version is raised. */
+/**
+ * Copies the documented baseline into the database the first time, and again whenever its version is raised. A raised version also brings
+ * the baseline rows that are already there up to date (a result that changed from open to pass); entries added by hand are never touched.
+ */
 function tests_ensure_baseline(PDO $pdo): void
 {
     $file = dirname(__DIR__, 2) . '/database/test_log_baseline.php';
@@ -19,7 +22,9 @@ function tests_ensure_baseline(PDO $pdo): void
     $s = $pdo->query("SELECT v FROM app_meta WHERE k = 'tests_baseline_version'");
     $have = (int) ($s ? $s->fetchColumn() : 0);
     if ($have >= (int) $base['version']) { return; }
-    $ins = $pdo->prepare("INSERT IGNORE INTO test_log (ref, tested_on, area, test, result, details, fix, tester, source) VALUES (?,?,?,?,?,?,?,?, 'baseline')");
+    $ins = $pdo->prepare("INSERT IGNORE INTO test_log (ref, tested_on, area, test, result, details, fix, tester, source) VALUES (?,?,?,?,?,?,?,?, 'baseline')
+        ON DUPLICATE KEY UPDATE tested_on = IF(source = 'baseline', VALUES(tested_on), tested_on), area = IF(source = 'baseline', VALUES(area), area), test = IF(source = 'baseline', VALUES(test), test),
+            result = IF(source = 'baseline', VALUES(result), result), details = IF(source = 'baseline', VALUES(details), details), fix = IF(source = 'baseline', VALUES(fix), fix)");
     foreach ($base['entries'] as $e) {
         $ins->execute([$e['ref'], $e['date'], $e['area'], $e['test'], $e['result'], $e['details'], $e['fix'], 'Claude Code with Denis Mehmed']);
     }
