@@ -11,6 +11,8 @@ declare(strict_types=1);
  * The saved Kuma settings are backed up first and put back at the end.
  */
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
+$startedAt = microtime(true);
+$__report = ['sections' => []];   // every check by section, written to storage/test_report.json at the end (shown under Settings > Tests > Automated checks)
 const TESTS_DIR = __DIR__;   // the staged parts in tests/parts/ use this, because their own __DIR__ is one level deeper
 
 define('API_REQUEST', true);                 // no session or cookies for the in-process part
@@ -49,12 +51,14 @@ $pdo = db();
 $pass = 0; $fail = 0; $failures = [];
 function check(bool $cond, string $name, string $detail = ''): void
 {
-    global $pass, $fail, $failures;
+    global $pass, $fail, $failures, $__report;
     if ($cond) { $pass++; echo "  ok    $name\n"; }
     else { $fail++; $failures[] = $name; echo "  FAIL  $name" . ($detail !== '' ? "  ($detail)" : '') . "\n"; }
+    if (!$__report['sections']) { $__report['sections'][] = ['title' => 'Before the first section', 'checks' => []]; }
+    $__report['sections'][count($__report['sections']) - 1]['checks'][] = $cond ? [mb_substr($name, 0, 300), 1] : [mb_substr($name, 0, 300), 0, mb_substr($detail, 0, 300)];
 }
 function fresh_window(): void { $r = time() % 60; if ($r > 35) { sleep(61 - $r); } }   // the limiter counts per calendar minute: start a burst early in one
-function section(string $t): void { echo "\n== $t\n"; }
+function section(string $t): void { global $__report; echo "\n== $t\n"; $__report['sections'][] = ['title' => mb_substr($t, 0, 200), 'checks' => []]; }
 function same(mixed $a, mixed $b, string $name): void { check($a === $b, $name, 'got ' . json_encode($a) . ', expected ' . json_encode($b)); }
 
 // ---------- HTTP helpers ----------
@@ -97,7 +101,15 @@ function mock_hits(string $mock): int { return (int) trim((string) @file_get_con
 function set_mode(string $m): void { $f = __DIR__ . '/.mock_mode'; if ($m === '') { @unlink($f); } else { file_put_contents($f, $m); } }
 
 // ---------- back up settings, start the mock ----------
-$backup = $pdo->query('SELECT * FROM kuma_settings WHERE id = 1')->fetch() ?: null;
+// The Kuma connection of this install is saved to a file before anything changes. A run that was killed or crashed (a fatal error skips the cleanup at
+// the end) leaves that file behind: it is put back FIRST, so a run never takes test values for the real ones. See tests/kuma_guard.php.
+require __DIR__ . '/kuma_guard.php';
+$kumaBackupFile = dirname(__DIR__) . '/storage/test_kuma_backup.json';
+if (kuma_guard_restore($pdo, $kumaBackupFile)) { echo "Put back the Kuma connection that an earlier run had left changed.\n"; }
+$backup = kuma_guard_save($pdo, $kumaBackupFile);
+register_shutdown_function(static function () use ($kumaBackupFile) { if (kuma_guard_restore(db(), $kumaBackupFile)) { fwrite(STDERR, "\nThe run ended early: the Kuma connection of this install was put back.\n"); } });   // runs after a fatal error, when the cleanup at the end does not
+$fixtureIds = array_column(kuma_parse_metrics((string) file_get_contents(__DIR__ . '/fixtures/kuma_metrics.txt')), 'id');   // heartbeats of the test monitors that an earlier crashed run may have left
+$pdo->exec("DELETE FROM kuma_heartbeats WHERE monitor_key IN ('" . implode("','", array_merge($fixtureIds, ['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb', 'cccccccccccccccc', 'dddddddddddddddd'])) . "')");
 $startHb = (int) $pdo->query('SELECT COALESCE(MAX(id), 0) FROM kuma_heartbeats')->fetchColumn();
 $pdo->exec('DELETE FROM rate_limits');
 @unlink(__DIR__ . '/.mock_hits'); set_mode('');
@@ -470,6 +482,7 @@ try {
     require TESTS_DIR . '/parts/stage20_sla.php';
     require TESTS_DIR . '/parts/stage21_inbound.php';
     require TESTS_DIR . '/parts/stage22_threecx.php';
+    require TESTS_DIR . '/parts/stage23_testreport.php';
 
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();
@@ -488,9 +501,18 @@ try {
         $pdo->prepare('INSERT INTO kuma_settings (id, kuma_url, api_key_enc, key_last4, poll_interval_s, updated_by, updated_at) VALUES (1,?,?,?,?,?,?)')
             ->execute([$backup['kuma_url'], $backup['api_key_enc'], $backup['key_last4'], $backup['poll_interval_s'], $backup['updated_by'], $backup['updated_at']]);
     }
+    @unlink($kumaBackupFile);   // restored: nothing is left for the guard to do
     kuma_cache_clear();
 }
 
 echo "\n" . str_repeat('=', 60) . "\n$pass passed, $fail failed\n";
 foreach ($failures as $f) { echo "  - $f\n"; }
+// the report for Settings > Tests > Automated checks: written next to the other runtime files, in one go (never half a file)
+$aborted = '';
+foreach ($failures as $f) { if (str_starts_with($f, 'test run aborted')) { $aborted = $f; } }
+$reportFile = dirname(__DIR__) . '/storage/test_report.json';
+if (is_dir(dirname($reportFile))) {
+    $tmp = $reportFile . '.tmp';
+    if (@file_put_contents($tmp, json_encode(['run_at' => date('Y-m-d H:i:s'), 'seconds' => (int) round(microtime(true) - $startedAt), 'aborted' => $aborted, 'sections' => $__report['sections']], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)) !== false) { @rename($tmp, $reportFile); }
+}
 exit($fail > 0 ? 1 : 0);

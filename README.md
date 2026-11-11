@@ -16,7 +16,7 @@ Customers at the core. Tickets, quotes, contracts, invoices, calendar, calls, up
 ![PHP 8.2](https://img.shields.io/badge/PHP-8.2-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![MariaDB](https://img.shields.io/badge/MariaDB-10.4+-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
-![Lines of code](https://img.shields.io/badge/lines%20of%20code-18%2C713-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![Lines of code](https://img.shields.io/badge/lines%20of%20code-18%2C939-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![Proprietary](https://img.shields.io/badge/licence-proprietary-111D36?style=for-the-badge&labelColor=111D36&color=FFF1A8)
 
 <br>
@@ -300,7 +300,7 @@ Contrast measured in light and dark, charts with data tables, full keyboard use,
 </tr>
 </table>
 
-An automated suite of **over 1,500 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. The automated checks run outside the product. What the testing found and how it was fixed is written up inside it, under *Settings → Tests*: over 200 entries, each one covering a group of checks, with its result (passed, fixed, still open).
+An automated suite of **over 1,500 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. Both are visible inside the product, under *Settings → Tests*: **Documented tests**, a written log of over 200 entries (each covering a group of checks, with its result and fix), and **Automated checks**, every single check of the last run with its result, grouped by section, with a search and an "only failed" filter. The checks themselves run from the command line (`tests\run.php`), and the list is the result of the last run on that computer.
 
 <br>
 

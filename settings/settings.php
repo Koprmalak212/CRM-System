@@ -44,7 +44,7 @@ $lede = [
     'kuma' => 'Connect Uptime Kuma so its monitors show on the Uptime page. Only admins see this tab.',
     'connectors' => 'Connect 3CX, Yeastar, Twilio and Short.io: encrypted credentials, a test button and a sync. Only admins see this tab.',
     'modules' => 'Turn the parts of the system on or off for this install. Only admins see this tab.',
-    'tests' => 'Documentation of the tests that were performed, what they found and how it was fixed. Only admins see this tab.',
+    'tests' => 'The tests that were performed and how what they found was fixed, and every automated check of the last run. Only admins see this tab.',
 ][$tab];
 page_start('Settings', 'settings', $lede);
 ?>

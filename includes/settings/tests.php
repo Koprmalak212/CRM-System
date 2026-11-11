@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/invoices.php';   // valid_date()
+require_once __DIR__ . '/../modules/test_report.php';   // the report of the automated checks and its view
 
 const TEST_RESULTS = [
     'pass' => ['Passed', 'bg-lime text-navy'],
@@ -112,6 +113,10 @@ function tab_handle(PDO $pdo, array $admin): void
 function tab_render(PDO $pdo, array $admin): void
 {
     tests_ensure_baseline($pdo);
+    $view = ($_GET['view'] ?? '') === 'checks' ? 'checks' : 'log';
+    $report = tests_report_load();
+    echo tests_views_nav($view, (int) $pdo->query('SELECT COUNT(*) FROM test_log')->fetchColumn(), $report);
+    if ($view === 'checks') { tests_render_checks($report); return; }
     [$w, $args] = tests_filter();
     $result = isset(TEST_RESULTS[(string) ($_GET['result'] ?? '')]) ? (string) $_GET['result'] : '';
     $area = mb_substr((string) ($_GET['area'] ?? ''), 0, 40);
