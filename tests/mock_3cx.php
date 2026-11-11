@@ -25,7 +25,12 @@ if (str_starts_with($path, '/xapi/v1/ReportCallLogData/Pbx.GetCallLogData(')) { 
     if (!in_array($_SERVER['HTTP_AUTHORIZATION'] ?? '', ['Bearer tok-api', 'Bearer tok-admin'], true)) { http_response_code(401); exit; }
     if ($mode === 'noperm') { http_response_code(403); exit; }
     if ($mode !== 'logdata' || !str_contains($path, 'periodFrom=') || !str_contains($path, 'periodTo=')) { http_response_code(404); exit; }
-    echo json_encode(['value' => [['SegmentId' => 11, 'StartTime' => gmdate('Y-m-d\TH:i:s\Z', time() - 600), 'SourceType' => 'ExternalLine', 'SourceCallerId' => '+31101234567', 'DestinationType' => 'Extension', 'DestinationCallerId' => '100', 'TotalDuration' => 'PT1M12S', 'Status' => 'Answered']]]);
+    // like the PBX of the owner: SegmentId is the number of the segment within a call, so every call has SegmentId 1 (and two calls even start in the same second)
+    echo json_encode(['value' => [
+        ['Id' => 501, 'SegmentId' => 1, 'StartTime' => gmdate('Y-m-d\TH:i:s\Z', time() - 600), 'SourceType' => 'ExternalLine', 'SourceCallerId' => '+31101234567', 'DestinationType' => 'Extension', 'DestinationCallerId' => '100', 'TotalDuration' => 'PT1M12S', 'Status' => 'Answered'],
+        ['Id' => 502, 'SegmentId' => 1, 'StartTime' => gmdate('Y-m-d\TH:i:s\Z', time() - 600), 'SourceType' => 'ExternalLine', 'SourceCallerId' => '+31107654321', 'DestinationType' => 'Extension', 'DestinationCallerId' => '101', 'TotalDuration' => '00:00:09', 'Status' => 'Unanswered'],
+        ['Id' => 502, 'SegmentId' => 2, 'StartTime' => gmdate('Y-m-d\TH:i:s\Z', time() - 590), 'SourceType' => 'Extension', 'SourceCallerId' => '101', 'DestinationType' => 'ExternalLine', 'DestinationCallerId' => '+31107654321', 'TotalDuration' => 'PT30S', 'Status' => 'Answered'],
+    ]]);
     exit;
 }
 if ($path === '/xapi/v1/CallHistoryView') {

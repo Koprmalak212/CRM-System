@@ -17,7 +17,7 @@ const CONNECTOR_TIMEOUT_S = 10;
 const CONNECTOR_SLOW_TIMEOUT_S = 30;     // for a request that asks a phone system for its call history: a large history makes it slow
 const CONNECTOR_MAX_BODY = 2097152;      // 2 MB
 const CONNECTOR_WINDOW_DAYS = 35;        // how far back a sync looks
-const CONNECTOR_MAX_RECORDS = 500;       // per service and run
+const CONNECTOR_MAX_RECORDS = 2000;      // per service and run
 
 /** The services. 'cloud' ones have a built-in address; a 'pbx' is reached at the address the admin enters. */
 function connector_defs(): array
@@ -363,7 +363,7 @@ function threecx_history(array $c, string $token, int $since, int $top, int $ski
     $fn = $base . "/xapi/v1/ReportCallLogData/Pbx.GetCallLogData(periodFrom=" . gmdate('Y-m-d\TH:i:s\Z', $since) . ',periodTo=' . gmdate('Y-m-d\TH:i:s\Z', time() + 3600)
         . ",sourceType=0,sourceFilter='',destinationType=0,destinationFilter='',callsType=0,callTimeFilterType=0,callTimeFilterFrom='0:00:0',callTimeFilterTo='0:00:0',hidePcalls=false)";
     $from = '$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', $since));
-    $forms = [$fn . '?' . $page . '&$orderby=SegmentId', $fn . '?' . $page,
+    $forms = [$fn . '?' . $page . '&$orderby=' . rawurlencode('StartTime desc'), $fn . '?' . $page,
         $base . '/xapi/v1/CallHistoryView?' . $page . '&$orderby=' . rawurlencode('StartTime desc') . '&' . $from, $base . '/xapi/v1/CallHistoryView?' . $page . '&' . $from];
     $r = [];
     foreach ($forms as $i => $url) {
@@ -373,6 +373,18 @@ function threecx_history(array $c, string $token, int $since, int $top, int $ski
         if ($r['state'] !== 'invalid') { break; }
     }
     return $r;
+}
+
+/**
+ * The unique ID of one record of the 3CX call history. Not SegmentId on its own: that is the number of the segment WITHIN a call (1, 2, 3 ...), so
+ * every call shares it. The ID is made from everything that tells records apart (the ids, the start time, both numbers), so two different segments
+ * can never get the same one, and the same segment gets the same one at every sync.
+ */
+function threecx_external_id(array $it): string
+{
+    $parts = [];
+    foreach (['Id', 'CallHistoryId', 'CallId', 'SegmentId', 'StartTime', 'SourceDn', 'SourceCallerId', 'DestinationDn', 'DestinationCallerId'] as $k) { $parts[] = is_scalar($it[$k] ?? null) ? (string) $it[$k] : ''; }
+    return implode('', $parts) === '' ? '' : 'c' . substr(sha1(implode('|', $parts)), 0, 32);
 }
 
 /** A length of time as 3CX writes it: 42, "00:01:30", "1.00:00:05" or "PT1M30S" (ISO 8601), as whole seconds. 0 when it can not be read. */
@@ -412,12 +424,21 @@ function threecx_collect(array $c, string $secret, int $since): array
     if ($st !== 'ok') { if ($why !== '') { connector_trace('3CX: ' . $why); } return ['state' => $st, 'calls' => [], 'sms' => []]; }
     $base = rtrim((string) $c['base_url'], '/');
     $calls = [];
-    for ($page = 0; $page < 3; $page++) {
+    for ($page = 0; $page < 10; $page++) {
         $r = threecx_history($c, $token, $since, 200, $page * 200);
         if ($r['state'] === 'unreachable') { connector_trace('3CX: signed in, but the PBX did not answer the call-history request in time'); }
         if ($r['state'] !== 'ok' || !is_array($r['json'])) { return ['state' => $r['state'] === 'ok' ? 'invalid' : $r['state'], 'calls' => [], 'sms' => []]; }
         $items = (array) ($r['json']['value'] ?? []);
         if ($page === 0) { connector_trace('3CX: call history read in form ' . $r['form'] . ' of ' . $r['forms'] . '; ' . ($items && is_array($items[0]) ? 'fields of the first record: ' . implode(', ', array_slice(array_keys($items[0]), 0, 30)) : 'no records in the period')); }
+        if ($page === 0 && $items) {   // the fields that look like IDs of the first records (numbers only): to see whether they tell records apart
+            $ids = [];
+            foreach (array_slice($items, 0, 3) as $i => $it) {
+                $pairs = [];
+                foreach ((array) $it as $k => $v) { if (is_scalar($v) && preg_match('/Id$/', (string) $k) && !str_ends_with((string) $k, 'CallerId')) { $pairs[] = $k . '=' . mb_substr((string) $v, 0, 24); } }
+                $ids[] = '#' . ($i + 1) . ' ' . implode(' ', $pairs);
+            }
+            connector_trace('3CX: ID fields of the first records: ' . implode(' | ', $ids));
+        }
         foreach ($items as $it) {
             if (!is_array($it)) { continue; }
             $when = connector_time($it['StartTime'] ?? null);
@@ -426,13 +447,14 @@ function threecx_collect(array $c, string $secret, int $since): array
             $dstExt = stripos((string) ($it['DestinationType'] ?? ''), 'extern') !== false || stripos((string) ($it['DestinationType'] ?? ''), 'line') !== false || stripos((string) ($it['DestinationType'] ?? ''), 'trunk') !== false;
             $dir = isset($it['Direction']) ? connector_direction((string) $it['Direction']) : ($srcExt ? 'in' : ($dstExt ? 'out' : 'internal'));
             $answered = array_key_exists('Answered', $it) ? (bool) $it['Answered'] : (stripos((string) ($it['Status'] ?? ''), 'answer') !== false);
-            $row = comm_row('threecx', 'call', $it['SegmentId'] ?? $it['CallId'] ?? $it['Id'] ?? '', $dir,
+            $row = comm_row('threecx', 'call', threecx_external_id($it), $dir,
                 $it['SourceCallerId'] ?? $it['SourceDn'] ?? '', $it['DestinationCallerId'] ?? $it['DestinationDn'] ?? '', $it['StartTime'] ?? null,
                 threecx_seconds($it['TalkingDuration'] ?? $it['Talking'] ?? $it['TotalDuration'] ?? 0), $answered ? 'answered' : 'missed');
             if ($row !== null) { $calls[] = $row; }
         }
         if (count($items) < 200 || count($calls) >= CONNECTOR_MAX_RECORDS) { break; }
     }
+    connector_trace('3CX: ' . count($calls) . ' call records read');
     return ['state' => 'ok', 'calls' => $calls, 'sms' => []];
 }
 
@@ -649,13 +671,13 @@ function comm_store(PDO $pdo, array $rows, bool $keepText): int
     $ins = $pdo->prepare('INSERT INTO comm_log (provider, kind, external_id, direction, from_number, to_number, party_key, started_at, duration_s, status, body, synced_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())
         ON DUPLICATE KEY UPDATE direction = VALUES(direction), from_number = VALUES(from_number), to_number = VALUES(to_number), party_key = VALUES(party_key), started_at = VALUES(started_at),
         duration_s = VALUES(duration_s), status = VALUES(status), body = VALUES(body), synced_at = NOW()');
-    $n = 0;
+    $seen = [];   // the records that end up as a row: one per (service, kind, ID); records with the same ID replace each other
     foreach (array_slice($rows, 0, CONNECTOR_MAX_RECORDS * 2) as $r) {
         $ins->execute([$r['provider'], $r['kind'], $r['external_id'], $r['direction'], $r['from'], $r['to'], $r['party_key'], $r['started_at'], $r['duration_s'], $r['status'],
             ($keepText && $r['kind'] === 'sms') ? $r['body'] : '']);
-        $n++;
+        $seen[$r['provider'] . '|' . $r['kind'] . '|' . $r['external_id']] = true;
     }
-    return $n;
+    return count($seen);
 }
 
 /**
@@ -668,7 +690,7 @@ function connector_sync(PDO $pdo, string $p, bool $manual = false): array
     if (!isset($defs[$p])) { return ['state' => 'invalid', 'count' => 0, 'message' => 'Unknown service.']; }
     $c = connector_get($pdo, $p);
     if (!$c['enabled'] || !connector_has_secret($c)) { return ['state' => 'invalid', 'count' => 0, 'message' => $defs[$p]['name'] . ' is not turned on.']; }
-    @set_time_limit(180);   // up to three requests of CONNECTOR_SLOW_TIMEOUT_S each
+    @set_time_limit(600);   // up to ten requests of CONNECTOR_SLOW_TIMEOUT_S each (a long history is read in pages of 200)
     $lock = $pdo->prepare('SELECT GET_LOCK(?, 0)'); $lock->execute(['connector_sync_' . $p]);
     if ((int) $lock->fetchColumn() !== 1) { return ['state' => 'busy', 'count' => 0, 'message' => 'A sync of ' . $defs[$p]['name'] . ' is already running.']; }
     try {
@@ -684,7 +706,12 @@ function connector_sync(PDO $pdo, string $p, bool $manual = false): array
         $count = 0;
         if ($res['state'] === 'ok') {
             if ($p === 'shortio') { $count = shortlinks_store($pdo, $res['links']); }
-            else { $count = comm_store($pdo, array_merge($res['calls'], $res['sms']), (bool) $c['keep_text']); comm_match($pdo); }
+            else {
+                $all = array_merge($res['calls'], $res['sms']);
+                $count = comm_store($pdo, $all, (bool) $c['keep_text']);
+                comm_match($pdo);
+                if ($count < count($all)) { connector_trace('WARNING: ' . count($all) . ' records came back but only ' . $count . ' of them have a different ID, so the others replaced each other. The ID of this service is not unique per record: send this log to the developer.'); }
+            }
         }
         $pdo->prepare('UPDATE connectors SET last_sync_at = NOW(), last_state = ?, last_count = ? WHERE provider = ?')->execute([$res['state'], $count, $p]);
         if ($manual || $res['state'] !== $c['last_state']) {   // a scheduled run is only written down when the result changed, so the log does not fill up every 5 minutes

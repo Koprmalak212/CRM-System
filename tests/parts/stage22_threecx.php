@@ -5,6 +5,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 // 3CX sign-in: an API client, or a Management Console login (a system administrator's own user name and password), with a clear reason
 // when both are refused. Uses a stand-in 3CX on port 3198, which must be free. Included by tests/run.php inside its try block.
 require_once TESTS_DIR . '/../includes/modules/connectors.php';
+$logBackup22 = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx'")->fetchAll(PDO::FETCH_ASSOC);   // the real log of this install is put back at the end
 $proc22 = proc_open([PHP_BINARY, '-S', '127.0.0.1:3198', TESTS_DIR . '/mock_3cx.php'], [0 => ['pipe', 'r'], 1 => ['file', sys_get_temp_dir() . '/mock_3cx.log', 'a'], 2 => ['file', sys_get_temp_dir() . '/mock_3cx.log', 'a']], $pipes22);
 try {
     for ($i = 0; $i < 30; $i++) { $c = @stream_socket_client('tcp://127.0.0.1:3198', $en, $es, 1); if ($c) { fclose($c); break; } usleep(200000); }
@@ -38,8 +39,18 @@ try {
     [$s, $m] = $try22('logdata', 'apiclient', 'apisecret');
     $tr22 = implode("\n", connector_trace());
     check($s === 'ok' && str_contains($tr22, 'GetCallLogData(periodFrom=') && str_contains($tr22, 'form 1 of 4') && str_contains($tr22, 'TotalDuration') && !str_contains($tr22, 'CallHistoryView'), 'the call-log function with a period is tried first and works, without ever asking for the whole history', $tr22);
+    connector_trace(null, true);
     $res22 = threecx_collect(['base_url' => 'http://127.0.0.1:3198/logdata', 'verify_tls' => 1, 'account_ref' => 'apiclient'], 'apisecret', time() - 35 * 86400);
-    same([$res22['state'], count($res22['calls'])], ['ok', 1], 'and a sync through it stores the call');
+    $syncTrace22 = implode("\n", connector_trace());
+    same([$res22['state'], count($res22['calls'])], ['ok', 3], 'and a sync through it reads three records, although every one has SegmentId 1');
+    same(count(array_unique(array_column($res22['calls'], 'external_id'))), 3, 'each of them gets its own ID, so none can replace another');
+    $ids22 = array_column($res22['calls'], 'external_id');
+    $again22 = threecx_collect(['base_url' => 'http://127.0.0.1:3198/logdata', 'verify_tls' => 1, 'account_ref' => 'apiclient'], 'apisecret', time() - 35 * 86400);
+    check(array_column($again22['calls'], 'external_id') === $ids22, 'and the same record gets the same ID at the next sync, so it is updated and not added again');
+    check(str_contains($syncTrace22, 'ID fields of the first records: #1 Id=501 SegmentId=1 | #2 Id=502 SegmentId=1'), 'the log shows the ID fields of the first records', $syncTrace22);
+    $storeRows22 = array_map(fn($r) => $r + ['kind' => 'call'], [['provider' => 'zz22', 'external_id' => 'a', 'direction' => 'in', 'from' => '1', 'to' => '2', 'party_key' => '', 'started_at' => date('Y-m-d H:i:s'), 'duration_s' => 1, 'status' => 'answered', 'body' => ''], ['provider' => 'zz22', 'external_id' => 'a', 'direction' => 'in', 'from' => '3', 'to' => '4', 'party_key' => '', 'started_at' => date('Y-m-d H:i:s'), 'duration_s' => 2, 'status' => 'answered', 'body' => ''], ['provider' => 'zz22', 'external_id' => 'b', 'direction' => 'in', 'from' => '5', 'to' => '6', 'party_key' => '', 'started_at' => date('Y-m-d H:i:s'), 'duration_s' => 3, 'status' => 'answered', 'body' => '']]);
+    same(comm_store($pdo, $storeRows22, false), 2, 'records that share an ID are counted once: three records with two different IDs are two stored rows, not three');
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
     same([threecx_seconds(42), threecx_seconds('42'), threecx_seconds('00:01:30'), threecx_seconds('1.00:00:05'), threecx_seconds('PT1M30S'), threecx_seconds('PT2H'), threecx_seconds('PT0.5S'), threecx_seconds('soon'), threecx_seconds(null)], [42, 42, 90, 86405, 90, 7200, 0, 0, 0], 'durations as 3CX writes them (seconds, hh:mm:ss, d.hh:mm:ss, ISO 8601) become whole seconds');
     connector_trace(null, true);
     [$s, $m] = $try22('broken', 'apiclient', 'apisecret');
@@ -85,5 +96,7 @@ try {
     same($pdo->query("SELECT CONCAT(enabled, base_url, account_ref) FROM connectors WHERE provider = 'threecx'")->fetchColumn() ?: null, $saved22 ? $saved22['enabled'] . $saved22['base_url'] . $saved22['account_ref'] : null, 'testing never changes the saved connector settings');
     $pdo->exec("DELETE FROM connector_log WHERE provider = 'threecx'");
 } finally {
+    $pdo->exec("DELETE FROM connector_log WHERE provider = 'threecx'");
+    foreach ($logBackup22 as $row22) { $cols22 = array_keys($row22); $pdo->prepare('INSERT INTO connector_log (`' . implode('`,`', $cols22) . '`) VALUES (' . implode(',', array_fill(0, count($cols22), '?')) . ')')->execute(array_values($row22)); }
     if (is_resource($proc22)) { proc_terminate($proc22); proc_close($proc22); }
 }

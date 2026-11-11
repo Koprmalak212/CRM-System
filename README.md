@@ -16,7 +16,7 @@ Customers at the core. Tickets, quotes, contracts, invoices, calendar, calls, up
 ![PHP 8.2](https://img.shields.io/badge/PHP-8.2-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![MariaDB](https://img.shields.io/badge/MariaDB-10.4+-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
-![Lines of code](https://img.shields.io/badge/lines%20of%20code-18%2C382-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![Lines of code](https://img.shields.io/badge/lines%20of%20code-18%2C427-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![Proprietary](https://img.shields.io/badge/licence-proprietary-111D36?style=for-the-badge&labelColor=111D36&color=FFF1A8)
 
 <br>
