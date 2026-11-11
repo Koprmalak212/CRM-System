@@ -177,7 +177,8 @@ $p = proc_open(['sh', '-n', $root16 . '/.githooks/pre-commit'], [1 => ['pipe', '
 $err = stream_get_contents($pp[2]); $rc = proc_close($p);
 check($rc === 0 || $rc === -1 && $err === '', 'the hook is valid shell (sh -n)', $err);
 $rd = (string) file_get_contents($root16 . '/README.md');
-check(!str_contains($rd, 'img.shields.io/badge/tests-') && str_contains($rd, 'actions/workflows/tests.yml'), 'README shows the workflow badge, not a typed-in test count');
+check(!str_contains($rd, 'img.shields.io/badge/tests-') && !str_contains($rd, 'workflows/tests.yml') && str_contains($rd, 'lines%20of%20code'), 'README has no test badge (a private repository can not show one to everyone) and shows the lines-of-code badge');
+check(is_file($root16 . '/bin/count_lines.php') && str_contains((string) file_get_contents($root16 . '/bin/count_lines.php'), "PHP_SAPI !== 'cli'"), 'bin/count_lines.php exists and refuses to run from a browser');
 check(!preg_match('/\b1,126\b/', $rd), 'and no longer states a fixed number of checks');
 
 section('52. Hardening: Tailwind is compiled, not run in the browser');

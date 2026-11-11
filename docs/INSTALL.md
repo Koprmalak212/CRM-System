@@ -222,6 +222,10 @@ SetEnvIf X-Forwarded-Proto "https" HTTPS=on
 
 After this, `curl -I https://crm.example.com/auth/login.php` should show a `Set-Cookie: __Host-ops_console` with `Secure`, and the activity log should show the visitors' own addresses.
 
+### Lines-of-code badge
+
+The badge at the top of the README is a typed-in number (a status badge can not read a private repository). Update it after larger changes with `php bin/count_lines.php`: it counts the non-blank lines of PHP, JavaScript, CSS, SQL and workflow files (leaving out third-party and generated files such as `node_modules`, the compiled `assets/css/app.css` and the data dumps) and rewrites the number in `README.md`.
+
 ## Putting it on a network
 
 See `docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt`, section 9, for the go-live checklist. For a private network: give the PC a fixed address, allow ports 80 and 443 only from the local subnet in Windows Firewall, keep MariaDB bound to `127.0.0.1`, and never forward a port on the router.
