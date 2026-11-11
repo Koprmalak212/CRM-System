@@ -141,7 +141,7 @@ flowchart TB
 | 📝 | **Quotes** | Quotes (offertes) with the same lines and PDF as an invoice, a "valid until" date and an outcome. One click turns a quote into an invoice or a contract, and the win rate is worked out for you. |
 | 🔁 | **Contracts** | Per company: which services it has (fiber, 3CX or Yeastar seats, security), the price per month, start and end date, and a renewal alert. A contract creates its own invoices, one per period and never twice. |
 | 💶 | **Invoices** | Invoices from a company in seconds, payments, and what is open, due soon or overdue. Clean PDFs, and recurring invoices that bill once per period and never twice. |
-| 📞 | **Calls & messages** | Calls and messages per customer from 3CX, Yeastar and Twilio. |
+| 📞 | **Calls & messages** | Every call from 3CX, Yeastar and Twilio as **one row per call**, with the caller and the colleague who handled it, how long it lasted and whether it was missed. A search box finds any name, and **every name is a link** to all that person's calls. Calls are matched to customers by phone number, and history that is already stored is never overwritten. |
 | 🔗 | **Short links** | Short links per company from Short.io. |
 | 🌐 | **Connections** | The list of customer connections and their status. |
 | 📡 | **Uptime** | An uptime page fed by Uptime Kuma. A service that goes down tells you before a customer does. |
@@ -175,6 +175,10 @@ Under **Settings → Connectors** you link your phone systems and link shortener
 | **Yeastar** (P-Series) | The server address, a client ID and a secret | Calls |
 | **Twilio** | Account SID and auth token | Calls and text messages (the text is kept only if you tick it) |
 | **Short.io** | A secret API key | Short links per company |
+
+**Calls, done properly.** A call that rings several phones, waits in a queue or gets transferred is several records at the phone system. They are combined into one call, and only the talking time counts. The names the phone system knows are stored too, so the list shows who called and who picked up even before anyone is in your CRM. Click a name and a new tab shows all their calls, with how many were answered and missed and the total talking time. Each service shows its own logo.
+
+**History stays put.** A sync adds the calls that are new and leaves stored ones exactly as they were. Only calls from the last two days are refreshed, because those can still change. The people and companies calls were matched to are never touched.
 
 Under every connector sits a **log**: each test and sync with its result and **one line per request**, such as `POST pbx.example.com/connect/token -> HTTP 200` or a certificate error. It opens by itself after a failure, never holds a secret, and tells "wrong credentials" from "signed in but not allowed" from "no answer". That is how a refusal gets diagnosed in minutes instead of days.
 
@@ -296,7 +300,7 @@ Contrast measured in light and dark, charts with data tables, full keyboard use,
 </tr>
 </table>
 
-An automated suite of **1,500 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. Every test and fix is documented inside the product, under *Settings → Tests*.
+An automated suite of **over 1,500 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. Every test and fix is documented inside the product, under *Settings → Tests*.
 
 <br>
 
