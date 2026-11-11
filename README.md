@@ -203,15 +203,23 @@ Invite colleagues by email, set roles and permissions, turn on **two-step sign-i
 <table>
 <tr>
 <td width="50%"><img src="docs/screenshots/company-dark.jpg" alt="A company page with its details, people, tickets and appointments"><br><sub><b>A company</b>: the core page. Each panel on it belongs to a module, and is only there when that module is on.</sub></td>
-<td width="50%"><img src="docs/screenshots/tickets-dark.jpg" alt="The ticket list with filters, priorities and statuses"><br><sub><b>Tickets module</b>: filter by status, priority, owner and company.</sub></td>
+<td width="50%"><img src="docs/screenshots/tickets-dark.jpg" alt="The ticket list with filters, priorities, statuses and an SLA countdown"><br><sub><b>Tickets module</b>: filter by status, priority, owner, company and SLA state, with a countdown per ticket.</sub></td>
 </tr>
 <tr>
 <td width="50%"><img src="docs/screenshots/calendar-dark.jpg" alt="The calendar month grid"><br><sub><b>Calendar module</b>: a month grid and an agenda, with an .ics download.</sub></td>
 <td width="50%"><img src="docs/screenshots/invoices-dark.jpg" alt="The invoice list with open, due and overdue amounts"><br><sub><b>Invoices module</b>: what is open, due soon and overdue at a glance.</sub></td>
 </tr>
 <tr>
+<td width="50%"><img src="docs/screenshots/ticket-sla-dark.jpg" alt="A ticket past its solution target, escalated, with the SLA box and the option to email the reply"><br><sub><b>SLA and email</b>: both targets on the ticket, an escalation note in the thread, and a tick to email the reply to the customer.</sub></td>
+<td width="50%"><img src="docs/screenshots/quotes-dark.jpg" alt="The quote list with open, won and lost amounts and the win rate"><br><sub><b>Quotes module</b>: open, won and lost at a glance, and the win rate.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/contracts-dark.jpg" alt="The contract list with revenue per month, renewal alerts and next invoice dates"><br><sub><b>Contracts module</b>: what every company pays a month, and which contracts are about to end or renew.</sub></td>
 <td width="50%"><img src="docs/screenshots/ticket-light.jpg" alt="A ticket in light mode"><br><sub><b>Light mode</b>: follows your system, switch any time.</sub></td>
+</tr>
+<tr>
 <td width="50%" align="center"><img src="docs/screenshots/phone-tickets.jpg" alt="The ticket list on a phone" width="200"> <img src="docs/screenshots/phone-overview.jpg" alt="The Overview on a phone" width="200"><br><sub><b>On a phone</b>: tables become readable cards.</sub></td>
+<td width="50%"></td>
 </tr>
 </table>
 

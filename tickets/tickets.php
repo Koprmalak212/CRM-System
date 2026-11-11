@@ -69,9 +69,9 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     <select id="assignee" name="assignee" class="<?= $field ?>"><option value="">Anyone</option><option value="none" <?= $assignee === 'none' ? 'selected' : '' ?>>Unassigned</option><?php foreach ($assignees as $aid => $an): ?><option value="<?= (int) $aid ?>" <?= $assignee === (string) $aid ? 'selected' : '' ?>><?= e($an) ?></option><?php endforeach; ?></select>
     <label class="sr-only" for="company">Company</label>
     <select id="company" name="company" class="<?= $field ?> max-w-[14rem]"><option value="">All companies</option><?php foreach ($companyList as $cid => $cn): ?><option value="<?= (int) $cid ?>" <?= $company === (int) $cid ? 'selected' : '' ?>><?= e($cn) ?></option><?php endforeach; ?></select>
-    <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
     <?php if ($slaOn): ?><label class="sr-only" for="sla">SLA</label>
     <select id="sla" name="sla" class="<?= $field ?>"><option value="">Any SLA state</option><?php foreach (['breached' => 'Past a target (' . (int) $slaCounts['breached'] . ')', 'risk' => 'About to breach (' . (int) $slaCounts['risk'] . ')', 'escalated' => 'Escalated'] as $k => $l): ?><option value="<?= $k ?>" <?= $slaF === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select><?php endif; ?>
+    <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
     <?php if ($q !== '' || $status !== '' || $priority !== '' || $assignee !== '' || $company > 0 || $slaF !== ''): ?><a href="tickets/tickets.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
     <div class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('tickets') ?><a href="tickets/ticket_new.php" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>New ticket</a></div>
   </form>
