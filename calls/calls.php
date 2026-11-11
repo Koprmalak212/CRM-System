@@ -24,6 +24,12 @@ $st = $pdo->prepare("SELECT c.*, u.name AS user_name, co.name AS company_name FR
     $where ORDER BY {$sorts[$sortKey]} $dir, c.id DESC LIMIT $per OFFSET " . (($page - 1) * $per));
 $st->execute($args);
 $rows = $st->fetchAll();
+$focus = null;   // when the list is about one name: how many calls, answered, missed, talking time, first and last
+if ($f['who'] !== '' || $f['person'] !== '' || $f['staff'] !== '') {
+    $ss = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(c.status = 'answered'), 0) answered, COALESCE(SUM(c.status = 'missed'), 0) missed, COALESCE(SUM(c.duration_s), 0) talk, MIN(c.started_at) first_at, MAX(c.started_at) last_at FROM comm_log c $where");
+    $ss->execute($args);
+    $focus = $ss->fetch();
+}
 
 $calls30 = (int) $pdo->query("SELECT COUNT(*) FROM comm_log WHERE kind = 'call' AND started_at >= NOW() - INTERVAL 30 DAY")->fetchColumn();
 $missed30 = (int) $pdo->query("SELECT COUNT(*) FROM comm_log WHERE kind = 'call' AND direction = 'in' AND status = 'missed' AND started_at >= NOW() - INTERVAL 30 DAY")->fetchColumn();
@@ -32,7 +38,7 @@ $companies = $pdo->query('SELECT DISTINCT co.id, co.name FROM companies co JOIN 
 // every name there is to pick from: people in the CRM who have calls, and the callers and colleagues the phone system names (UNION leaves out doubles)
 $names = $pdo->query("SELECT name FROM (SELECT u.name AS name FROM users u JOIN comm_log c ON c.user_id = u.id UNION SELECT remote_name FROM comm_log WHERE remote_name <> '' UNION SELECT staff_name FROM comm_log WHERE staff_name <> '') t WHERE name <> '' ORDER BY name LIMIT 1000")->fetchAll(PDO::FETCH_COLUMN);
 $connected = (int) $pdo->query("SELECT COUNT(*) FROM connectors WHERE enabled = 1 AND provider IN ('threecx','yeastar','twilio')")->fetchColumn();
-$filtered = $f['kind'] . $f['service'] . $f['direction'] . $f['status'] . $f['company'] . $f['person'] . $f['staff'] . $f['who'] . $f['from'] . $f['to'] . $f['q'] !== '';
+$filtered = $f['kind'] . $f['service'] . $f['direction'] . $f['status'] . $f['company'] . $f['person'] . $f['staff'] . $f['who'] . $f['exact'] . $f['from'] . $f['to'] . $f['q'] !== '';
 
 $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 $opt = static fn(array $list, string $cur, string $all) => '<option value="">' . e($all) . '</option>' . implode('', array_map(static fn($k, $v) => '<option value="' . e((string) $k) . '"' . ((string) $k === $cur ? ' selected' : '') . '>' . e((string) $v) . '</option>', array_keys($list), $list));
@@ -122,6 +128,22 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
 })();
 </script>
 
+<?php if ($focus !== null && $whoShown !== ''): ?>
+<section class="rise mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-line bg-panel px-5 py-4 shadow-panel" aria-labelledby="focus-h">
+  <div class="min-w-0">
+    <h2 id="focus-h" class="truncate text-lg font-bold tracking-tight"><?= e($whoShown) ?></h2>
+    <p class="mt-0.5 text-sm text-soft"><?php if ((int) $focus['n'] === 0): ?>No calls or messages found for this name.<?php else: ?>
+      <span class="font-semibold text-ink tabular-nums"><?= number_format((int) $focus['n']) ?></span> call<?= (int) $focus['n'] === 1 ? '' : 's' ?> and message<?= (int) $focus['n'] === 1 ? '' : 's' ?>
+      · <span class="tabular-nums"><?= (int) $focus['answered'] ?></span> answered · <span class="tabular-nums <?= (int) $focus['missed'] > 0 ? 'text-[#FF9C8C]' : '' ?>"><?= (int) $focus['missed'] ?></span> missed
+      · <?= (int) $focus['talk'] > 0 ? e(duration((int) $focus['talk'])) . ' talking' : 'no talking time' ?>
+      · <?= e(date('j M Y', strtotime((string) $focus['first_at']))) ?><?= substr((string) $focus['first_at'], 0, 10) !== substr((string) $focus['last_at'], 0, 10) ? ' to ' . e(date('j M Y', strtotime((string) $focus['last_at']))) : '' ?><?php endif; ?></p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <?php if ($f['person'] !== ''): ?><a href="users/user.php?id=<?= (int) $f['person'] ?>" class="pressable inline-flex h-10 items-center rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Open profile</a><?php endif; ?>
+    <a href="calls/calls.php" class="pressable inline-flex h-10 items-center rounded-xl border border-line px-4 text-sm font-semibold hover:bg-butter-50">All calls</a>
+  </div>
+</section>
+<?php endif; ?>
 <div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
   <?php if (!$rows): ?>
     <div class="p-6 text-sm">
@@ -150,8 +172,8 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
             <td class="px-4 py-3"><span class="font-semibold"><?= e((COMM_DIRECTIONS[$r['direction']] ?? $r['direction']) . ' ' . ($r['kind'] === 'sms' ? 'message' : 'call')) ?></span>
               <?php if ($r['kind'] === 'sms' && $r['body'] !== ''): ?><p class="mt-0.5 max-w-xs truncate text-xs text-soft"><?= e(mb_substr((string) $r['body'], 0, 120)) ?></p><?php endif; ?></td>
             <td class="px-4 py-3 tabular-nums text-soft"><?= e((string) $r['from_number']) ?> <span aria-hidden="true">→</span><span class="sr-only">to</span> <?= e((string) $r['to_number']) ?></td>
-            <td class="px-4 py-3"><?= $r['user_id'] ? '<a class="font-semibold underline decoration-lime decoration-2 underline-offset-4" href="users/user.php?id=' . (int) $r['user_id'] . '">' . e((string) $r['user_name']) . '</a>' : ($r['remote_name'] !== '' ? '<span title="The name the phone system has for this number">' . e((string) $r['remote_name']) . '</span> <span class="text-xs text-soft">(phone system)</span>' : '<span class="text-soft">—</span>') ?></td>
-            <td class="px-4 py-3"><?= $r['staff_name'] !== '' ? e((string) $r['staff_name']) : '<span class="text-soft">—</span>' ?></td>
+            <td class="px-4 py-3"><?= $r['user_id'] ? comm_name_link((string) $r['user_name'], 'calls/calls.php?person=' . (int) $r['user_id']) : ($r['remote_name'] !== '' ? comm_name_link((string) $r['remote_name'], comm_name_url((string) $r['remote_name'])) . ' <span class="text-xs text-soft">(phone system)</span>' : '<span class="text-soft">—</span>') ?></td>
+            <td class="px-4 py-3"><?= $r['staff_name'] !== '' ? comm_name_link((string) $r['staff_name'], comm_name_url((string) $r['staff_name'])) : '<span class="text-soft">—</span>' ?></td>
             <td class="px-4 py-3"><?= $r['company_id'] ? '<a class="font-semibold underline decoration-lime decoration-2 underline-offset-4" href="companies/company.php?id=' . (int) $r['company_id'] . '">' . e((string) $r['company_name']) . '</a>' : '<span class="text-soft">Unmatched</span>' ?></td>
             <td class="px-4 py-3 text-right tabular-nums"><?= $r['kind'] === 'call' && (int) $r['duration_s'] > 0 ? e(duration((int) $r['duration_s'])) : '—' ?></td>
             <td class="px-4 py-3"><?= badge((string) $r['status']) ?></td>

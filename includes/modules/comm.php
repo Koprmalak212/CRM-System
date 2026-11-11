@@ -105,12 +105,15 @@ function comm_filters(array $q): array
     if ($sf !== '') { $w[] = 'c.staff_name = ?'; $a[] = $sf; }
     $f['staff'] = $sf;
     $who = mb_substr(trim((string) ($q['who'] ?? '')), 0, 120);   // a name typed or picked: a caller or colleague (as the phone system names them) or a person in the CRM
+    $exact = $who !== '' && (string) ($q['exact'] ?? '') === '1';   // set by the link on a name in the list: that name only, not every name that contains it
     if ($who !== '') {
-        $lw = '%' . addcslashes($who, '%_\\') . '%';
-        $w[] = '(c.remote_name LIKE ? OR c.staff_name LIKE ? OR c.user_id IN (SELECT id FROM users WHERE name LIKE ?))';
+        $lw = $exact ? $who : '%' . addcslashes($who, '%_\\') . '%';
+        $op = $exact ? '=' : 'LIKE';
+        $w[] = "(c.remote_name $op ? OR c.staff_name $op ? OR c.user_id IN (SELECT id FROM users WHERE name $op ?))";
         array_push($a, $lw, $lw, $lw);
     }
     $f['who'] = $who;
+    $f['exact'] = $exact ? '1' : '';
     $pe = (string) ($q['person'] ?? '');
     if (ctype_digit($pe) && (int) $pe > 0) { $w[] = 'c.user_id = ?'; $a[] = (int) $pe; $f['person'] = $pe; } else { $f['person'] = ''; }
     foreach (['from' => '>=', 'to' => '<='] as $k => $op) {
@@ -126,6 +129,22 @@ function comm_filters(array $q): array
         $w[] = '(c.from_number LIKE ? OR c.to_number LIKE ? OR c.body LIKE ? OR c.remote_name LIKE ? OR c.staff_name LIKE ?)'; array_push($a, $like, $like, $like, $like, $like);
     } else { $f['q'] = ''; }
     return [$w ? 'WHERE ' . implode(' AND ', $w) : '', $a, $f];
+}
+
+/**
+ * A name in the call list as a link to all the calls of that name, in a new tab. $href is the address of the Calls page with the filter (see
+ * comm_name_url()). The note for screen readers says that it opens in a new tab.
+ */
+function comm_name_link(string $name, string $href): string
+{
+    return '<a href="' . e($href) . '" target="_blank" rel="noopener noreferrer" class="font-semibold underline decoration-lime decoration-2 underline-offset-4 hover:decoration-white" title="Show all calls of ' . e($name) . '">'
+        . e($name) . '<span class="sr-only"> (opens in a new tab)</span></a>';
+}
+
+/** The Calls page filtered on one name exactly: a caller, a colleague or a person of the CRM as the phone system or the CRM names them. */
+function comm_name_url(string $name): string
+{
+    return 'calls/calls.php?' . http_build_query(['who' => $name, 'exact' => '1']);
 }
 
 /** A small box with the latest calls and messages of a person ('user_id') or a company ('company_id'), for their pages. */

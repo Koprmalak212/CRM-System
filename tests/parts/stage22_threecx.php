@@ -74,6 +74,20 @@ try {
     check(str_contains($noor22, '+31101234567') && str_contains($noor22, '+31201112222') && !str_contains($noor22, '+31107654321'), 'a colleague\'s name finds the calls they took and the ones they made');
     check(!str_contains(http('GET', "$base/calls/calls.php?who=" . urlencode('%_'), ['jar' => $admin])['body'], '+31101234567'), 'the characters % and _ in the box are searched literally, not as wildcards');
     check(str_contains(http('GET', "$base/calls/calls.php?q=Piet", ['jar' => $admin])['body'], '+31201112222'), 'and the number box also finds a call by the name of the caller or the colleague');
+    // the names in the list are links to all calls of that name, in a new tab
+    $list22 = http('GET', "$base/calls/calls.php?q=%2B31", ['jar' => $admin])['body'];
+    check(str_contains($list22, 'href="calls/calls.php?who=Jan+Jansen&amp;exact=1" target="_blank" rel="noopener noreferrer"') && str_contains($list22, '(opens in a new tab)'), 'a caller\'s name in the list is a link to all that caller\'s calls, opens in a new tab and says so to screen readers');
+    check(str_contains($list22, 'href="calls/calls.php?who=Noor+Haddad&amp;exact=1"'), 'and so is the name of the colleague in the Staff column');
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
+    $mkN22 = static fn(string $id, string $remote, string $staff) => ['provider' => 'zz22', 'kind' => 'call', 'external_id' => $id, 'direction' => 'in', 'from' => '+3199' . $id, 'to' => '100', 'remote_name' => $remote, 'staff_name' => $staff, 'party_key' => '', 'started_at' => date('Y-m-d H:i:s', time() - 1800), 'duration_s' => 60, 'status' => 'answered', 'body' => ''];
+    comm_store($pdo, [$mkN22('1001', 'Ann', 'Staff A'), $mkN22('1002', 'Ann Lee', 'Staff A'), $mkN22('1003', 'Ann', 'Staff B')], false);
+    $ex22 = http('GET', "$base/calls/calls.php?" . http_build_query(['who' => 'Ann', 'exact' => '1']), ['jar' => $admin])['body'];
+    check(str_contains($ex22, '+31991001') && str_contains($ex22, '+31991003') && !str_contains($ex22, '+31991002'), 'the link shows exactly that name: "Ann" does not bring in "Ann Lee"');
+    $part22 = http('GET', "$base/calls/calls.php?who=Ann", ['jar' => $admin])['body'];
+    check(str_contains($part22, '+31991001') && str_contains($part22, '+31991002') && str_contains($part22, '+31991003'), 'while typing "Ann" in the box still finds every name that contains it');
+    check(str_contains($ex22, 'id="focus-h"') && str_contains($ex22, '>Ann</h2>') && preg_match('/<span class="font-semibold text-ink tabular-nums">2<\/span> calls and messages/', $ex22) === 1 && str_contains($ex22, '2</span> answered'), 'the page says whose calls these are, how many, how many were answered and missed', '');
+    check(!str_contains(http('GET', "$base/calls/calls.php", ['jar' => $admin])['body'], 'id="focus-h"'), 'without a name there is no such summary');
+    $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
     $pdo->exec("DELETE FROM comm_log WHERE provider = 'zz22'");
     // service badges: a logo when there is a file, otherwise a plain badge; the file name is never taken from outside
     $svcDir22 = TESTS_DIR . '/../assets/img/services';
