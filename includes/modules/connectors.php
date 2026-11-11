@@ -24,7 +24,7 @@ function connector_defs(): array
     return [
         'threecx' => ['name' => '3CX', 'type' => 'pbx', 'gives' => 'calls', 'url_label' => 'Server address', 'url_hint' => 'https://pbx.example.com',
             'id_label' => 'Client ID', 'secret_label' => 'Client secret',
-            'help' => 'In the 3CX Management Console open Integrations, API and add a client application that may read the call history (XAPI). Needs 3CX version 20.'],
+            'help' => 'Needs 3CX version 20. Either add an API client in the Management Console (Integrations, API) and enter its Client ID and secret, or enter the user name and password of a system owner or admin in the same two fields (not possible when that account uses two-step sign-in).'],
         'yeastar' => ['name' => 'Yeastar', 'type' => 'pbx', 'gives' => 'calls', 'url_label' => 'Server address', 'url_hint' => 'https://pbx.example.com:8088',
             'id_label' => 'Client ID', 'secret_label' => 'Client secret',
             'help' => 'In the Yeastar PBX web interface open Integrations, API, turn the API on and create a client ID and secret (OpenAPI, P-Series).'],
@@ -147,12 +147,13 @@ function connector_remove(PDO $pdo, string $p): void
 /**
  * One HTTPS (or http) request.
  * @param array{headers?: list<string>, body?: ?string, basic?: ?array{0:string,1:string}, verify_tls?: bool, timeout?: int, unauthorized?: list<int>} $o
- * @return array{state: string, code: int, body: string, json: mixed}  state: ok | unauthorized | unreachable | invalid | busy. Never carries the secret or upstream error text.
+ * @return array{state: string, code: int, body: string, json: mixed, oauth: string}  state: ok | unauthorized | unreachable | invalid | busy. Never carries the secret or upstream
+ *         error text; the one exception is 'oauth': the short error code of a refused sign-in (for example invalid_client), only when it is made of lowercase letters and underscores.
  */
 function connector_http(string $method, string $url, array $o = []): array
 {
     $o += ['headers' => [], 'body' => null, 'basic' => null, 'verify_tls' => true, 'timeout' => CONNECTOR_TIMEOUT_S, 'unauthorized' => [401, 403]];
-    $fail = static fn(string $s, int $code = 0): array => ['state' => $s, 'code' => $code, 'body' => '', 'json' => null];
+    $fail = static fn(string $s, int $code = 0, string $oauth = ''): array => ['state' => $s, 'code' => $code, 'body' => '', 'json' => null, 'oauth' => $oauth];
     $p = parse_url($url);
     if (!$p || empty($p['scheme']) || empty($p['host']) || !in_array(strtolower((string) $p['scheme']), ['http', 'https'], true)) { return $fail('unreachable'); }
     $scheme = strtolower((string) $p['scheme']);
@@ -188,11 +189,13 @@ function connector_http(string $method, string $url, array $o = []): array
     curl_close($ch);
 
     if ($errno !== 0) { return $fail('unreachable', $code); }
-    if (in_array($code, $o['unauthorized'], true)) { return $fail('unauthorized', $code); }
+    $err = json_decode($body, true);
+    $oauth = is_array($err) && is_string($err['error'] ?? null) && preg_match('/^[a-z_]{3,40}$/', $err['error']) ? $err['error'] : '';
+    if (in_array($code, $o['unauthorized'], true)) { return $fail('unauthorized', $code, $oauth); }
     if ($code === 429) { return $fail('busy', $code); }
-    if ($code < 200 || $code > 299) { return $fail('invalid', $code); }
+    if ($code < 200 || $code > 299) { return $fail('invalid', $code, $oauth); }
     $json = json_decode($body, true);
-    return ['state' => 'ok', 'code' => $code, 'body' => $body, 'json' => $json];
+    return ['state' => 'ok', 'code' => $code, 'body' => $body, 'json' => $json, 'oauth' => ''];
 }
 
 /** A moment from any of the spellings the services use, as a Unix time (null when it can not be read). */
@@ -281,16 +284,40 @@ function twilio_collect(array $c, string $secret, int $since): array
     return $out;
 }
 
-// ---- 3CX (version 20, XAPI with a client application)
+// ---- 3CX (version 20, XAPI)
+/**
+ * A token for the XAPI. Two ways in, tried in this order with the same two values:
+ *   1. an API client (Management Console, Integrations, API): Client ID and Client secret (OAuth client credentials)
+ *   2. a Management Console login: user name and password of a system owner or admin (the sign-in the web client itself uses)
+ * The second makes a system administrator's own login work too. It does not work for an account with two-step sign-in turned on.
+ * @return array{0: string, 1: string, 2: string} state, token, a short reason when it failed (safe to show)
+ */
 function threecx_token(array $c, string $secret): array
 {
     $base = rtrim((string) $c['base_url'], '/');
-    $r = connector_http('POST', $base . '/connect/token', ['verify_tls' => (bool) $c['verify_tls'], 'unauthorized' => [400, 401, 403],
+    $tls = (bool) $c['verify_tls'];
+    $r = connector_http('POST', $base . '/connect/token', ['verify_tls' => $tls, 'unauthorized' => [400, 401, 403],
         'headers' => ['Content-Type: application/x-www-form-urlencoded'],
         'body' => http_build_query(['client_id' => $c['account_ref'], 'client_secret' => $secret, 'grant_type' => 'client_credentials'])]);
-    if ($r['state'] !== 'ok') { return [$r['state'], '']; }
-    $t = is_array($r['json']) ? ($r['json']['access_token'] ?? '') : '';
-    return is_string($t) && $t !== '' ? ['ok', $t] : ['invalid', ''];
+    if ($r['state'] === 'ok') {
+        $t = is_array($r['json']) ? ($r['json']['access_token'] ?? '') : '';
+        if (is_string($t) && $t !== '') { return ['ok', $t, '']; }
+    }
+    if (!in_array($r['state'], ['unauthorized', 'invalid', 'ok'], true)) { return [$r['state'], '', '']; }   // unreachable or busy: a second try would not help
+    // the API client was refused (or this address has no token endpoint): try the same values as a Management Console login
+    $l = connector_http('POST', $base . '/webclient/api/Login/GetAccessToken', ['verify_tls' => $tls, 'unauthorized' => [400, 401, 403],
+        'headers' => ['Content-Type: application/json'],
+        'body' => json_encode(['SecurityCode' => '', 'Password' => $secret, 'Username' => (string) $c['account_ref']])]);
+    if ($l['state'] === 'ok' && is_array($l['json'])) {
+        $status = is_string($l['json']['Status'] ?? null) ? $l['json']['Status'] : '';
+        $t = is_array($l['json']['Token'] ?? null) ? ($l['json']['Token']['access_token'] ?? '') : '';
+        if ($status === 'AuthSuccess' && is_string($t) && $t !== '') { return ['ok', $t, '']; }
+        if (preg_match('/two|factor|security|2fa|code/i', $status)) { return ['unauthorized', '', 'The login works but has two-step sign-in turned on, which can not be used here. Use an API client instead (Integrations, API).']; }
+        return ['unauthorized', '', 'The PBX refused both: the API client (Client ID and secret) and a Management Console login with the same values.'];
+    }
+    $why = $r['oauth'] !== '' ? ' The PBX answered: ' . $r['oauth'] . '.' : '';
+    if ($r['state'] === 'invalid' && $l['state'] === 'invalid') { return ['invalid', '', '']; }   // neither path exists at this address
+    return [$l['state'] === 'unreachable' || $l['state'] === 'busy' ? $l['state'] : 'unauthorized', '', 'The PBX refused both: the API client (Client ID and secret) and a Management Console login with the same values.' . $why];
 }
 
 function threecx_collect(array $c, string $secret, int $since): array
@@ -483,8 +510,8 @@ function connector_test(string $p, array $c, string $secret): array
             [$st, $d] = shortio_domains($c, $secret);
             return $st === 'ok' ? ['ok', 'Connected. Found ' . count($d) . ' domain' . (count($d) === 1 ? '' : 's') . '.'] : [$st, connector_state_text($st)];
         case 'threecx':
-            [$st, $token] = threecx_token($c, $secret);
-            if ($st !== 'ok') { return [$st, connector_state_text($st)]; }
+            [$st, $token, $why] = threecx_token($c, $secret);
+            if ($st !== 'ok') { return [$st, connector_state_text($st) . ($why !== '' ? ' ' . $why : '')]; }
             $r = connector_http('GET', rtrim((string) $c['base_url'], '/') . '/xapi/v1/CallHistoryView?$top=1', ['verify_tls' => $tls, 'headers' => ['Authorization: Bearer ' . $token]]);
             return $r['state'] === 'ok' && is_array($r['json']) ? ['ok', 'Connected to 3CX. The call history can be read.'] : [$r['state'] === 'ok' ? 'invalid' : $r['state'], connector_state_text($r['state'] === 'ok' ? 'invalid' : $r['state'])];
         case 'yeastar':

@@ -126,7 +126,7 @@ Open Settings, Connectors (admins only). Every service has its own box with a **
 
 | Service | You need | Gives you |
 | --- | --- | --- |
-| 3CX | Server address, Client ID and Client secret of an API client application (3CX version 20, Integrations, API, with access to the call history) | Calls |
+| 3CX | Server address, and either the Client ID and Client secret of an API client application (3CX version 20, Integrations, API, with access to the call history) **or** the user name and password of a system owner or admin, typed in the same two fields. The API client is tried first, then the login. A login with two-step sign-in turned on can not be used: make an API client for it | Calls |
 | Yeastar | Server address (with port), Client ID and Client secret (P-Series, Integrations, API) | Calls |
 | Twilio | Account SID (starts with `AC`) and Auth token | Calls and text messages |
 | Short.io | A secret API key | Short links |
