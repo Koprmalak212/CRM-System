@@ -300,7 +300,7 @@ Contrast measured in light and dark, charts with data tables, full keyboard use,
 </tr>
 </table>
 
-An automated suite of **over 1,500 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. Every test and fix is documented inside the product, under *Settings → Tests*.
+An automated suite of **over 1,500 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. The automated checks run outside the product. What the testing found and how it was fixed is written up inside it, under *Settings → Tests*: over 200 entries, each one covering a group of checks, with its result (passed, fixed, still open).
 
 <br>
 
