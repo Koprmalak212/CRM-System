@@ -50,14 +50,20 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
   <div class="p-4 sm:p-5"><dt class="text-sm font-medium text-soft">Messages, 30 days</dt><dd class="mt-1 text-xl font-bold tabular-nums sm:text-2xl"><?= number_format($sms30) ?></dd></div>
 </dl>
 
-<form method="get" action="calls/calls.php" class="rise mb-4 grid gap-3 rounded-2xl border border-line bg-panel p-4 shadow-panel sm:grid-cols-2 lg:grid-cols-4 sm:p-5" aria-label="Filter calls and messages">
+<form method="get" action="calls/calls.php" class="rise relative z-20 mb-4 grid gap-3 rounded-2xl border border-line bg-panel p-4 shadow-panel sm:grid-cols-2 lg:grid-cols-4 sm:p-5" aria-label="Filter calls and messages">
   <div><label for="f-kind" class="text-sm font-semibold">Type</label><select id="f-kind" name="kind" class="<?= e($field) ?>"><?= $opt(COMM_KINDS, $f['kind'], 'Calls and messages') ?></select></div>
   <div><label for="f-service" class="text-sm font-semibold">Service</label><select id="f-service" name="service" class="<?= e($field) ?>"><?= $opt(COMM_SERVICES, $f['service'], 'All services') ?></select></div>
   <div><label for="f-company" class="text-sm font-semibold">Company</label><select id="f-company" name="company" class="<?= e($field) ?>"><?= $opt($coOpts, $f['company'], 'All companies') ?></select></div>
-  <div><label for="f-who" class="text-sm font-semibold">Person</label>
-    <input id="f-who" name="who" type="search" list="f-who-list" maxlength="120" autocomplete="off" placeholder="Type or pick a name" value="<?= e($whoShown) ?>" class="<?= e($field) ?>">
-    <datalist id="f-who-list"><?php foreach ($names as $n): ?><option value="<?= e((string) $n) ?>"></option><?php endforeach; ?></datalist>
-    <p class="mt-1 text-xs text-soft"><?= count($names) ?> names to pick from: callers and colleagues from the phone system, and people in the CRM. Typing a part of a name is enough.</p></div>
+  <div class="relative"><label for="f-who" class="text-sm font-semibold">Person</label>
+    <div class="relative mt-1.5">
+      <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-soft"><?= icon('search', 'h-4 w-4') ?></span>
+      <input id="f-who" name="who" type="text" role="combobox" aria-expanded="false" aria-controls="f-who-list" aria-autocomplete="list" maxlength="120" autocomplete="off" spellcheck="false"
+             placeholder="Search <?= count($names) ?> names" value="<?= e($whoShown) ?>" class="h-11 w-full rounded-xl border border-line bg-panel pl-9 pr-9 text-sm placeholder:text-soft/80 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+      <button type="button" id="f-who-clear" class="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-soft hover:bg-ink/10 hover:text-ink" aria-label="Clear the name" <?= $whoShown === '' ? 'hidden' : '' ?>><?= icon('x', 'h-4 w-4') ?></button>
+    </div>
+    <ul id="f-who-list" role="listbox" aria-label="Names" hidden class="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-panel py-1 shadow-[0_14px_30px_-10px_rgba(0,0,0,.8)]"></ul>
+    <script type="application/json" id="f-who-data"><?= json_encode(array_values($names), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+  </div>
   <div><label for="f-direction" class="text-sm font-semibold">Direction</label><select id="f-direction" name="direction" class="<?= e($field) ?>"><?= $opt(COMM_DIRECTIONS, $f['direction'], 'Any direction') ?></select></div>
   <div><label for="f-status" class="text-sm font-semibold">Status</label><select id="f-status" name="status" class="<?= e($field) ?>"><?= $opt(COMM_STATUSES, $f['status'], 'Any status') ?></select></div>
   <div><label for="f-from" class="text-sm font-semibold">From date</label><input id="f-from" name="from" type="date" value="<?= e($f['from']) ?>" class="<?= e($field) ?>"></div>
@@ -68,6 +74,53 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
     <?php if ($filtered): ?><a href="calls/calls.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </div>
 </form>
+<script nonce="<?= csp_nonce() ?>">
+// The Person box: type to narrow the names, arrow keys and Enter to pick one, Escape to close. Without JavaScript it is a plain text box.
+(function () {
+  var box = document.getElementById('f-who'), list = document.getElementById('f-who-list'), clear = document.getElementById('f-who-clear');
+  if (!box || !list) return;
+  var names = [];
+  try { names = JSON.parse(document.getElementById('f-who-data').textContent) || []; } catch (e) {}
+  var fold = function (s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+  var shown = [], active = -1, MAX = 50, cls = 'cursor-pointer px-3 py-2 text-sm';
+  function open(on) { list.hidden = !on; box.setAttribute('aria-expanded', on ? 'true' : 'false'); if (!on) { box.removeAttribute('aria-activedescendant'); active = -1; } }
+  function mark(i) {
+    var items = list.querySelectorAll('[role=option]');
+    items.forEach(function (li, k) { var on = k === i; li.classList.toggle('bg-butter-50', on); li.classList.toggle('font-semibold', on); li.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    active = i;
+    if (i >= 0 && items[i]) { box.setAttribute('aria-activedescendant', items[i].id); items[i].scrollIntoView({ block: 'nearest' }); } else { box.removeAttribute('aria-activedescendant'); }
+  }
+  function note(text) { var li = document.createElement('li'); li.setAttribute('role', 'presentation'); li.className = 'px-3 py-2 text-xs text-soft'; li.textContent = text; list.appendChild(li); }
+  function pick(i) { box.value = shown[i]; open(false); clear.hidden = false; }
+  function render() {
+    var q = fold(box.value.trim()), hits = names.filter(function (n) { return q === '' || fold(n).indexOf(q) !== -1; });
+    shown = hits.slice(0, MAX);
+    list.innerHTML = '';
+    shown.forEach(function (n, i) {
+      var li = document.createElement('li');
+      li.id = 'f-who-' + i; li.setAttribute('role', 'option'); li.setAttribute('aria-selected', 'false'); li.className = cls + ' hover:bg-butter-50'; li.textContent = n;
+      li.addEventListener('mousedown', function (e) { e.preventDefault(); pick(i); });   // mousedown, so the box keeps focus and does not close first
+      list.appendChild(li);
+    });
+    if (hits.length > MAX) note((hits.length - MAX) + ' more: keep typing to narrow it down');
+    if (!shown.length) note('No name matches. Apply searches for what you typed.');
+    active = -1; open(true);
+  }
+  box.addEventListener('focus', render);
+  box.addEventListener('input', function () { clear.hidden = box.value === ''; render(); });
+  box.addEventListener('blur', function () { open(false); });
+  box.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (list.hidden) render();
+      if (!shown.length) return;
+      mark(e.key === 'ArrowDown' ? (active + 1) % shown.length : (active <= 0 ? shown.length - 1 : active - 1));
+    } else if (e.key === 'Enter' && !list.hidden && active >= 0) { e.preventDefault(); pick(active); }
+    else if (e.key === 'Escape' && !list.hidden) { e.preventDefault(); open(false); }
+  });
+  clear.addEventListener('click', function () { box.value = ''; clear.hidden = true; box.focus(); render(); });
+})();
+</script>
 
 <div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
   <?php if (!$rows): ?>

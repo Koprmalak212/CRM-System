@@ -64,7 +64,10 @@ try {
     $staff22 = http('GET', "$base/calls/calls.php?staff=" . urlencode('Sam Rivera'), ['jar' => $admin])['body'];
     check(str_contains($staff22, '+31107654321') && !str_contains($staff22, '+31101234567') && str_contains($staff22, 'value="Sam Rivera"'), 'a link to one colleague (?staff=) still shows only that colleague\'s calls, and fills the Person box');
     $who22 = http('GET', "$base/calls/calls.php?q=%2B31", ['jar' => $admin])['body'];
-    check(str_contains($who22, 'list="f-who-list"') && str_contains($who22, '<option value="Noor Haddad">') && str_contains($who22, '<option value="Jan Jansen">') && str_contains($who22, '<option value="Piet Bakker">') && substr_count($who22, '<option value="Noor Haddad">') === 1, 'the Person box is typable and its list holds every caller and colleague the phone system named, each once (also those who are both)');
+    preg_match('#<script type="application/json" id="f-who-data">(.*?)</script>#s', $who22, $dm);
+    $nm22 = json_decode($dm[1] ?? '[]', true) ?: [];
+    check(str_contains($who22, 'role="combobox"') && str_contains($who22, 'id="f-who-list"') && in_array('Noor Haddad', $nm22, true) && in_array('Jan Jansen', $nm22, true) && in_array('Piet Bakker', $nm22, true) && count($nm22) === count(array_unique($nm22)), 'the Person box is a search box and its list holds every caller and colleague the phone system named, each once (also those who are both)');
+    check(!str_contains($who22, '<datalist') && str_contains($who22, 'aria-label="Clear the name"') && preg_match('/placeholder="Search \d+ names"/', $who22) === 1, 'it has its own styled list (not the one of the browser), a clear button and the number of names in its placeholder');
     $jan22 = http('GET', "$base/calls/calls.php?who=jan+jan", ['jar' => $admin])['body'];
     check(str_contains($jan22, '+31101234567') && !str_contains($jan22, '+31107654321') && str_contains($jan22, 'value="jan jan"'), 'typing a part of a caller name finds the calls of that caller, whatever the capitals');
     $noor22 = http('GET', "$base/calls/calls.php?who=" . urlencode('Noor Haddad'), ['jar' => $admin])['body'];
