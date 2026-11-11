@@ -21,6 +21,10 @@ try {
     check($s === 'unauthorized' && str_contains($m, 'two-step sign-in'), 'a login that has two-step sign-in turned on is explained, not just "rejected"');
     [$s, $m] = $try22('noperm', 'apiclient', 'apisecret');
     check($s === 'forbidden' && str_contains($m, 'credentials are right') && str_contains($m, 'not allowed to read call history') && !str_contains($m, 'rejected the credentials'), 'a token that works but a call-history request that gets HTTP 403 is "signed in but not allowed", not "rejected the credentials"', $m);
+    [$s, $m] = connector_test('threecx', ['base_url' => 'http://127.0.0.1:3198/slow', 'verify_tls' => 1, 'account_ref' => 'apiclient', 'provider' => 'threecx', 'timeout' => 1], 'apisecret');
+    check($s === 'unreachable' && str_contains($m, 'Signed in') && str_contains($m, 'did not answer the call-history request in time') && str_contains(implode("\n", connector_trace()), 'curl error 28'), 'a PBX that signs in but is slow to give the call history says exactly that, and the log has the timeout', $m);
+    [$s, $m] = connector_test('threecx', ['base_url' => 'http://127.0.0.1:3198/slow', 'verify_tls' => 1, 'account_ref' => 'apiclient', 'provider' => 'threecx', 'timeout' => 8], 'apisecret');
+    same($s, 'ok', 'with enough time the same slow PBX connects');
     same($try22('noperm', 'apiclient', 'wrong')[0], 'unauthorized', 'a real credentials refusal is still "unauthorized"');
     same($try22('api', 'apiclient', "x\r\nInjected: 1")[0], 'unauthorized', 'a secret with a line break in it is refused and breaks nothing');
     same(connector_test('threecx', ['base_url' => 'http://127.0.0.1:3197', 'verify_tls' => 1, 'account_ref' => 'a', 'provider' => 'threecx'], 'b')[0], 'unreachable', 'a PBX that does not answer is reported as unreachable, with no second try');

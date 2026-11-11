@@ -14,6 +14,7 @@ require_once __DIR__ . '/kuma.php';   // kuma_validate_url(), kuma_ip_blocked();
 require_once __DIR__ . '/comm.php';
 
 const CONNECTOR_TIMEOUT_S = 10;
+const CONNECTOR_SLOW_TIMEOUT_S = 30;     // for a request that asks a phone system for its call history: a large history makes it slow
 const CONNECTOR_MAX_BODY = 2097152;      // 2 MB
 const CONNECTOR_WINDOW_DAYS = 35;        // how far back a sync looks
 const CONNECTOR_MAX_RECORDS = 500;       // per service and run
@@ -348,7 +349,8 @@ function threecx_collect(array $c, string $secret, int $since): array
     $calls = [];
     for ($page = 0; $page < 3; $page++) {
         $q = '$top=200&$skip=' . ($page * 200) . '&$orderby=' . rawurlencode('StartTime desc') . '&$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', $since));
-        $r = connector_http('GET', $base . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => (bool) $c['verify_tls'], 'forbidden' => true, 'headers' => ['Authorization: Bearer ' . $token]]);
+        $r = connector_http('GET', $base . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => (bool) $c['verify_tls'], 'forbidden' => true, 'timeout' => (int) ($c['timeout'] ?? CONNECTOR_SLOW_TIMEOUT_S), 'headers' => ['Authorization: Bearer ' . $token]]);
+        if ($r['state'] === 'unreachable') { connector_trace('3CX: signed in, but the PBX did not answer the call-history request in time'); }
         if ($r['state'] !== 'ok' || !is_array($r['json'])) { return ['state' => $r['state'] === 'ok' ? 'invalid' : $r['state'], 'calls' => [], 'sms' => []]; }
         $items = (array) ($r['json']['value'] ?? []);
         foreach ($items as $it) {
@@ -541,6 +543,7 @@ function connector_log_recent(PDO $pdo, string $p, int $n = 10): array
  */
 function connector_test(string $p, array $c, string $secret): array
 {
+    @set_time_limit(120);   // a slow phone system may need most of CONNECTOR_SLOW_TIMEOUT_S for one request, and the web server's own limit is 30 seconds
     $tls = (bool) $c['verify_tls'];
     switch ($p) {
         case 'twilio':
@@ -554,7 +557,10 @@ function connector_test(string $p, array $c, string $secret): array
         case 'threecx':
             [$st, $token, $why] = threecx_token($c, $secret);
             if ($st !== 'ok') { return [$st, connector_state_text($st) . ($why !== '' ? ' ' . $why : '')]; }
-            $r = connector_http('GET', rtrim((string) $c['base_url'], '/') . '/xapi/v1/CallHistoryView?$top=1', ['verify_tls' => $tls, 'forbidden' => true, 'headers' => ['Authorization: Bearer ' . $token]]);
+            // only the last day, newest first: an unfiltered question makes a PBX with a large history read all of it
+            $q = '$top=1&$orderby=' . rawurlencode('StartTime desc') . '&$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', time() - 86400));
+            $r = connector_http('GET', rtrim((string) $c['base_url'], '/') . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => $tls, 'forbidden' => true, 'timeout' => (int) ($c['timeout'] ?? CONNECTOR_SLOW_TIMEOUT_S), 'headers' => ['Authorization: Bearer ' . $token]]);
+            if ($r['state'] === 'unreachable') { return ['unreachable', 'Signed in (the credentials and the permissions are right), but 3CX did not answer the call-history request in time. 3CX can be slow with a large call history. Press Test connection again; if it keeps timing out, the call history of this PBX is too slow to read and your 3CX partner should be asked about the response time of /xapi/v1/CallHistoryView.']; }
             if ($r['state'] === 'forbidden') { return ['forbidden', 'Signed in, but 3CX refused the call history (HTTP 403). The credentials are right: the API client is not allowed to read call history. In the 3CX Management Console open Integrations, API, edit this client, make sure it may use the Configuration API (XAPI) and give it a role that may see call reports (to confirm that this is the cause, try the system owner or admin role first).']; }
             return $r['state'] === 'ok' && is_array($r['json']) ? ['ok', 'Connected to 3CX. The call history can be read.'] : [$r['state'] === 'ok' ? 'invalid' : $r['state'], connector_state_text($r['state'] === 'ok' ? 'invalid' : $r['state'])];
         case 'yeastar':
@@ -591,6 +597,7 @@ function connector_sync(PDO $pdo, string $p, bool $manual = false): array
     if (!isset($defs[$p])) { return ['state' => 'invalid', 'count' => 0, 'message' => 'Unknown service.']; }
     $c = connector_get($pdo, $p);
     if (!$c['enabled'] || !connector_has_secret($c)) { return ['state' => 'invalid', 'count' => 0, 'message' => $defs[$p]['name'] . ' is not turned on.']; }
+    @set_time_limit(180);   // up to three requests of CONNECTOR_SLOW_TIMEOUT_S each
     $lock = $pdo->prepare('SELECT GET_LOCK(?, 0)'); $lock->execute(['connector_sync_' . $p]);
     if ((int) $lock->fetchColumn() !== 1) { return ['state' => 'busy', 'count' => 0, 'message' => 'A sync of ' . $defs[$p]['name'] . ' is already running.']; }
     try {
