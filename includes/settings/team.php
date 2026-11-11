@@ -33,7 +33,7 @@ function tab_handle(PDO $pdo, array $admin): void
         $name = trim((string) ($_POST['name'] ?? ''));
         $email = trim((string) ($_POST['email'] ?? ''));
         $role = ($_POST['role'] ?? 'user') === 'admin' ? 'admin' : 'user';
-        $perm = in_array($_POST['perm'] ?? '', ['none', 'view', 'manage'], true) ? $_POST['perm'] : 'none';
+        $perm = module_enabled('health') && in_array($_POST['perm'] ?? '', ['none', 'view', 'manage'], true) ? $_POST['perm'] : 'none';   // no access while the control is hidden
         if ($role === 'admin') { $perm = 'manage'; }
         $errors = [];
         if (!preg_match('/^[a-z0-9._-]{3,30}$/', $username)) { $errors[] = 'The username needs 3 to 30 characters: letters, digits, dots, dashes or underscores.'; }
@@ -59,7 +59,7 @@ function tab_handle(PDO $pdo, array $admin): void
         $name = trim((string) ($_POST['name'] ?? ''));
         $email = trim((string) ($_POST['email'] ?? ''));
         $role = ($_POST['role'] ?? 'user') === 'admin' ? 'admin' : 'user';
-        $perm = in_array($_POST['perm'] ?? '', ['none', 'view', 'manage'], true) ? $_POST['perm'] : 'none';
+        $perm = module_enabled('health') && in_array($_POST['perm'] ?? '', ['none', 'view', 'manage'], true) ? $_POST['perm'] : 'none';   // no access while the control is hidden
         if ($role === 'admin') { $perm = 'manage'; }
         $errors = [];
         if (!preg_match('/^[a-z0-9._-]{3,30}$/', $username)) { $errors[] = 'The username needs 3 to 30 characters: letters, digits, dots, dashes or underscores.'; }
@@ -98,8 +98,9 @@ function tab_handle(PDO $pdo, array $admin): void
 
     if ($action === 'update_user') {
         $role = ($_POST['role'] ?? '') === 'admin' ? 'admin' : 'user';
-        $perm = in_array($_POST['perm'] ?? '', ['none', 'view', 'manage'], true) ? $_POST['perm'] : 'none';
-        if ($role === 'admin') { $perm = 'manage'; }
+        // with the health module off the integrations control is hidden: the stored value stays as it is
+        $perm = module_enabled('health') ? (in_array($_POST['perm'] ?? '', ['none', 'view', 'manage'], true) ? $_POST['perm'] : 'none') : (string) $target['perm_integrations'];
+        if ($role === 'admin' && module_enabled('health')) { $perm = 'manage'; }
         if ($target['role'] === 'admin' && $role !== 'admin' && (int) $target['is_active'] === 1 && active_admin_count($pdo) <= 1) {
             flash('There must always be at least one active admin. Make someone else an admin first.', 'bad'); return;
         }
@@ -163,20 +164,20 @@ function tab_render(PDO $pdo, array $admin): void
 <section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="team-h">
   <div class="border-b border-line p-5 sm:p-6">
     <h2 id="team-h" class="text-lg font-bold tracking-tight">People with a login</h2>
-    <p class="mt-1 max-w-2xl text-sm text-soft"><strong class="text-ink">Admins</strong> can use everything, including this tab and the integrations. <strong class="text-ink">Users</strong> can use the dashboard but only open the Integrations tab if you give them <em>View only</em> (see results, run checks) or <em>Can manage</em> (also add endpoints and API keys).</p>
+    <p class="mt-1 max-w-2xl text-sm text-soft"><strong class="text-ink">Admins</strong> can use everything, including this tab<?= module_enabled('health') ? ' and the integrations' : '' ?>.<?php if (module_enabled('health')): ?> <strong class="text-ink">Users</strong> can use the dashboard but only open the Integrations tab if you give them <em>View only</em> (see results, run checks) or <em>Can manage</em> (also add endpoints and API keys).<?php endif; ?></p>
   </div>
   <div class="overflow-x-auto"><table class="w-full min-w-[880px] text-left text-sm">
-    <thead class="bg-butter-50 text-xs text-soft"><tr><th scope="col" class="px-4 py-3 font-semibold">Person</th><th scope="col" class="px-4 py-3 font-semibold">Role</th><th scope="col" class="px-4 py-3 font-semibold">Integrations</th><th scope="col" class="px-4 py-3 font-semibold">Status</th><th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th></tr></thead>
+    <thead class="bg-butter-50 text-xs text-soft"><tr><th scope="col" class="px-4 py-3 font-semibold">Person</th><th scope="col" class="px-4 py-3 font-semibold">Role</th><?php if (module_enabled('health')): ?><th scope="col" class="px-4 py-3 font-semibold">Integrations</th><?php endif; ?><th scope="col" class="px-4 py-3 font-semibold">Status</th><th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th></tr></thead>
     <tbody class="divide-y divide-line">
     <?php foreach ($members as $m): $id = (int) $m['id']; $self = $id === (int) $admin['id']; $active = (int) $m['is_active'] === 1; ?>
       <tr class="<?= $active ? 'hover:bg-butter-50' : 'bg-ink/5' ?>">
         <td class="px-4 py-3"><div class="flex items-center gap-3"><?= avatar_html($m['avatar'] ?? null, $m['name'], 'h-10 w-10') ?><div class="min-w-0"><p class="font-semibold"><?= e($m['name']) ?><?= $self ? ' <span class="text-xs font-medium text-soft">(you)</span>' : '' ?></p><p class="text-soft"><span class="notranslate"><?= e($m['username']) ?></span> · <?= e($m['email']) ?></p></div></div></td>
-        <td colspan="2" class="px-4 py-3">
+        <td colspan="<?= module_enabled('health') ? 2 : 1 ?>" class="px-4 py-3">
           <form method="post" class="flex flex-wrap items-center gap-2"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="update_user"><input type="hidden" name="id" value="<?= $id ?>">
             <label class="sr-only" for="role-<?= $id ?>">Role of <?= e($m['name']) ?></label>
             <select id="role-<?= $id ?>" name="role" class="<?= $small ?>"><option value="admin" <?= $m['role'] === 'admin' ? 'selected' : '' ?>>Admin</option><option value="user" <?= $m['role'] === 'user' ? 'selected' : '' ?>>User</option></select>
-            <label class="sr-only" for="perm-<?= $id ?>">Integrations access of <?= e($m['name']) ?></label>
-            <select id="perm-<?= $id ?>" name="perm" class="<?= $small ?>"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>" <?= $m['perm_integrations'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
+            <?php if (module_enabled('health')): ?><label class="sr-only" for="perm-<?= $id ?>">Integrations access of <?= e($m['name']) ?></label>
+            <select id="perm-<?= $id ?>" name="perm" class="<?= $small ?>"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>" <?= $m['perm_integrations'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select><?php endif; ?>
             <button class="<?= $btn ?> hover:bg-lime hover:text-navy">Save</button>
           </form>
           <?php if ($m['role'] === 'admin'): ?><p class="mt-1 text-xs text-soft">Admins always have full access.</p><?php endif; ?>
@@ -203,9 +204,9 @@ function tab_render(PDO $pdo, array $admin): void
     <div><label for="n-name" class="text-sm font-semibold">Full name</label><input id="n-name" name="name" maxlength="80" required class="<?= $field ?> mt-1.5"></div>
     <div><label for="n-user" class="text-sm font-semibold">Username</label><input id="n-user" name="username" maxlength="30" autocomplete="off" required class="<?= $field ?> mt-1.5 notranslate"><p class="mt-1 text-xs text-soft">Lowercase letters, digits, dots, dashes.</p></div>
     <div><label for="n-email" class="text-sm font-semibold">Email</label><input id="n-email" name="email" type="email" maxlength="190" required class="<?= $field ?> mt-1.5"></div>
-    <div class="grid grid-cols-2 gap-3">
+    <div class="<?= module_enabled('health') ? 'grid grid-cols-2 gap-3' : '' ?>">
       <div><label for="n-role" class="text-sm font-semibold">Role</label><select id="n-role" name="role" class="<?= $field ?> mt-1.5"><option value="user">User</option><option value="admin">Admin</option></select></div>
-      <div><label for="n-perm" class="text-sm font-semibold">Integrations</label><select id="n-perm" name="perm" class="<?= $field ?> mt-1.5"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div>
+      <?php if (module_enabled('health')): ?><div><label for="n-perm" class="text-sm font-semibold">Integrations</label><select id="n-perm" name="perm" class="<?= $field ?> mt-1.5"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div><?php endif; ?>
     </div>
     <p class="text-sm text-soft sm:col-span-2">A temporary password is generated and shown once. The person must replace it at first sign-in.</p>
     <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Create account</button></div>
@@ -218,9 +219,9 @@ function tab_render(PDO $pdo, array $admin): void
     <div><label for="i-name" class="text-sm font-semibold">Full name</label><input id="i-name" name="name" maxlength="80" required class="<?= $field ?> mt-1.5"></div>
     <div><label for="i-user" class="text-sm font-semibold">Username</label><input id="i-user" name="username" maxlength="30" autocomplete="off" required class="<?= $field ?> mt-1.5 notranslate"></div>
     <div><label for="i-email" class="text-sm font-semibold">Email</label><input id="i-email" name="email" type="email" maxlength="190" required class="<?= $field ?> mt-1.5"></div>
-    <div class="grid grid-cols-2 gap-3">
+    <div class="<?= module_enabled('health') ? 'grid grid-cols-2 gap-3' : '' ?>">
       <div><label for="i-role" class="text-sm font-semibold">Role</label><select id="i-role" name="role" class="<?= $field ?> mt-1.5"><option value="user">User</option><option value="admin">Admin</option></select></div>
-      <div><label for="i-perm" class="text-sm font-semibold">Integrations</label><select id="i-perm" name="perm" class="<?= $field ?> mt-1.5"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div>
+      <?php if (module_enabled('health')): ?><div><label for="i-perm" class="text-sm font-semibold">Integrations</label><select id="i-perm" name="perm" class="<?= $field ?> mt-1.5"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div><?php endif; ?>
     </div>
     <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Send the invitation</button></div>
   </form>

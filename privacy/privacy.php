@@ -123,7 +123,8 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     <dl class="divide-y divide-line text-sm">
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">User account</dt><dd class="text-soft"><?= $data['user'] ? e($data['user']['name'] . ' · ' . $data['user']['role'] . ' · ' . $data['user']['status'] . ' · ' . $data['user']['country']) : 'None' ?></dd></div>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Open sessions (IP addresses)</dt><dd class="text-soft"><?= count($data['connections']) ?></dd></div>
-      <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Calls and messages</dt><dd class="text-soft"><?= count($data['calls_and_messages']) ?> (from the phone systems and Twilio, deleted automatically after <?= COMM_RETENTION_MONTHS ?> months)</dd></div>
+<?php if (module_enabled('calls')): ?>
+      <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Calls and messages</dt><dd class="text-soft"><?= count($data['calls_and_messages']) ?> (from the phone systems and Twilio, deleted automatically after <?= COMM_RETENTION_MONTHS ?> months)</dd></div><?php endif; ?>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Activity-log entries</dt><dd class="text-soft"><?= count($data['activity_logs']) ?> (deleted automatically after <?= LOG_RETENTION_MONTHS ?> months)</dd></div>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Invoices as contact</dt><dd class="text-soft"><?= count($data['invoices']) ?> <?= $data['invoices'] ? '(kept 7 years: legal obligation, tax records)' : '' ?></dd></div>
     </dl>

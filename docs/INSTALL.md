@@ -132,6 +132,12 @@ Open Settings, Connectors (admins only). Every service has its own box with a **
 - Data is fetched by `bin/sync_connectors.php` (see Scheduled jobs) or with Sync now: never inside an ordinary page view.
 - The field names of each service follow its public API documentation as far as known, and the code accepts several spellings. It could not be tried against real accounts while it was built: if a real service answers differently, the sync reports "Invalid response" and stores nothing. Tell the developer which service and what it said.
 
+## Choosing modules
+
+Under Settings > Modules (admins only) switch off what this install does not use: calendar, tickets, invoices, calls, short links, connections, uptime, health checks and API, reports, backups and activity logs. A module that is off has no menu item, and its pages answer 404. Its data is kept, so it can be switched on again later. The core (companies, users, notes, search, notifications and settings) is always on.
+
+The scheduled scripts of a module that is off (`bin/kuma_poll.php`, `bin/run_recurring.php`, `bin/check_endpoints.php`) print one line and exit, so they can stay in the scheduler.
+
 ## Tests
 
 ```

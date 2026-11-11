@@ -44,12 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('users/user.php?id=' . $id);
 }
 
-$conns = $pdo->prepare('SELECT * FROM connections WHERE user_id = ? ORDER BY started_at DESC LIMIT 8');
-$conns->execute([$id]);
-$conns = $conns->fetchAll();
-$connCount = $pdo->prepare('SELECT COUNT(*) FROM connections WHERE user_id = ?');
-$connCount->execute([$id]);
-$connTotal = (int) $connCount->fetchColumn();
+$conns = [];
+$connTotal = 0;
+if (module_enabled('connections')) {
+    $conns = $pdo->prepare('SELECT * FROM connections WHERE user_id = ? ORDER BY started_at DESC LIMIT 8');
+    $conns->execute([$id]);
+    $conns = $conns->fetchAll();
+    $connCount = $pdo->prepare('SELECT COUNT(*) FROM connections WHERE user_id = ?');
+    $connCount->execute([$id]);
+    $connTotal = (int) $connCount->fetchColumn();
+}
 
 $logs = $pdo->prepare('SELECT level, actor, action, target, created_at FROM activity_logs WHERE actor = ? OR actor = ? OR target = ? ORDER BY created_at DESC, id DESC LIMIT 8');
 $logs->execute([$u['email'], $u['name'], $u['name']]);
@@ -75,7 +79,7 @@ $fields = [
     'Member since' => e(date('j F Y', strtotime($u['created_at']))) . ' <span class="text-soft">(' . e(ago($u['created_at'])) . ')</span>',
     'Last seen' => $u['logins'] > 0 ? e(date('j M Y, H:i', strtotime($u['last_seen']))) . ' <span class="text-soft">(' . e(ago($u['last_seen'])) . ')</span>' : '<span class="text-soft">Never signed in</span>',
     'Sign-ins' => number_format((int) $u['logins']),
-    'Active sessions' => number_format((int) $pdo->query('SELECT COUNT(*) FROM connections WHERE status = \'active\' AND user_id = ' . $id)->fetchColumn()),
+    ...(module_enabled('connections') ? ['Active sessions' => number_format((int) $pdo->query('SELECT COUNT(*) FROM connections WHERE status = \'active\' AND user_id = ' . $id)->fetchColumn())] : []),
     'User ID' => '#' . (int) $u['id'],
 ];
 
@@ -129,6 +133,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
         <button class="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Save</button></div></form>
   </section>
 
+  <?php if (module_enabled('connections')): ?>
   <section class="rise rounded-2xl border border-line bg-panel shadow-panel lg:col-span-2" aria-labelledby="cn">
     <div class="flex items-center justify-between gap-3 p-5 pb-3"><h2 id="cn" class="text-base font-bold">Recent connections</h2><span class="text-xs text-soft"><?= number_format($connTotal) ?> in total</span></div>
     <div class="overflow-x-auto">
@@ -143,6 +148,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
       </table>
     </div>
   </section>
+  <?php endif; ?>
 
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="ac">
     <h2 id="ac" class="text-base font-bold">Recent activity</h2>
@@ -156,9 +162,9 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
       <p class="mt-3 text-sm text-soft">Nothing recorded for this user yet.</p>
     <?php endif; ?>
   </section>
-  <?= tickets_panel($pdo, 'user_id', $id, 'tickets/ticket_new.php?user=' . $id) ?>
-  <?php if ($u['company_id'] !== null): ?><?= appointments_panel($pdo, (int) $u['company_id'], 'Appointments of ' . $u['company'], 'calendar/appointment_edit.php?company=' . (int) $u['company_id'] . '&user=' . $id, $id) ?><?php endif; ?>
-  <?= comm_panel($pdo, 'user_id', $id, 'Calls and messages') ?>
+  <?php if (module_enabled('tickets')): ?><?= tickets_panel($pdo, 'user_id', $id, 'tickets/ticket_new.php?user=' . $id) ?><?php endif; ?>
+  <?php if (module_enabled('calendar') && $u['company_id'] !== null): ?><?= appointments_panel($pdo, (int) $u['company_id'], 'Appointments of ' . $u['company'], 'calendar/appointment_edit.php?company=' . (int) $u['company_id'] . '&user=' . $id, $id) ?><?php endif; ?>
+  <?php if (module_enabled('calls')): ?><?= comm_panel($pdo, 'user_id', $id, 'Calls and messages') ?><?php endif; ?>
   <?= notes_panel($pdo, 'user', $id, 'users/user.php?id=' . $id) ?>
 </div>
 <?php page_end(); ?>

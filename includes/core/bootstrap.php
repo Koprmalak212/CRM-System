@@ -277,6 +277,9 @@ require __DIR__ . '/demo_state.php';   // demo_loaded() only: the demo loader (i
 
 enforce_rate_limit();   // last, so every page gets the same flood protection before doing any work
 
+require __DIR__ . '/modules.php';
+module_guard();   // a page of a module that is turned off (Settings > Modules) stops here with a 404
+
 /** Round profile picture, or the person's initials when they have none. Only files inside assets/avatars/ are ever used. */
 function avatar_html(?string $path, string $name, string $size = 'h-9 w-9', string $text = 'text-sm'): string
 {

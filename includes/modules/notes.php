@@ -78,14 +78,14 @@ function timeline_items(PDO $pdo, string $type, int $id, int $limit = 50): array
     foreach ($n->fetchAll() as $r) {
         $items[] = ['at' => $r['created_at'], 'kind' => $r['kind'], 'title' => NOTE_KINDS[$r['kind']], 'text' => $r['body'], 'by' => $r['author'], 'link' => null, 'note' => $r];
     }
-    if ($type === 'company') {
+    if ($type === 'company' && module_enabled('invoices')) {
         $i = $pdo->prepare('SELECT id, number, total_cents, created_at FROM invoices WHERE company_id = ? ORDER BY created_at DESC LIMIT ' . (int) $limit);
         $i->execute([$id]);
         foreach ($i->fetchAll() as $r) {
             $items[] = ['at' => $r['created_at'], 'kind' => 'invoice', 'title' => 'Invoice issued', 'text' => $r['number'] . ' · ' . money((int) $r['total_cents']), 'by' => '', 'link' => 'invoices/invoice.php?id=' . (int) $r['id']];
         }
     }
-    if ($type === 'company') {
+    if ($type === 'company' && module_enabled('tickets')) {
         $t = $pdo->prepare('SELECT id, reference, subject, created_at FROM tickets WHERE company_id = ? ORDER BY created_at DESC LIMIT ' . (int) $limit);
         $t->execute([$id]);
         foreach ($t->fetchAll() as $r) {

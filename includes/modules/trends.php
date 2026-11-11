@@ -92,9 +92,9 @@ function trend_fmt_hours(float $h): string
  * One chart card. $fmt turns a value into text (shown on hover or focus and in the table). Missing values (null) show as an empty slot.
  * Accessible: the chart has a text label with the peak and the total, every column has the same text, and "View as table" lists all values.
  */
-function trend_chart(string $id, string $title, string $sub, array $series, callable $fmt, string $valueHeading, string $summary): string
+function trend_chart(string $id, string $title, string $sub, array $series, callable $fmt, string $valueHeading, string $summary, string $span = ''): string
 {
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="' . e($id) . '-h"><h3 id="' . e($id) . '-h" class="text-base font-bold tracking-tight">' . e($title) . '</h3><p class="text-sm text-soft">' . e($sub) . '</p>';
+    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6' . ($span !== '' ? ' ' . $span : '') . '" aria-labelledby="' . e($id) . '-h"><h3 id="' . e($id) . '-h" class="text-base font-bold tracking-tight">' . e($title) . '</h3><p class="text-sm text-soft">' . e($sub) . '</p>';
     if (!trend_has_data($series)) {
         return $h . '<div class="mt-5 grid h-48 place-items-center rounded-xl border border-dashed border-line px-4 text-center text-sm text-soft" data-empty="1">No data yet. Numbers appear here as soon as there is something to count.</div></section>';
     }
@@ -118,22 +118,28 @@ function trend_chart(string $id, string $title, string $sub, array $series, call
     return $h . '</tbody></table></details></section>';
 }
 
-/** The four trend cards for the Overview. */
+/** The trend cards for the Overview. Only the cards of modules that are on (new users is core and always shown). */
 function trends_section(PDO $pdo): string
 {
-    $rev = trend_revenue($pdo);
+    $cards = [];
+    if (module_enabled('invoices')) {
+        $rev = trend_revenue($pdo);
+        $sumRev = (int) array_sum(array_column($rev, 'value'));
+        $cards[] = trend_chart('tr-rev', 'Revenue per month', 'Payments received, last 12 months', $rev, fn($v) => money((int) round($v)), 'Received', 'Total ' . money($sumRev) . ' over the last 12 months, best month ' . money((int) max(array_column($rev, 'value'))) . '.');
+    }
     $usr = trend_new_users($pdo);
-    $vol = trend_ticket_volume($pdo);
-    $open = trend_ticket_open_time($pdo);
-    $sumRev = (int) array_sum(array_column($rev, 'value'));
     $sumUsr = (int) array_sum(array_column($usr, 'value'));
-    $sumVol = (int) array_sum(array_column($vol, 'value'));
-    $openVals = array_filter(array_column($open, 'value'), fn($v) => $v !== null);
+    $cards[] = trend_chart('tr-usr', 'New users per month', 'Accounts created, last 12 months', $usr, fn($v) => (int) $v . ' new', 'New users', $sumUsr . ' new users over the last 12 months, best month ' . (int) max(array_column($usr, 'value')) . '.');
+    if (module_enabled('tickets')) {
+        $vol = trend_ticket_volume($pdo);
+        $open = trend_ticket_open_time($pdo);
+        $sumVol = (int) array_sum(array_column($vol, 'value'));
+        $openVals = array_filter(array_column($open, 'value'), fn($v) => $v !== null);
+        $cards[] = trend_chart('tr-vol', 'Tickets opened per week', 'Last 12 weeks', $vol, fn($v) => (int) $v . ' tickets', 'Tickets', $sumVol . ' tickets over the last 12 weeks, busiest week ' . (int) max(array_column($vol, 'value')) . '.');
+        // without the revenue card the last card is the odd one out, so it takes the full row
+        $cards[] = trend_chart('tr-open', 'Average time to resolve', 'Hours a ticket was open, by the week it was resolved', $open, 'trend_fmt_hours', 'Average open time', $openVals ? 'Average ' . trend_fmt_hours(array_sum($openVals) / count($openVals)) . ' across the weeks with resolved tickets.' : 'No tickets were resolved in this period.', module_enabled('invoices') ? '' : 'lg:col-span-2');
+    }
     $out = '<div class="mt-6"><h2 class="rise text-lg font-bold tracking-tight">Trends</h2><p class="rise text-sm text-soft">Hover or focus a bar for its value. Every chart has a table underneath.</p></div>'
-        . '<div class="mt-4 grid items-start gap-6 lg:grid-cols-2">';
-    $out .= trend_chart('tr-rev', 'Revenue per month', 'Payments received, last 12 months', $rev, fn($v) => money((int) round($v)), 'Received', 'Total ' . money($sumRev) . ' over the last 12 months, best month ' . money((int) max(array_column($rev, 'value'))) . '.');
-    $out .= trend_chart('tr-usr', 'New users per month', 'Accounts created, last 12 months', $usr, fn($v) => (int) $v . ' new', 'New users', $sumUsr . ' new users over the last 12 months, best month ' . (int) max(array_column($usr, 'value')) . '.');
-    $out .= trend_chart('tr-vol', 'Tickets opened per week', 'Last 12 weeks', $vol, fn($v) => (int) $v . ' tickets', 'Tickets', $sumVol . ' tickets over the last 12 weeks, busiest week ' . (int) max(array_column($vol, 'value')) . '.');
-    $out .= trend_chart('tr-open', 'Average time to resolve', 'Hours a ticket was open, by the week it was resolved', $open, 'trend_fmt_hours', 'Average open time', $openVals ? 'Average ' . trend_fmt_hours(array_sum($openVals) / count($openVals)) . ' across the weeks with resolved tickets.' : 'No tickets were resolved in this period.');
-    return $out . '</div>';
+        . '<div class="mt-4 grid items-start gap-6' . (count($cards) > 1 ? ' lg:grid-cols-2' : '') . '">';
+    return $out . implode('', $cards) . '</div>';
 }

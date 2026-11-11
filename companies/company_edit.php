@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("DELETE FROM notes WHERE about_type = 'company' AND about_id = ?")->execute([$id]);
         $pdo->prepare('DELETE FROM companies WHERE id = ?')->execute([$id]);   // its invoices stay; they simply lose the link
         log_activity('warning', 'Company deleted', $c['name']);
-        flash($c['name'] . ' was deleted. Its invoices were kept.');
+        flash($c['name'] . ' was deleted.' . (module_enabled('invoices') ? ' Its invoices were kept.' : ''));
         redirect('companies/companies.php');
     }
     [$v, $errors] = company_clean($pdo, $_POST, $id);
@@ -93,7 +93,7 @@ $in = fn(string $name, string $label, string $extra = '', string $hint = '') => 
   <?php if ($userCount > 0): ?>
     <p class="mt-2 text-sm text-soft">This company still has <?= $userCount ?> user<?= $userCount === 1 ? '' : 's' ?>, so it can not be deleted. Move or remove the users first.</p>
   <?php elseif ($confirmDelete): ?>
-    <p role="alert" class="mt-2 text-sm font-semibold text-[#FF9C8C]">Delete <?= e($c['name']) ?> for good? Its invoices are kept, but lose the link to this company.</p>
+    <p role="alert" class="mt-2 text-sm font-semibold text-[#FF9C8C]">Delete <?= e($c['name']) ?> for good?<?= module_enabled('invoices') ? ' Its invoices are kept, but lose the link to this company.' : '' ?></p>
     <form method="post" class="mt-4 flex flex-wrap gap-3"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="delete">
       <button class="pressable h-11 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, delete the company</button>
       <a href="companies/company_edit.php?id=<?= $id ?>" class="inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50">Keep it</a></form>

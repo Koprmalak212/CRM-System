@@ -22,12 +22,16 @@ $users = $pdo->prepare('SELECT id, name, email, role, status FROM users WHERE co
 $users->execute([$id]);
 $users = $users->fetchAll();
 
-$inv = $pdo->prepare('SELECT * FROM (' . invoice_base_sql() . ') t WHERE company_id = ? ORDER BY issue_date DESC, id DESC LIMIT 10');
-$inv->execute([$id]);
-$inv = $inv->fetchAll();
-$tot = $pdo->prepare('SELECT COUNT(*) n, COALESCE(SUM(balance_cents), 0) due FROM (' . invoice_base_sql() . ') t WHERE company_id = ?');
-$tot->execute([$id]);
-$tot = $tot->fetch();
+$inv = [];
+$tot = ['n' => 0, 'due' => 0];
+if (module_enabled('invoices')) {
+    $inv = $pdo->prepare('SELECT * FROM (' . invoice_base_sql() . ') t WHERE company_id = ? ORDER BY issue_date DESC, id DESC LIMIT 10');
+    $inv->execute([$id]);
+    $inv = $inv->fetchAll();
+    $tot = $pdo->prepare('SELECT COUNT(*) n, COALESCE(SUM(balance_cents), 0) due FROM (' . invoice_base_sql() . ') t WHERE company_id = ?');
+    $tot->execute([$id]);
+    $tot = $tot->fetch();
+}
 
 $none = '<span class="text-soft">Not set</span>';
 $fields = [
@@ -48,7 +52,9 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
 <div class="rise mb-5 flex flex-wrap gap-3">
   <a href="companies/company_edit.php?id=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Edit company</a>
   <a href="users/user_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Add user</a>
+<?php if (module_enabled('invoices')): ?>
   <a href="invoices/invoice_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a>
+<?php endif; ?>
 </div>
 
 <div class="grid gap-5 lg:grid-cols-3">
@@ -75,11 +81,12 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
     <?php endif; ?>
   </section>
 
-  <?= tickets_panel($pdo, 'company_id', $id, 'tickets/ticket_new.php?company=' . $id) ?>
-  <?= appointments_panel($pdo, $id, 'Upcoming appointments', 'calendar/appointment_edit.php?company=' . $id) ?>
-  <?= comm_panel($pdo, 'company_id', $id, 'Calls and messages') ?>
-  <?= shortlinks_panel($pdo, $id) ?>
+  <?php if (module_enabled('tickets')): ?><?= tickets_panel($pdo, 'company_id', $id, 'tickets/ticket_new.php?company=' . $id) ?><?php endif; ?>
+  <?php if (module_enabled('calendar')): ?><?= appointments_panel($pdo, $id, 'Upcoming appointments', 'calendar/appointment_edit.php?company=' . $id) ?><?php endif; ?>
+  <?php if (module_enabled('calls')): ?><?= comm_panel($pdo, 'company_id', $id, 'Calls and messages') ?><?php endif; ?>
+  <?php if (module_enabled('links')): ?><?= shortlinks_panel($pdo, $id) ?><?php endif; ?>
 
+  <?php if (module_enabled('invoices')): ?>
   <section class="rise rounded-2xl border border-line bg-panel shadow-panel lg:col-span-3" aria-labelledby="iv">
     <div class="flex flex-wrap items-center justify-between gap-3 p-5 pb-3"><h2 id="iv" class="text-base font-bold">Invoices</h2>
       <span class="text-xs text-soft notranslate"><?= (int) $tot['n'] ?> in total · <?= e(money((int) $tot['due'])) ?> outstanding</span></div>
@@ -97,6 +104,7 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
       </table>
     </div>
   </section>
+  <?php endif; ?>
 
   <?= notes_panel($pdo, 'company', $id, 'companies/company.php?id=' . $id) ?>
 </div>

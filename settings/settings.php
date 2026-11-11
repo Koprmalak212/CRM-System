@@ -7,12 +7,22 @@ $pdo = db();
 
 // Tabs and who may open them. This is enforced here on the server; hiding a tab in the menu is only a convenience.
 $tabs = ['account' => 'Account'];
-if (integrations_level() !== 'none') { $tabs['integrations'] = 'Integrations'; }
-if (is_admin()) { $tabs['team'] = 'Team & access'; $tabs['company'] = 'Company details'; $tabs['email'] = 'Email'; $tabs['kuma'] = 'Kuma API Key'; $tabs['connectors'] = 'Connectors'; $tabs['tests'] = 'Tests'; }
+if (integrations_level() !== 'none' && module_enabled('health')) { $tabs['integrations'] = 'Integrations'; }
+if (is_admin()) {
+    $tabs['team'] = 'Team & access'; $tabs['company'] = 'Company details'; $tabs['email'] = 'Email';
+    if (module_enabled('uptime')) { $tabs['kuma'] = 'Kuma API Key'; }
+    if (module_any('calls', 'links')) { $tabs['connectors'] = 'Connectors'; }
+    $tabs['modules'] = 'Modules'; $tabs['tests'] = 'Tests';
+}
 
 $tab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'account');
-if (!in_array($tab, ['account', 'integrations', 'team', 'company', 'email', 'kuma', 'connectors', 'tests'], true)) { $tab = 'account'; }
-if (!isset($tabs[$tab])) { deny_access('settings:' . $tab); }
+if (!in_array($tab, ['account', 'integrations', 'team', 'company', 'email', 'kuma', 'connectors', 'modules', 'tests'], true)) { $tab = 'account'; }
+if (!isset($tabs[$tab])) {
+    foreach (['integrations' => ['health'], 'kuma' => ['uptime'], 'connectors' => ['calls', 'links']] as $t => $mods) {
+        if ($tab === $t && !module_any(...$mods)) { require_module($mods[0]); }   // the tab's module is off: 404, not "no access"
+    }
+    deny_access('settings:' . $tab);
+}
 
 require __DIR__ . '/../includes/settings/' . $tab . '.php';   // defines tab_handle() and tab_render() for this tab
 if (function_exists('tab_early') && $_SERVER['REQUEST_METHOD'] === 'GET') { tab_early($pdo, $admin); }   // downloads that must send headers before any page output
@@ -31,6 +41,7 @@ $lede = [
     'email' => 'How the system sends email, and the outbox of every message. Only admins see this tab.',
     'kuma' => 'Connect Uptime Kuma so its monitors show on the Uptime page. Only admins see this tab.',
     'connectors' => 'Connect 3CX, Yeastar, Twilio and Short.io: encrypted credentials, a test button and a sync. Only admins see this tab.',
+    'modules' => 'Turn the parts of the system on or off for this install. Only admins see this tab.',
     'tests' => 'Documentation of the tests that were performed, what they found and how it was fixed. Only admins see this tab.',
 ][$tab];
 page_start('Settings', 'settings', $lede);

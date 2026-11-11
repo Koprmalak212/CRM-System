@@ -7,7 +7,9 @@ require_login();
 $pdo = db();
 
 $q = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
-$sorts = ['name' => 'c.name', 'city' => 'c.city', 'kvk' => 'c.kvk', 'users' => 'user_count', 'invoices' => 'invoice_count'];
+$invoicesOn = module_enabled('invoices');
+$sorts = ['name' => 'c.name', 'city' => 'c.city', 'kvk' => 'c.kvk', 'users' => 'user_count'];
+if ($invoicesOn) { $sorts['invoices'] = 'invoice_count'; }
 $sort = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'name';
 $dir = ($_GET['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
@@ -24,7 +26,8 @@ $cnt = $pdo->prepare("SELECT COUNT(*) FROM companies c $where");
 $cnt->execute($args);
 $total = (int) $cnt->fetchColumn();
 $page = min($page, max(1, (int) ceil($total / $per)));
-$rows = $pdo->prepare("SELECT c.*, (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) user_count, (SELECT COUNT(*) FROM invoices i WHERE i.company_id = c.id) invoice_count
+$invSub = $invoicesOn ? ', (SELECT COUNT(*) FROM invoices i WHERE i.company_id = c.id) invoice_count' : '';
+$rows = $pdo->prepare("SELECT c.*, (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) user_count$invSub
     FROM companies c $where ORDER BY {$sorts[$sort]} $dir, c.id DESC LIMIT $per OFFSET " . (($page - 1) * $per));
 $rows->execute($args);
 $rows = $rows->fetchAll();
@@ -49,7 +52,7 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
           <?= th_sort('City', 'city', $sort, $dir, $base) ?>
           <?= th_sort('KvK', 'kvk', $sort, $dir, $base) ?>
           <?= th_sort('Users', 'users', $sort, $dir, $base, 'right') ?>
-          <?= th_sort('Invoices', 'invoices', $sort, $dir, $base, 'right') ?>
+          <?php if ($invoicesOn): ?><?= th_sort('Invoices', 'invoices', $sort, $dir, $base, 'right') ?><?php endif; ?>
         </tr>
       </thead>
       <tbody class="divide-y divide-line">
@@ -61,11 +64,11 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
             <td class="px-4 py-3"><?= $c['city'] !== '' ? e($c['city']) : '<span class="text-soft">Not set</span>' ?></td>
             <td class="px-4 py-3 tabular-nums notranslate"><?= $c['kvk'] !== '' ? e($c['kvk']) : '<span class="text-soft">Not set</span>' ?></td>
             <td class="px-4 py-3 text-right tabular-nums"><?= $c['user_count'] > 0 ? '<a class="underline-offset-4 hover:underline" href="users/users.php?company=' . (int) $c['id'] . '">' . (int) $c['user_count'] . '</a>' : '0' ?></td>
-            <td class="px-4 py-3 text-right tabular-nums"><?= (int) $c['invoice_count'] ?></td>
+            <?php if ($invoicesOn): ?><td class="px-4 py-3 text-right tabular-nums"><?= (int) $c['invoice_count'] ?></td><?php endif; ?>
           </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-          <tr><td colspan="5" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= $q !== '' ? 'No companies match this search' : 'No companies yet' ?></p><p class="mt-1 text-soft"><?= $q !== '' ? 'Try a different name or clear the search.' : 'Add the first one, or load demo data from the Overview.' ?></p><a href="<?= $q !== '' ? 'companies/companies.php' : 'companies/company_edit.php' ?>" class="mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy"><?= $q !== '' ? 'Show all companies' : 'Add a company' ?></a></td></tr>
+          <tr><td colspan="<?= $invoicesOn ? 5 : 4 ?>" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= $q !== '' ? 'No companies match this search' : 'No companies yet' ?></p><p class="mt-1 text-soft"><?= $q !== '' ? 'Try a different name or clear the search.' : 'Add the first one, or load demo data from the Overview.' ?></p><a href="<?= $q !== '' ? 'companies/companies.php' : 'companies/company_edit.php' ?>" class="mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy"><?= $q !== '' ? 'Show all companies' : 'Add a company' ?></a></td></tr>
         <?php endif; ?>
       </tbody>
     </table>

@@ -7,9 +7,11 @@ require_login();
 $pdo = db();
 
 if (isset($_GET['go'])) {   // clicked in the bell or the list: mark it read, then go where it points
-    $g = $pdo->prepare('SELECT id, link FROM notifications WHERE id = ?');
+    $g = $pdo->prepare('SELECT id, link, kind, dedupe_key FROM notifications WHERE id = ?');
     $g->execute([(int) $_GET['go']]);
-    if ($n = $g->fetch()) {
+    $n = $g->fetch();
+    $gm = $n ?notification_module((string) $n['kind'], (string) $n['dedupe_key']) : null;   // a notification of a module that is off is not opened
+    if ($n && ($gm === null || module_enabled($gm))) {
         notifications_mark_read($pdo, (int) $n['id']);
         $link = legacy_page((string) $n['link']);   // links saved before the pages moved into folders still work
         redirect(preg_match('#^(?:[a-z_]+/)?[a-z_]+\.php(\?[A-Za-z0-9_=&%.+-]{0,100})?$#', $link) && is_file(APP_ROOT . '/' . strtok($link, '?')) ? $link : 'notifications/notifications.php');
@@ -33,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $only = ($_GET['show'] ?? '') === 'unread' ? 'unread' : 'all';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
 $per = 20;
-$w = $only === 'unread' ? 'WHERE read_at IS NULL' : '';
+$w = 'WHERE TRUE' . ($only === 'unread' ? ' AND read_at IS NULL' : '') . notifications_hidden_sql();   // notifications of modules that are off are not listed
 $total = (int) $pdo->query("SELECT COUNT(*) FROM notifications $w")->fetchColumn();
 $unread = notifications_unread($pdo);
 $page = min($page, max(1, (int) ceil($total / $per)));

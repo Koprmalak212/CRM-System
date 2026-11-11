@@ -37,6 +37,12 @@ function connector_defs(): array
     ];
 }
 
+/** The module a service belongs to: 'calls' (3CX, Yeastar, Twilio) or 'links' (Short.io). */
+function connector_module(string $provider): string
+{
+    return $provider === 'shortio' ? 'links' : 'calls';
+}
+
 function connector_default_row(string $p): array
 {
     return ['provider' => $p, 'enabled' => 0, 'base_url' => '', 'account_ref' => '', 'secret_enc' => null, 'secret_last4' => '', 'verify_tls' => 1,

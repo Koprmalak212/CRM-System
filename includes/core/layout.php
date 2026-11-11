@@ -23,6 +23,7 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
         'backups' => ['system/backups.php', 'Backups', 'database'],
         'logs' => ['system/logs.php', 'Activity logs', 'activity'],
     ];
+    $nav = array_filter($nav, 'module_enabled', ARRAY_FILTER_USE_KEY);   // menu keys are module keys; overview, users and companies are core
     $flag = flash();
     try { notifications_refresh(db()); $bell = notifications_bell(db()); }
     catch (Throwable $e) { $bell = ''; error_log('Notifications unavailable: ' . $e->getMessage()); }   // a problem here must never stop a page from loading
@@ -105,7 +106,7 @@ function page_start(string $title, string $active, string $lede = '', bool $demo
       <form action="search/search.php" method="get" role="search" class="relative min-w-0 max-w-md flex-1">
         <label for="gsearch" class="sr-only">Search everything</label>
         <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-soft"><?= icon('search', 'h-4 w-4') ?></span>
-        <input id="gsearch" name="q" type="search" placeholder="Search users, companies, invoices, tickets (press /)" aria-keyshortcuts="/" class="h-10 w-full rounded-xl border border-line bg-panel pl-9 pr-1 text-sm placeholder:text-soft/80 sm:pl-10 sm:pr-3 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+        <input id="gsearch" name="q" type="search" placeholder="<?= e('Search users, companies' . (module_enabled('invoices') ? ', invoices' : '') . (module_enabled('tickets') ? ', tickets' : '') . ' (press /)') ?>" aria-keyshortcuts="/" class="h-10 w-full rounded-xl border border-line bg-panel pl-9 pr-1 text-sm placeholder:text-soft/80 sm:pl-10 sm:pr-3 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
         <a id="teletolliePop" href="extras/teletollie.php" hidden class="creator-pop absolute left-0 top-12 z-50 inline-flex items-center gap-2 rounded-xl bg-butter px-4 py-2.5 text-sm font-bold text-navy shadow-[0_14px_30px_-10px_rgba(0,0,0,.8)] hover:brightness-95">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           Slaat op in het woordenboek

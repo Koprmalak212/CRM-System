@@ -104,7 +104,7 @@ function tab_render(PDO $pdo, array $admin): void
 <div class="grid gap-6 lg:grid-cols-2">
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="pw-h">
     <h2 id="pw-h" class="text-lg font-bold tracking-tight">Change password</h2>
-    <p class="mt-1 text-sm text-soft">Signed in as <?= e($admin['email']) ?> · <?= e($roleText) ?> · Integrations: <?= e($integ) ?></p>
+    <p class="mt-1 text-sm text-soft">Signed in as <?= e($admin['email']) ?> · <?= e($roleText) ?><?php if (module_enabled('health')): ?> · Integrations: <?= e($integ) ?><?php endif; ?></p>
     <form method="post" class="mt-5 space-y-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account">
       <div><label for="current" class="text-sm font-semibold">Current password</label><input id="current" name="current" type="password" autocomplete="current-password" required class="<?= $field ?>"></div>
       <div><label for="new" class="text-sm font-semibold">New password</label><input id="new" name="new" type="password" autocomplete="new-password" required minlength="12" class="<?= $field ?>"><p class="mt-1 text-xs text-soft">At least 12 characters. A short sentence works well.</p></div>

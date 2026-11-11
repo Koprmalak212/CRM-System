@@ -31,6 +31,7 @@ Contents
   17. Backups
   18. Activity logs
   19. Settings (all tabs)
+  19A. Modules (turning parts on and off)
   20. Team management
   21. Privacy pages
   22. Demo data
@@ -585,6 +586,28 @@ Tests
   info), what was checked and notes. Useful as proof of quality and for
   finding open points. New entries can be added by hand.
 
+
+===============================================================================
+19A. MODULES (Settings > Modules, admins)
+===============================================================================
+
+Eleven parts can be turned on or off for each install: Calendar, Tickets,
+Invoices, Calls & messages, Short links, Connections, Uptime, Health checks &
+API, Reports, Backups and Activity logs. Tick the ones this install uses and
+press Save. Users, companies, notes, search, notifications and the settings
+are always on.
+
+What happens to a module that is off
+  - Its menu item and its pages are closed: a page says "This part is turned
+    off" and an API address answers with a short error.
+  - Its search results and notifications disappear, and so do its background
+    jobs (the scripts print one line and exit).
+  - Its settings tab disappears too: Uptime Kuma goes with Uptime, Connectors
+    with Calls or Short links, and Integrations with Health checks & API.
+  - Nothing is deleted. Turn the module on again and everything is back.
+
+Modules do not depend on each other, so any combination works. Each change is
+written to the activity log as "Modules changed".
 
 ===============================================================================
 20. TEAM MANAGEMENT (Settings > Team, admins)

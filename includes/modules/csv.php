@@ -61,10 +61,17 @@ function csv_export_write(PDO $pdo, string $type, $out): int
     return $n;
 }
 
-/** Export and import buttons for a list page. Only admins get them. */
+/** The module that owns an export type, or null for core data (users, companies). */
+function csv_type_module(string $type): ?string
+{
+    return match ($type) { 'invoices' => 'invoices', 'tickets' => 'tickets', 'logs' => 'logs', default => null };
+}
+
+/** Export and import buttons for a list page. Only admins get them, and not for a type whose module is off. */
 function csv_buttons(string $type): string
 {
-    if (!is_admin() || !isset(CSV_TYPES[$type])) { return ''; }
+    $m = csv_type_module($type);
+    if (!is_admin() || !isset(CSV_TYPES[$type]) || ($m !== null && !module_enabled($m))) { return ''; }
     $cls = 'pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy';
     $h = '<a href="system/export.php?type=' . e($type) . '" class="' . $cls . '">' . icon('download', 'h-4 w-4') . 'Export CSV</a>';
     if (isset(CSV_IMPORT_TYPES[$type])) { $h .= '<a href="system/import.php?type=' . e($type) . '" class="' . $cls . '">' . icon('plus', 'h-4 w-4') . 'Import CSV</a>'; }

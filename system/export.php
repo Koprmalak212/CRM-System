@@ -4,6 +4,8 @@ require __DIR__ . '/../includes/core/bootstrap.php';
 require __DIR__ . '/../includes/modules/csv.php';
 require_login();
 $type = (string) ($_GET['type'] ?? '');
+$typeModule = csv_type_module($type);
+if ($typeModule !== null) { require_module($typeModule); }   // the data of a module that is off is not exported
 if (!is_admin()) { deny_access('export:' . preg_replace('/[^a-z]/', '', $type)); }   // personal data: admins only
 if (!isset(CSV_TYPES[$type])) {
     http_response_code(404);

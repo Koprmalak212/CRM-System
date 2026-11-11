@@ -10,6 +10,7 @@ function tab_handle(PDO $pdo, array $admin): void
     $defs = connector_defs();
     $p = is_string($_POST['provider'] ?? null) ? $_POST['provider'] : '';
     if (!isset($defs[$p])) { flash('Unknown service.', 'bad'); return; }
+    require_module(connector_module($p));   // the module of this service is off: no save, test or sync
     $d = $defs[$p];
     $GLOBALS['tab_redirect'] = 'settings/settings.php?tab=connectors#c-' . $p;
     $action = is_string($_POST['action'] ?? null) ? $_POST['action'] : 'save';
@@ -50,11 +51,14 @@ function tab_render(PDO $pdo, array $admin): void
     $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $btn = 'pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50';
     ?>
+<?php if (module_any('calls', 'links')): ?>
 <section class="rise max-w-3xl" aria-labelledby="cn-h">
   <h2 id="cn-h" class="text-lg font-bold tracking-tight">Connect your phone systems, Twilio and Short.io</h2>
   <p class="mt-1 max-w-2xl text-sm text-soft">Secrets are stored encrypted and are never shown again: leave a secret field empty to keep the saved one. Calls and messages are matched to people and companies by phone number, so keep the phone numbers on people and companies up to date. Data is fetched every few minutes by a scheduled job (<code>bin/sync_connectors.php</code>) or when you press Sync now.</p>
 </section>
+<?php endif; ?>
 <?php foreach (connector_defs() as $p => $d):
+    if (!module_enabled(connector_module($p))) { continue; }   // only services whose module is on are listed
     $c = connector_get($pdo, $p);
     $has = connector_has_secret($c);
     $state = (string) $c['last_state'];

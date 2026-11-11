@@ -26,27 +26,40 @@ if ($q !== '') {
     [$n, $rows] = $one('SELECT COUNT(*) FROM companies WHERE name LIKE ? OR city LIKE ? OR kvk LIKE ? OR email LIKE ?', 'SELECT id, name, city, kvk FROM companies WHERE name LIKE ? OR city LIKE ? OR kvk LIKE ? OR email LIKE ? ORDER BY name', 4);
     $groups['companies'] = ['Companies', $n, array_map(fn($r) => ['companies/company.php?id=' . $r['id'], $r['name'], trim($r['city'] . ($r['kvk'] !== '' ? ' · KvK ' . $r['kvk'] : ''), ' ·'), ''], $rows), 'companies/companies.php' . qs_args(['q' => $q])];
 
-    [$n, $rows] = $one('SELECT COUNT(*) FROM invoices WHERE number LIKE ? OR customer LIKE ? OR email LIKE ?',
-        'SELECT * FROM (' . invoice_base_sql() . ') t WHERE number LIKE ? OR customer LIKE ? OR email LIKE ? ORDER BY issue_date DESC, id DESC', 3);
-    $groups['invoices'] = ['Invoices', $n, array_map(fn($r) => ['invoices/invoice.php?id=' . $r['id'], $r['number'], $r['customer'] . ' · ' . money((int) $r['total_cents']), badge($r['state'])], $rows), 'invoices/invoices.php' . qs_args(['q' => $q])];
+    if (module_enabled('invoices')) {
+        [$n, $rows] = $one('SELECT COUNT(*) FROM invoices WHERE number LIKE ? OR customer LIKE ? OR email LIKE ?',
+            'SELECT * FROM (' . invoice_base_sql() . ') t WHERE number LIKE ? OR customer LIKE ? OR email LIKE ? ORDER BY issue_date DESC, id DESC', 3);
+        $groups['invoices'] = ['Invoices', $n, array_map(fn($r) => ['invoices/invoice.php?id=' . $r['id'], $r['number'], $r['customer'] . ' · ' . money((int) $r['total_cents']), badge($r['state'])], $rows), 'invoices/invoices.php' . qs_args(['q' => $q])];
+    }
 
-    [$n, $rows] = $one('SELECT COUNT(*) FROM tickets t LEFT JOIN companies c ON c.id = t.company_id WHERE t.reference LIKE ? OR t.subject LIKE ? OR c.name LIKE ?',
-        'SELECT t.id, t.reference, t.subject, t.status, c.name AS company FROM tickets t LEFT JOIN companies c ON c.id = t.company_id WHERE t.reference LIKE ? OR t.subject LIKE ? OR c.name LIKE ? ORDER BY t.updated_at DESC', 3);
-    $groups['tickets'] = ['Tickets', $n, array_map(fn($r) => ['tickets/ticket.php?id=' . $r['id'], $r['subject'], $r['reference'] . ($r['company'] !== null ? ' · ' . $r['company'] : ''), badge($r['status'])], $rows), 'tickets/tickets.php' . qs_args(['q' => $q])];
+    if (module_enabled('tickets')) {
+        [$n, $rows] = $one('SELECT COUNT(*) FROM tickets t LEFT JOIN companies c ON c.id = t.company_id WHERE t.reference LIKE ? OR t.subject LIKE ? OR c.name LIKE ?',
+            'SELECT t.id, t.reference, t.subject, t.status, c.name AS company FROM tickets t LEFT JOIN companies c ON c.id = t.company_id WHERE t.reference LIKE ? OR t.subject LIKE ? OR c.name LIKE ? ORDER BY t.updated_at DESC', 3);
+        $groups['tickets'] = ['Tickets', $n, array_map(fn($r) => ['tickets/ticket.php?id=' . $r['id'], $r['subject'], $r['reference'] . ($r['company'] !== null ? ' · ' . $r['company'] : ''), badge($r['status'])], $rows), 'tickets/tickets.php' . qs_args(['q' => $q])];
+    }
 }
 $total = array_sum(array_map(fn($g) => $g[1], $groups));
+// the wording follows the modules that are on (users and companies are always searched)
+$inv = module_enabled('invoices');
+$tix = module_enabled('tickets');
+$names = array_merge(['users', 'companies'], $inv ? ['invoices'] : [], $tix ? ['tickets'] : []);
+$namesText = count($names) > 2 ? implode(', ', array_slice($names, 0, -1)) . ' and ' . end($names) : implode(' and ', $names);
+$refs = array_merge($inv ? ['invoice number'] : [], $tix ? ['ticket'] : []);
+$hint = 'Name, email, company, KvK' . ($refs ? ', ' . implode(' or ', $refs) : '');
+$helpRefs = array_merge($inv ? ['an invoice number such as INV-2026-1001'] : [], $tix ? ['a ticket reference such as TCK-0001'] : []);
+$helpText = 'Type a name, an email address, a company, a KvK number' . ($helpRefs ? ', ' . implode(' or ', $helpRefs) : '') . '.';
 
-page_start('Search', 'search', $q === '' ? 'Search users, companies, invoices and tickets in one go.' : ($total === 0 ? 'Nothing found.' : number_format($total) . ' result' . ($total === 1 ? '' : 's') . ' for “' . $q . '”.'));
+page_start('Search', 'search', $q === '' ? 'Search ' . $namesText . ' in one go.' : ($total === 0 ? 'Nothing found.' : number_format($total) . ' result' . ($total === 1 ? '' : 's') . ' for “' . $q . '”.'));
 $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <form method="get" role="search" class="rise mb-6 flex flex-wrap gap-3">
   <label class="sr-only" for="sq">Search everything</label>
-  <input id="sq" name="q" type="search" value="<?= e($q) ?>" maxlength="100" placeholder="Name, email, company, KvK, invoice number or ticket" class="<?= $field ?> w-full sm:w-[28rem]">
+  <input id="sq" name="q" type="search" value="<?= e($q) ?>" maxlength="100" placeholder="<?= e($hint) ?>" class="<?= $field ?> w-full sm:w-[28rem]">
   <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Search</button>
 </form>
 
 <?php if ($q === ''): ?>
-  <p class="rise text-sm text-soft">Type a name, an email address, a company, a KvK number, an invoice number such as INV-2026-1001 or a ticket reference such as TCK-0001.</p>
+  <p class="rise text-sm text-soft"><?= $helpText ?></p>
 <?php elseif ($total === 0): ?>
   <div class="rise rounded-2xl border border-line bg-panel px-4 py-14 text-center shadow-panel"><p class="text-base font-semibold">No results for “<?= e($q) ?>”</p><p class="mt-1 text-soft">Check the spelling, or try fewer words.</p></div>
 <?php else: ?>

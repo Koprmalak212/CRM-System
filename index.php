@@ -9,32 +9,51 @@ $pdo = db();
 
 $usersTotal = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
 $usersNew = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL 30 DAY')->fetchColumn();
-$ticketsOpen = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed')")->fetchColumn();
-$ticketsUrgent = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed') AND priority = 'urgent'")->fetchColumn();
-$usersPending = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
-$conn = $pdo->query("SELECT COUNT(*) total, SUM(status = 'flagged') flagged FROM connections")->fetch();
-$lastBackup = $pdo->query("SELECT started_at FROM backups WHERE status = 'completed' ORDER BY started_at DESC LIMIT 1")->fetchColumn();
-$failedBackups = $pdo->query("SELECT id, name, started_at FROM backups WHERE status = 'failed' AND started_at >= NOW() - INTERVAL 48 HOUR ORDER BY started_at DESC")->fetchAll();
-$err24 = (int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE level IN ('error','critical') AND created_at >= NOW() - INTERVAL 24 HOUR")->fetchColumn();
-$errPrev = (int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE level IN ('error','critical') AND created_at BETWEEN NOW() - INTERVAL 48 HOUR AND NOW() - INTERVAL 24 HOUR")->fetchColumn();
-
-// Service health ribbons
-$services = $pdo->query('SELECT id, name FROM services ORDER BY sort_order')->fetchAll();
-$checks = [];
-foreach ($pdo->query('SELECT service_id, slot, status FROM service_checks ORDER BY slot') as $c) {
-    $checks[(int) $c['service_id']][(int) $c['slot']] = $c['status'];
+// every module block below is skipped when its module is off, and gets safe defaults instead
+$ticketsOpen = 0;
+$ticketsUrgent = 0;
+if (module_enabled('tickets')) {
+    $ticketsOpen = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed')")->fetchColumn();
+    $ticketsUrgent = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed') AND priority = 'urgent'")->fetchColumn();
 }
+$usersPending = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
+$conn = ['total' => 0, 'flagged' => 0];
+if (module_enabled('connections')) { $conn = $pdo->query("SELECT COUNT(*) total, SUM(status = 'flagged') flagged FROM connections")->fetch(); }
+$lastBackup = null;
+$failedBackups = [];
+if (module_enabled('backups')) {
+    $lastBackup = $pdo->query("SELECT started_at FROM backups WHERE status = 'completed' ORDER BY started_at DESC LIMIT 1")->fetchColumn();
+    $failedBackups = $pdo->query("SELECT id, name, started_at FROM backups WHERE status = 'failed' AND started_at >= NOW() - INTERVAL 48 HOUR ORDER BY started_at DESC")->fetchAll();
+}
+$err24 = 0;
+$errPrev = 0;
+if (module_enabled('logs')) {
+    $err24 = (int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE level IN ('error','critical') AND created_at >= NOW() - INTERVAL 24 HOUR")->fetchColumn();
+    $errPrev = (int) $pdo->query("SELECT COUNT(*) FROM activity_logs WHERE level IN ('error','critical') AND created_at BETWEEN NOW() - INTERVAL 48 HOUR AND NOW() - INTERVAL 24 HOUR")->fetchColumn();
+}
+
+// Service health ribbons and the endpoints that are down (module: health)
+$services = [];
+$checks = [];
 $healthy = 0;
 $notHealthy = [];
-foreach ($services as &$s) {
-    $row = $checks[(int) $s['id']] ?? [];
-    $s['now'] = $row[35] ?? 'ok';
-    $okCount = count(array_filter($row, fn($v) => $v === 'ok'));
-    $s['uptime'] = count($row) ? $okCount / count($row) * 100 : 100;
-    $s['row'] = $row;
-    if ($s['now'] === 'ok') $healthy++; else $notHealthy[] = $s;
+$epDown = [];
+if (module_enabled('health')) {
+    $services = $pdo->query('SELECT id, name FROM services ORDER BY sort_order')->fetchAll();
+    foreach ($pdo->query('SELECT service_id, slot, status FROM service_checks ORDER BY slot') as $c) {
+        $checks[(int) $c['service_id']][(int) $c['slot']] = $c['status'];
+    }
+    foreach ($services as &$s) {
+        $row = $checks[(int) $s['id']] ?? [];
+        $s['now'] = $row[35] ?? 'ok';
+        $okCount = count(array_filter($row, fn($v) => $v === 'ok'));
+        $s['uptime'] = count($row) ? $okCount / count($row) * 100 : 100;
+        $s['row'] = $row;
+        if ($s['now'] === 'ok') $healthy++; else $notHealthy[] = $s;
+    }
+    unset($s);
+    $epDown = $pdo->query("SELECT name FROM monitored_endpoints WHERE enabled = 1 AND last_state = 'down' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 }
-unset($s);
 
 // Activity per hour, last 24h
 $hours = array_fill(0, 24, ['info' => 0, 'warn' => 0, 'bad' => 0]);
@@ -48,10 +67,23 @@ $hours = array_reverse($hours, true); // oldest first
 $maxH = max(1, ...array_map(fn($x) => array_sum($x), $hours));
 $recent = $pdo->query("SELECT level, actor, action, target, created_at FROM activity_logs ORDER BY created_at DESC LIMIT 8")->fetchAll();
 
-$od = $pdo->query("SELECT COUNT(*) n, COALESCE(SUM(balance_cents), 0) s FROM (" . invoice_base_sql() . ") t WHERE state = 'overdue'")->fetch();
-$epDown = $pdo->query("SELECT name FROM monitored_endpoints WHERE enabled = 1 AND last_state = 'down' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+$od = ['n' => 0, 's' => 0];
+if (module_enabled('invoices')) { $od = $pdo->query("SELECT COUNT(*) n, COALESCE(SUM(balance_cents), 0) s FROM (" . invoice_base_sql() . ") t WHERE state = 'overdue'")->fetch(); }
 $problems = count($notHealthy) + (count($epDown) > 0 ? 1 : 0) + ((int) $od['n'] > 0 ? 1 : 0) + count($failedBackups) + ((int) $conn['flagged'] > 0 ? 1 : 0);
 $delta = $err24 - $errPrev;
+// the headline names only the parts whose module is on
+$headParts = [];
+if (module_enabled('health')) { $headParts[] = $services ? $healthy . ' of ' . count($services) . ' services healthy' : 'Nothing is tracked yet'; }
+if ($problems > 0) { $headParts[] = $problems . ' item' . ($problems === 1 ? '' : 's') . ' need attention'; }
+$headline = $headParts ? implode(', ', $headParts) . '.' : 'Nothing needs attention.';
+// stat tiles: only the ones whose module is on, and the grid gets as many columns as there are tiles
+$stats = [['Accounts', number_format($usersTotal), '+' . $usersNew . ' in 30 days', 'users/users.php']];
+if (module_enabled('tickets')) { $stats[] = ['Open tickets', (string) $ticketsOpen, $ticketsUrgent . ' urgent', 'tickets/tickets.php?status=open']; }
+if (module_enabled('connections')) { $stats[] = ['Open sessions', (string) (int) $conn['total'], (int) $conn['flagged'] . ' flagged', 'monitoring/connections.php']; }
+if (module_enabled('backups')) { $stats[] = ['Last good backup', $lastBackup ? ago($lastBackup) : 'None', count($failedBackups) . ' failed in 48 h', 'system/backups.php']; }
+if (module_enabled('logs')) { $stats[] = ['Errors, 24 h', (string) $err24, ($delta === 0 ? 'same as before' : ($delta > 0 ? '+' . $delta . ' vs previous 24 h' : $delta . ' vs previous 24 h')), 'system/logs.php?level=error']; }
+$statN = count($stats);
+$statCols = ['', '', 'lg:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-cols-4', 'lg:grid-cols-5'][$statN];
 
 page_start('Overview', 'overview', 'Live state of the platform over the last 24 hours.');
 ?>
@@ -60,31 +92,23 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
   <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
       <p class="text-xl font-bold tracking-tight sm:text-2xl">
-        <?php if ($services): ?><?= $healthy ?> of <?= count($services) ?> services healthy<?php else: ?>Nothing is tracked yet<?php endif; ?><?= $problems > 0 ? ', ' . $problems . ' item' . ($problems === 1 ? '' : 's') . ' need attention' : '' ?>.
+        <?= $headline ?>
       </p>
       <p class="mt-1 text-[15px] text-navy/75">
-        <?= $lastBackup ? 'Last good backup ' . e(ago($lastBackup)) . '. ' : '' ?><?= number_format($usersTotal) ?> accounts, <?= (int) $conn['total'] ?> open sessions.
+        <?= $lastBackup ? 'Last good backup ' . e(ago($lastBackup)) . '. ' : '' ?><?= number_format($usersTotal) ?> accounts<?= module_enabled('connections') ? ', ' . (int) $conn['total'] . ' open sessions' : '' ?>.
       </p>
     </div>
     <div class="flex gap-2">
-      <a href="system/logs.php?level=error" class="inline-flex h-11 items-center gap-2 rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-navy-800">Review errors <?= icon('arrow', 'h-4 w-4') ?></a>
-      <a href="system/backups.php" class="inline-flex h-11 items-center rounded-xl border border-navy/20 bg-white/60 px-4 text-sm font-semibold hover:bg-panel">Backups</a>
+      <?php if (module_enabled('logs')): ?><a href="system/logs.php?level=error" class="inline-flex h-11 items-center gap-2 rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-navy-800">Review errors <?= icon('arrow', 'h-4 w-4') ?></a><?php endif; ?>
+      <?php if (module_enabled('backups')): ?><a href="system/backups.php" class="inline-flex h-11 items-center rounded-xl border border-navy/20 bg-white/60 px-4 text-sm font-semibold hover:bg-panel">Backups</a><?php endif; ?>
       <?php if (is_admin()): ?><a href="<?= self_url() ?>#demo-data" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-navy/20 bg-white/60 px-4 text-sm font-semibold hover:bg-white"><?= icon('database', 'h-4 w-4') ?>Demo data</a><?php endif; ?>
     </div>
   </div>
 </section>
 
-<div class="stat-grid rise mt-6 grid grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel lg:grid-cols-5 lg:divide-x" style="animation-delay:.05s">
-  <?php
-  $stats = [
-      ['Accounts', number_format($usersTotal), '+' . $usersNew . ' in 30 days', 'users/users.php'],
-      ['Open tickets', (string) $ticketsOpen, $ticketsUrgent . ' urgent', 'tickets/tickets.php?status=open'],
-      ['Open sessions', (string) (int) $conn['total'], (int) $conn['flagged'] . ' flagged', 'monitoring/connections.php'],
-      ['Last good backup', $lastBackup ? ago($lastBackup) : 'None', count($failedBackups) . ' failed in 48 h', 'system/backups.php'],
-      ['Errors, 24 h', (string) $err24, ($delta === 0 ? 'same as before' : ($delta > 0 ? '+' . $delta . ' vs previous 24 h' : $delta . ' vs previous 24 h')), 'system/logs.php?level=error'],
-  ];
-  foreach ($stats as $i => [$label, $value, $note, $href]): ?>
-    <a href="<?= e($href) ?>" class="group block p-5 hover:bg-butter-50 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i === 4 ? 'col-span-2 lg:col-span-1' : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
+<div class="stat-grid rise mt-6 grid grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel <?= $statCols ?> lg:divide-x" style="animation-delay:.05s">
+  <?php foreach ($stats as $i => [$label, $value, $note, $href]): ?>
+    <a href="<?= e($href) ?>" class="group block p-5 hover:bg-butter-50 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i === $statN - 1 && $statN % 2 === 1 ? ($statN === 1 ? 'col-span-2' : 'col-span-2 lg:col-span-1') : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
       <dl>
       <dt class="text-sm font-medium text-soft"><?= e($label) ?></dt>
       <dd class="mt-1 text-[30px] font-bold leading-none tracking-tight"<?= ctype_digit($value) ? ' data-count="' . e($value) . '" data-delay="' . ($i * 90) . '"' : '' ?>><?= e($value) ?></dd>
@@ -94,8 +118,8 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
   <?php endforeach; ?>
 </div>
 
-<div class="mt-6 grid items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
-  <!-- Service health: the signature ribbon -->
+<div class="mt-6 grid items-start gap-6<?= module_enabled('health') ? ' xl:grid-cols-[1.6fr_1fr]' : '' ?>">
+  <?php if (module_enabled('health')): ?><!-- Service health: the signature ribbon -->
   <section class="on-navy rise overflow-hidden rounded-2xl border border-line bg-deep text-white shadow-panel" style="animation-delay:.1s" aria-labelledby="svc-h">
     <div class="flex items-end justify-between gap-4 px-5 pb-3 pt-5 sm:px-6">
       <div>
@@ -127,16 +151,16 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
     </ul>
   </section>
 
-  <!-- Needs attention -->
+  <?php endif; ?><!-- Needs attention -->
   <section class="rise rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.15s" aria-labelledby="att-h">
     <div class="px-5 pb-2 pt-5"><h2 id="att-h" class="text-lg font-bold tracking-tight">Needs attention</h2></div>
     <?php if ($problems === 0 && $usersPending === 0): ?>
       <p class="px-5 pb-5 text-[15px] text-soft">Nothing is waiting on you. New issues will appear here.</p>
     <?php else: ?>
     <ul class="divide-y divide-line">
-      <?php foreach ($notHealthy as $s): ?>
-        <li><a href="system/logs.php?q=<?= urlencode(strtolower(explode(' ', $s['name'])[0])) ?>" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
-          <?= badge($s['now']) ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= e($s['name']) ?></span> is <?= e($s['now']) ?> right now.</span></a></li>
+      <?php foreach ($notHealthy as $s): [$o, $c] = module_enabled('logs') ? ['<a href="system/logs.php?q=' . urlencode(strtolower(explode(' ', $s['name'])[0])) . '"', '</a>'] : ['<div', '</div>']; ?>
+        <li><?= $o ?> class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+          <?= badge($s['now']) ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= e($s['name']) ?></span> is <?= e($s['now']) ?> right now.</span><?= $c ?></li>
       <?php endforeach; ?>
       <?php foreach ($failedBackups as $b): ?>
         <li><a href="system/backups.php" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
@@ -191,7 +215,7 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
   <section class="rise rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.25s" aria-labelledby="rec-h">
     <div class="flex items-center justify-between px-5 pb-2 pt-5">
       <h2 id="rec-h" class="text-lg font-bold tracking-tight">Recent activity</h2>
-      <a href="system/logs.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4 hover:decoration-white">All logs</a>
+      <?php if (module_enabled('logs')): ?><a href="system/logs.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4 hover:decoration-white">All logs</a><?php endif; ?>
     </div>
     <ul class="divide-y divide-line">
       <?php foreach ($recent as $r): ?>

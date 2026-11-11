@@ -184,9 +184,9 @@ function mail_purge(PDO $pdo): void
 /** Sends one email listing the notifications that were not mailed yet (stage 6 events). Returns how many were included. */
 function mail_notifications_digest(PDO $pdo): int
 {
-    $rows = $pdo->query('SELECT id, title, body, link, is_demo FROM notifications WHERE emailed_at IS NULL ORDER BY id LIMIT 200')->fetchAll();
-    if (!$rows) { return 0; }
     require_once __DIR__ . '/notifications.php';
+    $rows = $pdo->query('SELECT id, title, body, link, is_demo FROM notifications WHERE emailed_at IS NULL' . notifications_hidden_sql() . ' ORDER BY id LIMIT 200')->fetchAll();   // not those of modules that are off
+    if (!$rows) { return 0; }
     $to = notify_email($pdo);
     $recipients = $to !== '' ? [strtolower($to) => $to] : [];
     foreach ($pdo->query('SELECT email FROM admins WHERE notify_optin = 1 AND is_active = 1')->fetchAll(PDO::FETCH_COLUMN) as $m) { $recipients[strtolower($m)] = $m; }   // people who asked to be mailed too

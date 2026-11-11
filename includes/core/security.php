@@ -42,7 +42,7 @@ set_exception_handler(static function (Throwable $e): void {
 foreach ($_GET as $k => $v) {
     if (is_array($v)) { $_GET[$k] = ''; }
 }
-$__arrayFields = ['desc', 'qty', 'price'];   // invoice lines are the only legitimate array fields
+$__arrayFields = ['desc', 'qty', 'price', 'modules'];   // invoice lines and the module checkboxes (Settings > Modules) are the only legitimate array fields
 foreach ($_POST as $k => $v) {
     if (is_array($v) && !in_array($k, $__arrayFields, true)) { $_POST[$k] = ''; }
 }

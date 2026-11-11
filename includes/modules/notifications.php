@@ -26,6 +26,31 @@ function notify_add(PDO $pdo, string $kind, string $key, string $title, string $
     return $s->rowCount() === 1;
 }
 
+/** Which module each kind of notification belongs to: kind, dedupe-key prefix (the start of the key tells the source), module. Others are core. */
+const NOTIFY_MODULE_RULES = [
+    ['invoice_overdue', '', 'invoices'], ['backup_failed', '', 'backups'], ['ticket_urgent', '', 'tickets'],
+    ['service_down', 'kuma-', 'uptime'], ['service_down', 'endpoint-', 'health'],
+];
+
+/** The module a notification belongs to, or null for core notices (logins, two-step sign-in, passwords). */
+function notification_module(string $kind, string $dedupe_key): ?string
+{
+    foreach (NOTIFY_MODULE_RULES as [$k, $prefix, $module]) {
+        if ($kind === $k && str_starts_with($dedupe_key, $prefix)) { return $module; }
+    }
+    return null;
+}
+
+/** SQL that leaves out the notifications of modules that are off, for example ' AND NOT (...)'. Empty when every module is on. Constants only. */
+function notifications_hidden_sql(): string
+{
+    $hide = [];
+    foreach (NOTIFY_MODULE_RULES as [$k, $prefix, $module]) {
+        if (!module_enabled($module)) { $hide[] = "(kind = '$k' AND dedupe_key LIKE '$prefix%')"; }
+    }
+    return $hide ? ' AND NOT (' . implode(' OR ', $hide) . ')' : '';
+}
+
 /**
  * Looks for things that need attention and records each one once:
  * an invoice became overdue, a backup failed, a monitored service (endpoint check or Uptime Kuma monitor) is down, an urgent ticket is open.
@@ -45,32 +70,45 @@ function notifications_refresh(PDO $pdo, bool $force = false): int
     }
     $new = 0;
 
+    // Only the checks of modules that are on run. A module that is off creates no notifications and runs no jobs.
     // Recurring invoices that became due are created first, so an overdue one is noticed in the same pass. An error here is only logged.
-    try { require_once __DIR__ . '/recurring.php'; recurring_run_due($pdo); } catch (Throwable $e) { error_log('Recurring run failed: ' . $e->getMessage()); }
+    if (module_enabled('invoices')) {
+        try { require_once __DIR__ . '/recurring.php'; recurring_run_due($pdo); } catch (Throwable $e) { error_log('Recurring run failed: ' . $e->getMessage()); }
+    }
 
     // 1. invoices past their due date with money still owed
-    if (!function_exists('invoice_base_sql')) { require __DIR__ . '/invoices.php'; }
-    foreach ($pdo->query("SELECT id, number, customer, balance_cents, is_demo FROM (" . invoice_base_sql() . ") t WHERE state = 'overdue' LIMIT 200") as $r) {
-        $new += notify_add($pdo, 'invoice_overdue', 'invoice-overdue:' . $r['id'], 'Invoice ' . $r['number'] . ' is overdue', $r['customer'] . ' still owes ' . money((int) $r['balance_cents']) . '.', 'invoices/invoice.php?id=' . $r['id'], (bool) $r['is_demo']) ? 1 : 0;
+    if (module_enabled('invoices')) {
+        if (!function_exists('invoice_base_sql')) { require __DIR__ . '/invoices.php'; }
+        foreach ($pdo->query("SELECT id, number, customer, balance_cents, is_demo FROM (" . invoice_base_sql() . ") t WHERE state = 'overdue' LIMIT 200") as $r) {
+            $new += notify_add($pdo, 'invoice_overdue', 'invoice-overdue:' . $r['id'], 'Invoice ' . $r['number'] . ' is overdue', $r['customer'] . ' still owes ' . money((int) $r['balance_cents']) . '.', 'invoices/invoice.php?id=' . $r['id'], (bool) $r['is_demo']) ? 1 : 0;
+        }
     }
     // 2. backups that failed in the last two days
-    foreach ($pdo->query("SELECT id, name, started_at, is_demo FROM backups WHERE status = 'failed' AND started_at >= NOW() - INTERVAL 48 HOUR LIMIT 50") as $r) {
-        $new += notify_add($pdo, 'backup_failed', 'backup-failed:' . $r['id'], 'Backup failed', $r['name'] . ' did not complete (' . $r['started_at'] . ').', 'system/backups.php', (bool) $r['is_demo']) ? 1 : 0;
+    if (module_enabled('backups')) {
+        foreach ($pdo->query("SELECT id, name, started_at, is_demo FROM backups WHERE status = 'failed' AND started_at >= NOW() - INTERVAL 48 HOUR LIMIT 50") as $r) {
+            $new += notify_add($pdo, 'backup_failed', 'backup-failed:' . $r['id'], 'Backup failed', $r['name'] . ' did not complete (' . $r['started_at'] . ').', 'system/backups.php', (bool) $r['is_demo']) ? 1 : 0;
+        }
     }
     // 3a. endpoint checks: one notification per outage (the key holds the moment the outage began, so a second outage is announced again)
-    $streak = $pdo->prepare("SELECT MIN(checked_at) FROM endpoint_checks WHERE endpoint_id = ? AND state = 'down' AND checked_at > COALESCE((SELECT MAX(checked_at) FROM endpoint_checks WHERE endpoint_id = ? AND state <> 'down'), '1970-01-01')");
-    foreach ($pdo->query("SELECT id, name, last_checked_at, last_error, is_demo FROM monitored_endpoints WHERE enabled = 1 AND last_state = 'down'")->fetchAll() as $r) {
-        $streak->execute([$r['id'], $r['id']]);
-        $since = (string) ($streak->fetchColumn() ?: $r['last_checked_at'] ?: 'unknown');
-        $new += notify_add($pdo, 'service_down', 'endpoint-down:' . $r['id'] . ':' . $since, $r['name'] . ' is down', 'The health check failed' . ($r['last_error'] !== '' ? ': ' . $r['last_error'] : '') . '.', 'settings/settings.php?tab=integrations', (bool) $r['is_demo']) ? 1 : 0;
+    if (module_enabled('health')) {
+        $streak = $pdo->prepare("SELECT MIN(checked_at) FROM endpoint_checks WHERE endpoint_id = ? AND state = 'down' AND checked_at > COALESCE((SELECT MAX(checked_at) FROM endpoint_checks WHERE endpoint_id = ? AND state <> 'down'), '1970-01-01')");
+        foreach ($pdo->query("SELECT id, name, last_checked_at, last_error, is_demo FROM monitored_endpoints WHERE enabled = 1 AND last_state = 'down'")->fetchAll() as $r) {
+            $streak->execute([$r['id'], $r['id']]);
+            $since = (string) ($streak->fetchColumn() ?: $r['last_checked_at'] ?: 'unknown');
+            $new += notify_add($pdo, 'service_down', 'endpoint-down:' . $r['id'] . ':' . $since, $r['name'] . ' is down', 'The health check failed' . ($r['last_error'] !== '' ? ': ' . $r['last_error'] : '') . '.', 'settings/settings.php?tab=integrations', (bool) $r['is_demo']) ? 1 : 0;
+        }
     }
     // 3b. Uptime Kuma monitors that went down in the last day
-    foreach ($pdo->query("SELECT id, monitor_name, at FROM kuma_heartbeats WHERE important = 1 AND status = 0 AND at >= NOW() - INTERVAL 24 HOUR ORDER BY id DESC LIMIT 50") as $r) {
-        $new += notify_add($pdo, 'service_down', 'kuma-down:' . $r['id'], $r['monitor_name'] . ' is down', 'Uptime Kuma reported this monitor down at ' . $r['at'] . '.', 'monitoring/uptime.php', false) ? 1 : 0;
+    if (module_enabled('uptime')) {
+        foreach ($pdo->query("SELECT id, monitor_name, at FROM kuma_heartbeats WHERE important = 1 AND status = 0 AND at >= NOW() - INTERVAL 24 HOUR ORDER BY id DESC LIMIT 50") as $r) {
+            $new += notify_add($pdo, 'service_down', 'kuma-down:' . $r['id'], $r['monitor_name'] . ' is down', 'Uptime Kuma reported this monitor down at ' . $r['at'] . '.', 'monitoring/uptime.php', false) ? 1 : 0;
+        }
     }
     // 4. urgent tickets that are still open
-    foreach ($pdo->query("SELECT id, reference, subject, is_demo FROM tickets WHERE priority = 'urgent' AND status NOT IN ('resolved','closed') LIMIT 100") as $r) {
-        $new += notify_add($pdo, 'ticket_urgent', 'ticket-urgent:' . $r['id'], 'Urgent ticket ' . $r['reference'], $r['subject'], 'tickets/ticket.php?id=' . $r['id'], (bool) $r['is_demo']) ? 1 : 0;
+    if (module_enabled('tickets')) {
+        foreach ($pdo->query("SELECT id, reference, subject, is_demo FROM tickets WHERE priority = 'urgent' AND status NOT IN ('resolved','closed') LIMIT 100") as $r) {
+            $new += notify_add($pdo, 'ticket_urgent', 'ticket-urgent:' . $r['id'], 'Urgent ticket ' . $r['reference'], $r['subject'], 'tickets/ticket.php?id=' . $r['id'], (bool) $r['is_demo']) ? 1 : 0;
+        }
     }
     $pdo->exec('DELETE FROM notifications WHERE created_at < NOW() - INTERVAL ' . NOTIFY_KEEP_DAYS . ' DAY');
     require_once __DIR__ . '/mailer.php';
@@ -80,13 +118,14 @@ function notifications_refresh(PDO $pdo, bool $force = false): int
 
 function notifications_unread(PDO $pdo): int
 {
-    return (int) $pdo->query('SELECT COUNT(*) FROM notifications WHERE read_at IS NULL')->fetchColumn();
+    return (int) $pdo->query('SELECT COUNT(*) FROM notifications WHERE read_at IS NULL' . notifications_hidden_sql())->fetchColumn();
 }
 
-/** Marks one notification (id > 0) or all of them as read. Returns how many changed. */
+/** Marks one notification (id > 0) or all of them as read. Returns how many changed. Notifications of modules that are off are left alone. */
 function notifications_mark_read(PDO $pdo, int $id = 0): int
 {
-    $s = $id > 0 ? $pdo->prepare('UPDATE notifications SET read_at = NOW() WHERE id = ? AND read_at IS NULL') : $pdo->prepare('UPDATE notifications SET read_at = NOW() WHERE read_at IS NULL');
+    $h = notifications_hidden_sql();
+    $s = $id > 0 ? $pdo->prepare('UPDATE notifications SET read_at = NOW() WHERE id = ? AND read_at IS NULL' . $h) : $pdo->prepare('UPDATE notifications SET read_at = NOW() WHERE read_at IS NULL' . $h);
     $s->execute($id > 0 ? [$id] : []);
     return $s->rowCount();
 }
@@ -97,7 +136,7 @@ const NOTIFY_ICONS = ['invoice_overdue' => 'card', 'backup_failed' => 'database'
 function notifications_bell(PDO $pdo): string
 {
     $unread = notifications_unread($pdo);
-    $rows = $pdo->query('SELECT * FROM notifications ORDER BY created_at DESC, id DESC LIMIT 6')->fetchAll();
+    $rows = $pdo->query('SELECT * FROM notifications WHERE TRUE' . notifications_hidden_sql() . ' ORDER BY created_at DESC, id DESC LIMIT 6')->fetchAll();
     $label = $unread > 0 ? 'Notifications, ' . $unread . ' unread' : 'Notifications, none unread';
     $h = '<details id="bell" class="relative"><summary class="bell-btn relative grid h-10 w-10 cursor-pointer list-none place-items-center rounded-xl hover:bg-ink/10" aria-label="' . e($label) . '"'
         . ($unread > 0 ? ' data-unread="1"' : '') . '><svg class="bell-ic h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';

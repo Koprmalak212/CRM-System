@@ -8,6 +8,7 @@ require __DIR__ . '/../includes/modules/connectors.php';
 $pdo = db();
 $any = false;
 foreach (array_keys(connector_defs()) as $p) {
+    if (!module_enabled(connector_module($p))) { continue; }   // the module of this service is off: nothing is fetched
     $c = connector_get($pdo, $p);
     if (!$c['enabled'] || !connector_has_secret($c)) { continue; }
     $any = true;
