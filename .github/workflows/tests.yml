@@ -7,7 +7,7 @@ on:
 
 jobs:
   suite:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04      # pinned: the PHP 8.2 package source (ondrej/php) does not support the newest Ubuntu that ubuntu-latest points to
     timeout-minutes: 20
 
     services:
@@ -59,6 +59,20 @@ jobs:
       - name: Create the database (random admin password is printed once; the suite needs the demo account, so --demo)
         working-directory: /var/www/html/Websites/test
         run: sudo -u www-data php bin/setup.php --demo
+
+      # The database runs in a container, so the app connects from the Docker gateway address, not from 127.0.0.1.
+      # bin/setup.php creates the limited app account for 127.0.0.1 and localhost only: give it the same four rights from anywhere in this throwaway database.
+      - name: Let the app account connect from the container network
+        working-directory: /var/www/html/Websites/test
+        run: |
+          sudo -u www-data php -r '
+            $c = require "includes/config.local.php";
+            $p = new PDO("mysql:host=127.0.0.1", "root", "", [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $u = $p->quote("ops_console_app") . "@" . $p->quote("%");
+            $p->exec("CREATE USER IF NOT EXISTS $u IDENTIFIED BY " . $p->quote($c["db_pass"]));
+            $p->exec("GRANT SELECT, INSERT, UPDATE, DELETE ON `ops_console`.* TO $u");
+            echo "granted";
+          '
 
       - name: Run the test suite
         working-directory: /var/www/html/Websites/test
