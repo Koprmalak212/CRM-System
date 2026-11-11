@@ -534,6 +534,21 @@ CREATE TABLE IF NOT EXISTS short_links (
   CONSTRAINT fk_short_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+-- What happened at each test or sync of a connector (3CX, Yeastar, Twilio, Short.io): the result and the requests behind it (address, HTTP code,
+-- error code, connection error). Never a secret. The newest 40 per service are kept, and nothing older than 90 days (bin/purge.php).
+CREATE TABLE IF NOT EXISTS connector_log (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  provider VARCHAR(20) NOT NULL,
+  action VARCHAR(10) NOT NULL,                             -- test | sync | scheduled
+  state VARCHAR(20) NOT NULL,                              -- ok | unauthorized | unreachable | invalid | busy
+  message VARCHAR(400) NOT NULL DEFAULT '',
+  detail VARCHAR(1500) NOT NULL DEFAULT '',
+  created_by VARCHAR(60) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_cl_provider (provider, id),
+  KEY idx_cl_created (created_at)
+) ENGINE=InnoDB;
+
 -- Contracts & subscriptions: which services a company has, the monthly price, start and end date, renewal and how it is invoiced.
 -- A contract can carry its own SLA targets (minutes); when they are shorter than the standard ones they apply to the tickets of that company.
 CREATE TABLE IF NOT EXISTS contracts (

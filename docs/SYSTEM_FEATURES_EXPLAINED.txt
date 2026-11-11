@@ -777,6 +777,7 @@ Overview > Demo data panel (admins).
 Set these up in the Windows Task Scheduler (or cron on Linux):
 
   bin/purge.php          daily. Deletes expired data: log entries over 12 months,
+                     connector log entries over 90 days,
                      login attempts, rate-limit counters, monitoring history
                      over 30 days, invoices over 7 years.
                      php C:\xampp\htdocs\Websites\test\bin\purge.php

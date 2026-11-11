@@ -34,7 +34,9 @@ function tab_handle(PDO $pdo, array $admin): void
         $old = connector_get($pdo, $p);
         $secret = connector_effective_secret($old, $v);
         if ($secret === '') { flash('Enter the ' . $d['secret_label'] . ' to test.', 'bad'); return; }
+        connector_trace(null, true);
         [$state, $text] = connector_test($p, $v + ['provider' => $p], $secret);
+        connector_log_add($pdo, $p, 'test', $state, $text, (string) $admin['username']);
         flash($d['name'] . ': ' . $text, $state === 'ok' ? 'ok' : 'bad');
         return;
     }
@@ -103,6 +105,20 @@ function tab_render(PDO $pdo, array $admin): void
     <?php if ($c['last_sync_at']): ?>Last sync <?= e(ago((string) $c['last_sync_at'])) ?>: <?= e(connector_state_text($state)) ?> <?= $state === 'ok' ? e((string) (int) $c['last_count']) . ' record' . ((int) $c['last_count'] === 1 ? '' : 's') . '.' : '' ?>
     <?php else: ?>Not synced yet.<?php endif; ?>
   </p>
+  <?php $log = connector_log_recent($pdo, $p); ?>
+  <details class="mt-4 rounded-xl border border-line" <?= $log && $log[0]['state'] !== 'ok' ? 'open' : '' ?>>
+    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold">Log <span class="font-normal text-soft">(<?= count($log) ?> recent: every test and sync, with what the service answered)</span></summary>
+    <?php if (!$log): ?><p class="border-t border-line px-4 py-4 text-sm text-soft">Nothing has been tested or synced yet. Press Test connection and the result is written here.</p>
+    <?php else: ?><ul class="divide-y divide-line border-t border-line">
+      <?php foreach ($log as $e): ?>
+        <li class="px-4 py-3 text-sm">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1"><?= badge($e['state'] === 'ok' ? 'ok' : (in_array($e['state'], ['busy', 'forbidden'], true) ? 'warning' : 'failed')) ?><span class="font-semibold"><?= e(['test' => 'Test', 'sync' => 'Sync now', 'scheduled' => 'Scheduled sync'][$e['action']] ?? $e['action']) ?> · <?= e($e['state']) ?></span><span class="text-soft" title="<?= e($e['created_at']) ?>"><?= e(ago($e['created_at'])) ?> · <?= e($e['created_by']) ?></span></div>
+          <p class="mt-1 text-soft"><?= e($e['message']) ?></p>
+          <?php if ($e['detail'] !== ''): ?><pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-deep p-3 text-xs notranslate"><?= e($e['detail']) ?></pre><?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ul><?php endif; ?>
+  </details>
 </section>
 <?php endforeach;
 }

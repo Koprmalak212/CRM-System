@@ -19,9 +19,47 @@ try {
     check($s === 'unauthorized' && str_contains($m, 'refused both') && str_contains($m, 'Login: HTTP 200, AuthFailed'), 'a wrong password is refused, and the status word of the login is shown', $m);
     [$s, $m] = $try22('2fa', 'sysadmin', 'adminpass');
     check($s === 'unauthorized' && str_contains($m, 'two-step sign-in'), 'a login that has two-step sign-in turned on is explained, not just "rejected"');
+    [$s, $m] = $try22('noperm', 'apiclient', 'apisecret');
+    check($s === 'forbidden' && str_contains($m, 'credentials are right') && str_contains($m, 'not allowed to read call history') && !str_contains($m, 'rejected the credentials'), 'a token that works but a call-history request that gets HTTP 403 is "signed in but not allowed", not "rejected the credentials"', $m);
+    same($try22('noperm', 'apiclient', 'wrong')[0], 'unauthorized', 'a real credentials refusal is still "unauthorized"');
     same($try22('api', 'apiclient', "x\r\nInjected: 1")[0], 'unauthorized', 'a secret with a line break in it is refused and breaks nothing');
     same(connector_test('threecx', ['base_url' => 'http://127.0.0.1:3197', 'verify_tls' => 1, 'account_ref' => 'a', 'provider' => 'threecx'], 'b')[0], 'unreachable', 'a PBX that does not answer is reported as unreachable, with no second try');
     check(!str_contains(json_encode($try22('api', 'apiclient', 'secret-DO-NOT-SHOW')), 'DO-NOT-SHOW'), 'the message never contains the secret');
+
+    section('75. Connector log: what each test and sync left behind');
+    $pdo->exec("DELETE FROM connector_log WHERE provider = 'threecx'");
+    $saved22 = $pdo->query("SELECT * FROM connectors WHERE provider = 'threecx'")->fetch() ?: null;
+    $form22 = ['tab' => 'connectors', 'provider' => 'threecx', 'action' => 'test', 'base_url' => 'http://127.0.0.1:3198/api', 'account_ref' => 'apiclient', 'secret' => 'wrong-SECRET-22'];
+    $r = $post($admin, 'settings/settings.php?tab=connectors', $form22, 'settings/settings.php?tab=connectors');
+    $e = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx' ORDER BY id DESC LIMIT 1")->fetch();
+    check($e && $e['action'] === 'test' && $e['state'] === 'unauthorized', 'a test from the settings page is written to the log with its result');
+    check(str_contains((string) $e['message'], 'refused both') && str_contains((string) $e['message'], 'invalid_client'), 'with the message that was shown');
+    check(str_contains((string) $e['detail'], 'POST 127.0.0.1:3198/api/connect/token -> HTTP 400, invalid_client') && str_contains((string) $e['detail'], 'POST 127.0.0.1:3198/api/webclient/api/Login/GetAccessToken -> HTTP 404'), 'and one line per request: address, HTTP code and the error code of the refusal', (string) $e['detail']);
+    check(!str_contains(json_encode($e), 'SECRET-22') && !str_contains(json_encode($e), 'apisecret'), 'the log never holds the secret');
+    $page = http('GET', "$base/settings/settings.php?tab=connectors", ['jar' => $admin])['body'];
+    check(str_contains($page, 'POST 127.0.0.1:3198/api/connect/token') && str_contains($page, 'invalid_client'), 'the Connectors tab shows the log under the connector');
+    check(preg_match('/<details class="mt-4 rounded-xl border border-line" open>/', $page) === 1, 'and opens it by itself when the last result was a failure');
+    $post($admin, 'settings/settings.php?tab=connectors', ['secret' => 'apisecret'] + $form22, 'settings/settings.php?tab=connectors');
+    $e = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx' ORDER BY id DESC LIMIT 1")->fetch();
+    check($e['state'] === 'ok' && str_contains((string) $e['detail'], 'xapi/v1/CallHistoryView') && str_contains((string) $e['detail'], 'HTTP 200'), 'a good test is logged too, down to the call-history request');
+    $post($admin, 'settings/settings.php?tab=connectors', ['base_url' => 'http://127.0.0.1:3198/noperm', 'secret' => 'apisecret'] + $form22, 'settings/settings.php?tab=connectors');
+    $e = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx' ORDER BY id DESC LIMIT 1")->fetch();
+    check($e['state'] === 'forbidden' && str_contains((string) $e['detail'], 'connect/token -> HTTP 200') && str_contains((string) $e['detail'], 'CallHistoryView -> HTTP 403'), 'the log shows the token request that worked and the call-history request that was refused', (string) $e['detail']);
+    $closed = $form22; $closed['base_url'] = 'http://127.0.0.1:3197';
+    $post($admin, 'settings/settings.php?tab=connectors', $closed, 'settings/settings.php?tab=connectors');
+    $e = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx' ORDER BY id DESC LIMIT 1")->fetch();
+    check($e['state'] === 'unreachable' && str_contains((string) $e['detail'], 'no answer') && str_contains((string) $e['detail'], 'curl error'), 'a PBX that does not answer is logged with the connection error', (string) $e['detail']);
+    $blocked = $form22; $blocked['base_url'] = 'http://169.254.169.254';
+    $post($admin, 'settings/settings.php?tab=connectors', $blocked, 'settings/settings.php?tab=connectors');
+    same((int) $pdo->query("SELECT COUNT(*) FROM connector_log WHERE provider = 'threecx'")->fetchColumn(), 4, 'an address that is refused before any test is made adds no entry');
+    for ($i = 0; $i < 45; $i++) { connector_trace(null, true); connector_log_add($pdo, 'threecx', 'test', 'ok', 'filler ' . $i, 'tester'); }
+    same((int) $pdo->query("SELECT COUNT(*) FROM connector_log WHERE provider = 'threecx'")->fetchColumn(), 40, 'only the newest entries of a connector are kept');
+    same(substr_count($page = http('GET', "$base/settings/settings.php?tab=connectors", ['jar' => $admin])['body'], 'filler '), 10, 'and the page shows the latest ten');
+    $pdo->exec("UPDATE connector_log SET created_at = NOW() - INTERVAL 100 DAY WHERE provider = 'threecx' AND message = 'filler 0'");
+    purge_expired_data($pdo);
+    same((int) $pdo->query("SELECT COUNT(*) FROM connector_log WHERE message = 'filler 0'")->fetchColumn(), 0, 'bin/purge.php removes entries older than 90 days');
+    same($pdo->query("SELECT CONCAT(enabled, base_url, account_ref) FROM connectors WHERE provider = 'threecx'")->fetchColumn() ?: null, $saved22 ? $saved22['enabled'] . $saved22['base_url'] . $saved22['account_ref'] : null, 'testing never changes the saved connector settings');
+    $pdo->exec("DELETE FROM connector_log WHERE provider = 'threecx'");
 } finally {
     if (is_resource($proc22)) { proc_terminate($proc22); proc_close($proc22); }
 }

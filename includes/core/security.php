@@ -347,6 +347,8 @@ function purge_expired_data(PDO $pdo): int
     if (!function_exists('comm_purge')) { require_once __DIR__ . '/../modules/comm.php'; }
     try { comm_purge($pdo); }   // calls and messages hold phone numbers: kept 12 months
     catch (PDOException $e) { error_log('Purge of calls and messages skipped (run database/migrate.php): ' . $e->getMessage()); }   // the table does not exist yet on a database that was not migrated
+    try { $pdo->prepare('DELETE FROM connector_log WHERE created_at < ?')->execute([date('Y-m-d H:i:s', strtotime('-90 days'))]); }   // what the services answered at a test or sync
+    catch (PDOException $e) { error_log('Purge of the connector log skipped (run database/migrate.php): ' . $e->getMessage()); }
     try { $pdo->prepare('DELETE FROM ticket_emails WHERE received_at < ?')->execute([date('Y-m-d H:i:s', strtotime('-' . LOG_RETENTION_MONTHS . ' months'))]); }   // the list of emails read holds sender addresses
     catch (PDOException $e) { error_log('Purge of read emails skipped (run database/migrate.php): ' . $e->getMessage()); }
     return $removed;

@@ -1,12 +1,12 @@
 <?php
-// A stand-in 3CX for tests/run.php: php -S 127.0.0.1:3198 tests/mock_3cx.php   The first part of the path picks the behaviour: /api accepts an API client only, /admin a Management Console login only, /2fa a login that wants a security code, /none neither.
+// A stand-in 3CX for tests/run.php: php -S 127.0.0.1:3198 tests/mock_3cx.php   The first part of the path picks the behaviour: /api accepts an API client only, /admin a Management Console login only, /2fa a login that wants a security code, /none neither, /noperm an API client whose token works but may not read the call history (HTTP 403).
 $u = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-preg_match('#^/(api|admin|2fa|none)(/.*)$#', $u, $m); $mode = $m[1] ?? 'none'; $path = $m[2] ?? $u;
+preg_match('#^/(api|admin|2fa|none|noperm)(/.*)$#', $u, $m); $mode = $m[1] ?? 'none'; $path = $m[2] ?? $u;
 $body = (string) file_get_contents('php://input');
 header('Content-Type: application/json');
 if ($path === '/connect/token') {
     parse_str($body, $f);
-    if ($mode === 'api' && ($f['client_id'] ?? '') === 'apiclient' && ($f['client_secret'] ?? '') === 'apisecret') { echo json_encode(['access_token' => 'tok-api', 'token_type' => 'Bearer']); exit; }
+    if (in_array($mode, ['api', 'noperm'], true) && ($f['client_id'] ?? '') === 'apiclient' && ($f['client_secret'] ?? '') === 'apisecret') { echo json_encode(['access_token' => 'tok-api', 'token_type' => 'Bearer']); exit; }
     http_response_code(400); echo json_encode(['error' => 'invalid_client']); exit;
 }
 if ($path === '/webclient/api/Login/GetAccessToken') {
@@ -19,6 +19,7 @@ if ($path === '/webclient/api/Login/GetAccessToken') {
 if ($path === '/xapi/v1/CallHistoryView') {
     $ok = in_array($_SERVER['HTTP_AUTHORIZATION'] ?? '', ['Bearer tok-api', 'Bearer tok-admin'], true);
     if (!$ok) { http_response_code(401); exit; }
+    if ($mode === 'noperm') { http_response_code(403); echo json_encode(['error' => ['code' => 'Forbidden']]); exit; }
     echo json_encode(['value' => []]); exit;
 }
 http_response_code(404);

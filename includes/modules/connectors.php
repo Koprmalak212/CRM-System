@@ -145,8 +145,22 @@ function connector_remove(PDO $pdo, string $p): void
 // ---------- Talking to the services ----------
 
 /**
+ * The requests of the current test or sync, one short line each, for the log under each connector. connector_trace($line) adds one,
+ * connector_trace(null, true) starts a new list. Lines hold the address, the HTTP code and the error code of a refusal: never a secret.
+ * @return list<string>
+ */
+function connector_trace(?string $add = null, bool $reset = false): array
+{
+    static $lines = [];
+    if ($reset) { $lines = []; }
+    if ($add !== null && count($lines) < 20) { $lines[] = mb_substr(preg_replace('/[^\x20-\x7E]/', '', $add) ?? '', 0, 260); }
+    return $lines;
+}
+
+/**
  * One HTTPS (or http) request.
- * @param array{headers?: list<string>, body?: ?string, basic?: ?array{0:string,1:string}, verify_tls?: bool, timeout?: int, unauthorized?: list<int>} $o
+ * @param array{headers?: list<string>, body?: ?string, basic?: ?array{0:string,1:string}, verify_tls?: bool, timeout?: int, unauthorized?: list<int>, forbidden?: bool} $o
+ *        'forbidden' => true: an HTTP 403 gives the state "forbidden" (signed in, but not allowed to do this) instead of "unauthorized". Use it for a request made with a token that was just accepted.
  * @return array{state: string, code: int, body: string, json: mixed, oauth: string}  state: ok | unauthorized | unreachable | invalid | busy. Never carries the secret or upstream
  *         error text; the one exception is 'oauth': the short error code of a refused sign-in (for example invalid_client), only when it is made of lowercase letters and underscores.
  */
@@ -155,12 +169,13 @@ function connector_http(string $method, string $url, array $o = []): array
     $o += ['headers' => [], 'body' => null, 'basic' => null, 'verify_tls' => true, 'timeout' => CONNECTOR_TIMEOUT_S, 'unauthorized' => [401, 403]];
     $fail = static fn(string $s, int $code = 0, string $oauth = ''): array => ['state' => $s, 'code' => $code, 'body' => '', 'json' => null, 'oauth' => $oauth];
     $p = parse_url($url);
-    if (!$p || empty($p['scheme']) || empty($p['host']) || !in_array(strtolower((string) $p['scheme']), ['http', 'https'], true)) { return $fail('unreachable'); }
+    if (!$p || empty($p['scheme']) || empty($p['host']) || !in_array(strtolower((string) $p['scheme']), ['http', 'https'], true)) { connector_trace($method . ' not sent: the address is not a valid http or https address'); return $fail('unreachable'); }
     $scheme = strtolower((string) $p['scheme']);
     $host = strtolower(trim((string) $p['host'], '[]'));
     $port = (int) ($p['port'] ?? ($scheme === 'https' ? 443 : 80));
-    [$ok] = kuma_validate_url($scheme . '://' . (str_contains($host, ':') ? '[' . $host . ']' : $host) . (isset($p['port']) ? ':' . $p['port'] : ''));
-    if (!$ok || !function_exists('curl_init')) { return $fail('unreachable'); }
+    $what = $method . ' ' . $host . (isset($p['port']) ? ':' . $p['port'] : '') . ($p['path'] ?? '/');   // address and path only: no query, no user name, no secret
+    [$ok, $vmsg] = kuma_validate_url($scheme . '://' . (str_contains($host, ':') ? '[' . $host . ']' : $host) . (isset($p['port']) ? ':' . $p['port'] : ''));
+    if (!$ok || !function_exists('curl_init')) { connector_trace($what . ' not sent: ' . ($ok ? 'the PHP curl extension is missing' : 'address not allowed (' . (string) $vmsg . ')')); return $fail('unreachable'); }
 
     $opts = [
         CURLOPT_CUSTOMREQUEST => $method, CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS => 0, CURLOPT_FOLLOWLOCATION => false,
@@ -172,8 +187,8 @@ function connector_http(string $method, string $url, array $o = []): array
     if ($o['body'] !== null) { $opts[CURLOPT_POSTFIELDS] = $o['body']; }
     if (!filter_var($host, FILTER_VALIDATE_IP)) {
         $ips = @gethostbynamel($host) ?: [];   // resolved once, checked, and used for the connection: no second lookup that could be rebound
-        if (!$ips) { return $fail('unreachable'); }
-        foreach ($ips as $ip) { if (kuma_ip_blocked((string) $ip)) { return $fail('unreachable'); } }
+        if (!$ips) { connector_trace($what . ' not sent: the name ' . $host . ' could not be resolved (DNS)'); return $fail('unreachable'); }
+        foreach ($ips as $ip) { if (kuma_ip_blocked((string) $ip)) { connector_trace($what . ' not sent: ' . $host . ' resolves to ' . $ip . ', an address that is not allowed (link-local or similar)'); return $fail('unreachable'); } }
         $opts[CURLOPT_RESOLVE] = [$host . ':' . $port . ':' . $ips[0]];
     }
     $body = '';
@@ -185,12 +200,15 @@ function connector_http(string $method, string $url, array $o = []): array
     curl_setopt_array($ch, $opts);
     curl_exec($ch);
     $errno = curl_errno($ch);
+    $curlErr = curl_error($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
 
-    if ($errno !== 0) { return $fail('unreachable', $code); }
+    if ($errno !== 0) { connector_trace($what . ' -> no answer: ' . $curlErr . ' (curl error ' . $errno . ')'); return $fail('unreachable', $code); }
     $err = json_decode($body, true);
     $oauth = is_array($err) && is_string($err['error'] ?? null) && preg_match('/^[a-z_]{3,40}$/', $err['error']) ? $err['error'] : '';
+    connector_trace($what . ' -> HTTP ' . $code . ($oauth !== '' ? ', ' . $oauth : '') . ($code >= 200 && $code <= 299 ? ' (' . strlen($body) . ' bytes, ' . (is_array($err) ? 'JSON' : 'not JSON') . ')' : ''));
+    if (!empty($o['forbidden']) && $code === 403) { return $fail('forbidden', $code, $oauth); }
     if (in_array($code, $o['unauthorized'], true)) { return $fail('unauthorized', $code, $oauth); }
     if ($code === 429) { return $fail('busy', $code); }
     if ($code < 200 || $code > 299) { return $fail('invalid', $code, $oauth); }
@@ -324,13 +342,13 @@ function threecx_token(array $c, string $secret): array
 
 function threecx_collect(array $c, string $secret, int $since): array
 {
-    [$st, $token] = threecx_token($c, $secret);
-    if ($st !== 'ok') { return ['state' => $st, 'calls' => [], 'sms' => []]; }
+    [$st, $token, $why] = threecx_token($c, $secret);
+    if ($st !== 'ok') { if ($why !== '') { connector_trace('3CX: ' . $why); } return ['state' => $st, 'calls' => [], 'sms' => []]; }
     $base = rtrim((string) $c['base_url'], '/');
     $calls = [];
     for ($page = 0; $page < 3; $page++) {
         $q = '$top=200&$skip=' . ($page * 200) . '&$orderby=' . rawurlencode('StartTime desc') . '&$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', $since));
-        $r = connector_http('GET', $base . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => (bool) $c['verify_tls'], 'headers' => ['Authorization: Bearer ' . $token]]);
+        $r = connector_http('GET', $base . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => (bool) $c['verify_tls'], 'forbidden' => true, 'headers' => ['Authorization: Bearer ' . $token]]);
         if ($r['state'] !== 'ok' || !is_array($r['json'])) { return ['state' => $r['state'] === 'ok' ? 'invalid' : $r['state'], 'calls' => [], 'sms' => []]; }
         $items = (array) ($r['json']['value'] ?? []);
         foreach ($items as $it) {
@@ -488,11 +506,33 @@ function connector_state_text(string $state): string
     return match ($state) {
         'ok' => 'Connected.',
         'unauthorized' => 'Unauthorized: the service rejected the credentials.',
+        'forbidden' => 'Signed in, but not allowed: the service accepted the credentials and then refused this request (HTTP 403). The account or API client has no permission to read this data. Check its role and permissions at the service.',
         'unreachable' => 'Unreachable: the service did not answer in time, or refused the connection.',
         'busy' => 'The service says it is busy (too many requests). Try again in a minute.',
         'never' => 'Not synced yet.',
         default => 'Invalid response: the address answered, but not the way this service does. Check the address.',
     };
+}
+
+/** Writes one entry of the log under a connector: what was done, the result, and the requests behind it (see connector_trace()). */
+function connector_log_add(PDO $pdo, string $p, string $action, string $state, string $message, ?string $by = null): void
+{
+    try {
+        $by ??= (string) ($_SESSION['admin']['username'] ?? 'scheduler');
+        $pdo->prepare('INSERT INTO connector_log (provider, action, state, message, detail, created_by) VALUES (?,?,?,?,?,?)')
+            ->execute([$p, mb_substr($action, 0, 10), mb_substr($state, 0, 20), mb_substr($message, 0, 400), mb_substr(implode("\n", connector_trace()), 0, 1500), mb_substr($by, 0, 60)]);
+        $pdo->prepare('DELETE FROM connector_log WHERE provider = ? AND id <= COALESCE((SELECT id FROM (SELECT id FROM connector_log WHERE provider = ? ORDER BY id DESC LIMIT 1 OFFSET 40) x), 0)')->execute([$p, $p]);   // the newest 40 stay
+    } catch (Throwable $e) { error_log('Connector log failed (run database/migrate.php): ' . $e->getMessage()); }   // the log must never break a test or a sync
+}
+
+/** The newest entries of the log of one connector. */
+function connector_log_recent(PDO $pdo, string $p, int $n = 10): array
+{
+    try {
+        $s = $pdo->prepare('SELECT * FROM connector_log WHERE provider = ? ORDER BY id DESC LIMIT ' . (int) $n);
+        $s->execute([$p]);
+        return $s->fetchAll();
+    } catch (Throwable $e) { return []; }
 }
 
 /**
@@ -514,7 +554,8 @@ function connector_test(string $p, array $c, string $secret): array
         case 'threecx':
             [$st, $token, $why] = threecx_token($c, $secret);
             if ($st !== 'ok') { return [$st, connector_state_text($st) . ($why !== '' ? ' ' . $why : '')]; }
-            $r = connector_http('GET', rtrim((string) $c['base_url'], '/') . '/xapi/v1/CallHistoryView?$top=1', ['verify_tls' => $tls, 'headers' => ['Authorization: Bearer ' . $token]]);
+            $r = connector_http('GET', rtrim((string) $c['base_url'], '/') . '/xapi/v1/CallHistoryView?$top=1', ['verify_tls' => $tls, 'forbidden' => true, 'headers' => ['Authorization: Bearer ' . $token]]);
+            if ($r['state'] === 'forbidden') { return ['forbidden', 'Signed in, but 3CX refused the call history (HTTP 403). The credentials are right: the API client is not allowed to read call history. In the 3CX Management Console open Integrations, API, edit this client, make sure it may use the Configuration API (XAPI) and give it a role that may see call reports (to confirm that this is the cause, try the system owner or admin role first).']; }
             return $r['state'] === 'ok' && is_array($r['json']) ? ['ok', 'Connected to 3CX. The call history can be read.'] : [$r['state'] === 'ok' ? 'invalid' : $r['state'], connector_state_text($r['state'] === 'ok' ? 'invalid' : $r['state'])];
         case 'yeastar':
             [$st, $token] = yeastar_token($c, $secret);
@@ -553,6 +594,7 @@ function connector_sync(PDO $pdo, string $p, bool $manual = false): array
     $lock = $pdo->prepare('SELECT GET_LOCK(?, 0)'); $lock->execute(['connector_sync_' . $p]);
     if ((int) $lock->fetchColumn() !== 1) { return ['state' => 'busy', 'count' => 0, 'message' => 'A sync of ' . $defs[$p]['name'] . ' is already running.']; }
     try {
+        connector_trace(null, true);
         $secret = connector_secret($c);
         $since = time() - CONNECTOR_WINDOW_DAYS * 86400;
         $res = match ($p) {
@@ -567,6 +609,9 @@ function connector_sync(PDO $pdo, string $p, bool $manual = false): array
             else { $count = comm_store($pdo, array_merge($res['calls'], $res['sms']), (bool) $c['keep_text']); comm_match($pdo); }
         }
         $pdo->prepare('UPDATE connectors SET last_sync_at = NOW(), last_state = ?, last_count = ? WHERE provider = ?')->execute([$res['state'], $count, $p]);
+        if ($manual || $res['state'] !== $c['last_state']) {   // a scheduled run is only written down when the result changed, so the log does not fill up every 5 minutes
+            connector_log_add($pdo, $p, $manual ? 'sync' : 'scheduled', $res['state'], $res['state'] === 'ok' ? $count . ' record' . ($count === 1 ? '' : 's') . ' up to date.' : connector_state_text($res['state']));
+        }
         if ($manual || $res['state'] !== $c['last_state'] && $res['state'] !== 'ok') {
             log_activity($res['state'] === 'ok' ? 'info' : 'warning', $defs[$p]['name'] . ' sync', $res['state'] . ' · ' . $count . ' records');
         }
