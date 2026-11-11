@@ -21,6 +21,7 @@ try {
     check($s === 'unauthorized' && str_contains($m, 'two-step sign-in'), 'a login that has two-step sign-in turned on is explained, not just "rejected"');
     [$s, $m] = $try22('noperm', 'apiclient', 'apisecret');
     check($s === 'forbidden' && str_contains($m, 'credentials are right') && str_contains($m, 'not allowed to read call history') && !str_contains($m, 'rejected the credentials'), 'a token that works but a call-history request that gets HTTP 403 is "signed in but not allowed", not "rejected the credentials"', $m);
+    connector_trace(null, true);
     [$s, $m] = connector_test('threecx', ['base_url' => 'http://127.0.0.1:3198/slow', 'verify_tls' => 1, 'account_ref' => 'apiclient', 'provider' => 'threecx', 'timeout' => 1], 'apisecret');
     check($s === 'unreachable' && str_contains($m, 'Signed in') && str_contains($m, 'did not answer the call-history request in time') && str_contains(implode("\n", connector_trace()), 'curl error 28'), 'a PBX that signs in but is slow to give the call history says exactly that, and the log has the timeout', $m);
     [$s, $m] = connector_test('threecx', ['base_url' => 'http://127.0.0.1:3198/slow', 'verify_tls' => 1, 'account_ref' => 'apiclient', 'provider' => 'threecx', 'timeout' => 8], 'apisecret');
@@ -29,9 +30,17 @@ try {
     connector_trace(null, true);
     [$s, $m] = $try22('noorder', 'apiclient', 'apisecret');
     $tr22 = implode("\n", connector_trace());
-    check($s === 'ok' && str_contains($tr22, 'HTTP 500: ') && str_contains($tr22, 'Invalid property in orderby') && str_contains($tr22, 'HTTP 200') && str_contains($tr22, 'form 2 of 3') && str_contains($tr22, 'SegmentId, StartTime'), 'when 3CX refuses the first form of the question (HTTP 500), the next form is tried; the log has what 3CX said and the fields of a record', $tr22);
+    check($s === 'ok' && str_contains($tr22, 'HTTP 500: ') && str_contains($tr22, 'Invalid property in orderby') && str_contains($tr22, 'HTTP 200') && str_contains($tr22, 'form 4 of 4') && str_contains($tr22, 'SegmentId, StartTime'), 'when 3CX refuses the first form of the question (HTTP 500), the next form is tried; the log has what 3CX said and the fields of a record', $tr22);
     $res22 = threecx_collect(['base_url' => 'http://127.0.0.1:3198/noorder', 'verify_tls' => 1, 'account_ref' => 'apiclient'], 'apisecret', time() - 35 * 86400);
     same([$res22['state'], count($res22['calls'])], ['ok', 1], 'a sync with that PBX stores the call of last ten minutes and leaves out the one from 90 days ago');
+    // the PBX of the owner: the call-history list answers HTTP 500 for a filter, the call-log function of the reports works
+    connector_trace(null, true);
+    [$s, $m] = $try22('logdata', 'apiclient', 'apisecret');
+    $tr22 = implode("\n", connector_trace());
+    check($s === 'ok' && str_contains($tr22, 'GetCallLogData(periodFrom=') && str_contains($tr22, 'form 1 of 4') && str_contains($tr22, 'TotalDuration') && !str_contains($tr22, 'CallHistoryView'), 'the call-log function with a period is tried first and works, without ever asking for the whole history', $tr22);
+    $res22 = threecx_collect(['base_url' => 'http://127.0.0.1:3198/logdata', 'verify_tls' => 1, 'account_ref' => 'apiclient'], 'apisecret', time() - 35 * 86400);
+    same([$res22['state'], count($res22['calls'])], ['ok', 1], 'and a sync through it stores the call');
+    same([threecx_seconds(42), threecx_seconds('42'), threecx_seconds('00:01:30'), threecx_seconds('1.00:00:05'), threecx_seconds('PT1M30S'), threecx_seconds('PT2H'), threecx_seconds('PT0.5S'), threecx_seconds('soon'), threecx_seconds(null)], [42, 42, 90, 86405, 90, 7200, 0, 0, 0], 'durations as 3CX writes them (seconds, hh:mm:ss, d.hh:mm:ss, ISO 8601) become whole seconds');
     connector_trace(null, true);
     [$s, $m] = $try22('broken', 'apiclient', 'apisecret');
     $tr22 = implode("\n", connector_trace());
@@ -59,7 +68,7 @@ try {
     check($e['state'] === 'ok' && str_contains((string) $e['detail'], 'xapi/v1/CallHistoryView') && str_contains((string) $e['detail'], 'HTTP 200'), 'a good test is logged too, down to the call-history request');
     $post($admin, 'settings/settings.php?tab=connectors', ['base_url' => 'http://127.0.0.1:3198/noperm', 'secret' => 'apisecret'] + $form22, 'settings/settings.php?tab=connectors');
     $e = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx' ORDER BY id DESC LIMIT 1")->fetch();
-    check($e['state'] === 'forbidden' && str_contains((string) $e['detail'], 'connect/token -> HTTP 200') && str_contains((string) $e['detail'], 'CallHistoryView -> HTTP 403'), 'the log shows the token request that worked and the call-history request that was refused', (string) $e['detail']);
+    check($e['state'] === 'forbidden' && str_contains((string) $e['detail'], 'connect/token -> HTTP 200') && str_contains((string) $e['detail'], '-> HTTP 403'), 'the log shows the token request that worked and the call-history request that was refused', (string) $e['detail']);
     $closed = $form22; $closed['base_url'] = 'http://127.0.0.1:3197';
     $post($admin, 'settings/settings.php?tab=connectors', $closed, 'settings/settings.php?tab=connectors');
     $e = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx' ORDER BY id DESC LIMIT 1")->fetch();

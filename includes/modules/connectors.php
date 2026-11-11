@@ -176,7 +176,9 @@ function connector_http(string $method, string $url, array $o = []): array
     $scheme = strtolower((string) $p['scheme']);
     $host = strtolower(trim((string) $p['host'], '[]'));
     $port = (int) ($p['port'] ?? ($scheme === 'https' ? 443 : 80));
-    $what = $method . ' ' . $host . (isset($p['port']) ? ':' . $p['port'] : '') . ($p['path'] ?? '/');   // address and path only: no query, no user name, no secret
+    // address and path only: no query, no user name, no secret. The long argument list of a function call (3CX call log) is shortened to what matters.
+    $shownPath = preg_replace("/\\((periodFrom=[^,]*,periodTo=[^,]*),[^)]*\\)/", '($1,...)', (string) ($p['path'] ?? '/')) ?? '/';
+    $what = $method . ' ' . $host . (isset($p['port']) ? ':' . $p['port'] : '') . $shownPath;
     [$ok, $vmsg] = kuma_validate_url($scheme . '://' . (str_contains($host, ':') ? '[' . $host . ']' : $host) . (isset($p['port']) ? ':' . $p['port'] : ''));
     if (!$ok || !function_exists('curl_init')) { connector_trace($what . ' not sent: ' . ($ok ? 'the PHP curl extension is missing' : 'address not allowed (' . (string) $vmsg . ')')); return $fail('unreachable'); }
 
@@ -346,25 +348,41 @@ function threecx_token(array $c, string $secret): array
 }
 
 /**
- * Asks 3CX for call history. PBXs differ in what they accept for this view, so the question is asked in up to three forms, each plainer than the
- * last: newest first with a start date, with a start date only, and with neither (the caller then drops records before $since). The next form is
- * tried only after an answer of the "invalid" kind (a refused question, HTTP 400 or 500): a refusal of the sign-in, a missing permission, no answer
- * and "busy" would not change with another form. Every request is in the log. Returns the connector_http() result plus 'form' (1 to 3).
+ * Asks 3CX for the calls of a period. PBXs differ in what they accept, and a PBX with a large history must never be asked for "everything"
+ * (it hangs), so every form is limited to the period. In this order:
+ *   1 and 2: the call-log function of the reports (ReportCallLogData, Pbx.GetCallLogData), with and without sorting: made for exactly this
+ *   3 and 4: the CallHistoryView list with a start date, with and without sorting
+ * The next form is tried only after an answer of the "invalid" kind (a refused question, HTTP 400, 404 or 500): a refusal of the sign-in, a missing
+ * permission, no answer and "busy" would not change with another form. Every request is in the log.
+ * Returns the connector_http() result plus 'form' (1 to 4) and 'forms' (4).
  */
 function threecx_history(array $c, string $token, int $since, int $top, int $skip): array
 {
     $base = rtrim((string) $c['base_url'], '/');
+    $page = '$top=' . $top . '&$skip=' . $skip;
+    $fn = $base . "/xapi/v1/ReportCallLogData/Pbx.GetCallLogData(periodFrom=" . gmdate('Y-m-d\TH:i:s\Z', $since) . ',periodTo=' . gmdate('Y-m-d\TH:i:s\Z', time() + 3600)
+        . ",sourceType=0,sourceFilter='',destinationType=0,destinationFilter='',callsType=0,callTimeFilterType=0,callTimeFilterFrom='0:00:0',callTimeFilterTo='0:00:0',hidePcalls=false)";
     $from = '$filter=' . rawurlencode('StartTime ge ' . gmdate('Y-m-d\TH:i:s\Z', $since));
-    $forms = ['$orderby=' . rawurlencode('StartTime desc') . '&' . $from, $from, ''];
+    $forms = [$fn . '?' . $page . '&$orderby=SegmentId', $fn . '?' . $page,
+        $base . '/xapi/v1/CallHistoryView?' . $page . '&$orderby=' . rawurlencode('StartTime desc') . '&' . $from, $base . '/xapi/v1/CallHistoryView?' . $page . '&' . $from];
     $r = [];
-    foreach ($forms as $i => $extra) {
-        $q = '$top=' . $top . '&$skip=' . $skip . ($extra !== '' ? '&' . $extra : '');
-        $r = connector_http('GET', $base . '/xapi/v1/CallHistoryView?' . $q, ['verify_tls' => (bool) $c['verify_tls'], 'forbidden' => true, 'snippet' => true,
+    foreach ($forms as $i => $url) {
+        $r = connector_http('GET', $url, ['verify_tls' => (bool) $c['verify_tls'], 'forbidden' => true, 'snippet' => true,
             'timeout' => (int) ($c['timeout'] ?? CONNECTOR_SLOW_TIMEOUT_S), 'headers' => ['Authorization: Bearer ' . $token]]);
-        $r['form'] = $i + 1;
+        $r['form'] = $i + 1; $r['forms'] = count($forms);
         if ($r['state'] !== 'invalid') { break; }
     }
     return $r;
+}
+
+/** A length of time as 3CX writes it: 42, "00:01:30", "1.00:00:05" or "PT1M30S" (ISO 8601), as whole seconds. 0 when it can not be read. */
+function threecx_seconds(mixed $v): int
+{
+    if (is_int($v) || is_float($v) || (is_string($v) && ctype_digit($v))) { return max(0, (int) $v); }
+    $s = trim((string) $v);
+    if (preg_match('/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$/', $s, $m) && $s !== 'P' && $s !== 'PT') { return (int) ($m[1] ?? 0) * 86400 + (int) ($m[2] ?? 0) * 3600 + (int) ($m[3] ?? 0) * 60 + (int) ($m[4] ?? 0); }
+    if (preg_match('/^(?:(\d+)\.)?(\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?$/', $s, $m)) { return (int) $m[1] * 86400 + (int) $m[2] * 3600 + (int) $m[3] * 60 + (int) $m[4]; }
+    return 0;
 }
 
 /**
@@ -399,7 +417,7 @@ function threecx_collect(array $c, string $secret, int $since): array
         if ($r['state'] === 'unreachable') { connector_trace('3CX: signed in, but the PBX did not answer the call-history request in time'); }
         if ($r['state'] !== 'ok' || !is_array($r['json'])) { return ['state' => $r['state'] === 'ok' ? 'invalid' : $r['state'], 'calls' => [], 'sms' => []]; }
         $items = (array) ($r['json']['value'] ?? []);
-        if ($page === 0) { connector_trace('3CX: call history read in form ' . $r['form'] . ' of 3; ' . ($items && is_array($items[0]) ? 'fields of the first record: ' . implode(', ', array_slice(array_keys($items[0]), 0, 30)) : 'no records in the period')); }
+        if ($page === 0) { connector_trace('3CX: call history read in form ' . $r['form'] . ' of ' . $r['forms'] . '; ' . ($items && is_array($items[0]) ? 'fields of the first record: ' . implode(', ', array_slice(array_keys($items[0]), 0, 30)) : 'no records in the period')); }
         foreach ($items as $it) {
             if (!is_array($it)) { continue; }
             $when = connector_time($it['StartTime'] ?? null);
@@ -410,7 +428,7 @@ function threecx_collect(array $c, string $secret, int $since): array
             $answered = array_key_exists('Answered', $it) ? (bool) $it['Answered'] : (stripos((string) ($it['Status'] ?? ''), 'answer') !== false);
             $row = comm_row('threecx', 'call', $it['SegmentId'] ?? $it['CallId'] ?? $it['Id'] ?? '', $dir,
                 $it['SourceCallerId'] ?? $it['SourceDn'] ?? '', $it['DestinationCallerId'] ?? $it['DestinationDn'] ?? '', $it['StartTime'] ?? null,
-                $it['TalkingDuration'] ?? 0, $answered ? 'answered' : 'missed');
+                threecx_seconds($it['TalkingDuration'] ?? $it['Talking'] ?? $it['TotalDuration'] ?? 0), $answered ? 'answered' : 'missed');
             if ($row !== null) { $calls[] = $row; }
         }
         if (count($items) < 200 || count($calls) >= CONNECTOR_MAX_RECORDS) { break; }
@@ -608,7 +626,7 @@ function connector_test(string $p, array $c, string $secret): array
             if ($st !== 'ok') { return [$st, connector_state_text($st) . ($why !== '' ? ' ' . $why : '')]; }
             // only the last day: a question without a period makes a PBX with a large history read all of it
             $r = threecx_history($c, $token, time() - 86400, 1, 0);
-            if ($r['state'] === 'ok' && is_array($r['json'])) { $first = (array) ($r['json']['value'] ?? []); connector_trace('3CX: call history read in form ' . $r['form'] . ' of 3' . ($first && is_array($first[0]) ? '; fields of the first record: ' . implode(', ', array_slice(array_keys($first[0]), 0, 30)) : '; no calls in the last day')); }
+            if ($r['state'] === 'ok' && is_array($r['json'])) { $first = (array) ($r['json']['value'] ?? []); connector_trace('3CX: call history read in form ' . $r['form'] . ' of ' . $r['forms'] . ($first && is_array($first[0]) ? '; fields of the first record: ' . implode(', ', array_slice(array_keys($first[0]), 0, 30)) : '; no calls in the last day')); }
             if ($r['state'] === 'invalid') {
                 threecx_diagnose($c, $token);
                 return ['invalid', 'Signed in (the credentials and the permissions are right), but 3CX would not answer the call-history request' . ($r['code'] > 0 ? ' (HTTP ' . $r['code'] . ')' : '') . ', not even in the plainest form. The log below shows what 3CX said and which call-history views and fields this PBX offers: send it to the developer.'];
