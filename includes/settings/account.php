@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/modules/monitor.php';       // secret_encrypt / secret_decrypt
 require_once dirname(__DIR__) . '/modules/twofactor.php';
+require_once dirname(__DIR__) . '/modules/avatars.php';
 
 /** Two-step sign-in actions of the Account tab. */
 function tab_handle_2fa(PDO $pdo, array $admin, string $action): void
@@ -53,6 +54,16 @@ function tab_handle_2fa(PDO $pdo, array $admin, string $action): void
 
 function tab_handle(PDO $pdo, array $admin): void
 {
+    if (($_POST['action'] ?? '') === 'avatar_upload') {
+        [$ok, $msg] = avatar_save($pdo, $admin, $_FILES['avatar'] ?? null);
+        flash($msg, $ok ? 'ok' : 'bad');
+        return;
+    }
+    if (($_POST['action'] ?? '') === 'avatar_remove') {
+        avatar_remove($pdo, $admin);
+        flash('Your profile picture is removed. Your initials are shown instead.');
+        return;
+    }
     if (($_POST['action'] ?? '') === 'optin') {
         $on = ($_POST['optin'] ?? '') === '1' ? 1 : 0;
         $pdo->prepare('UPDATE admins SET notify_optin = ? WHERE id = ?')->execute([$on, $admin['id']]);
@@ -102,6 +113,25 @@ function tab_render(PDO $pdo, array $admin): void
     $integ = ['none' => 'No access', 'view' => 'View only', 'manage' => 'Can manage'][integrations_level()];
     ?>
 <div class="grid gap-6 lg:grid-cols-2">
+  <?php $pic = $pdo->prepare('SELECT avatar FROM admins WHERE id = ?'); $pic->execute([$admin['id']]); $pic = $pic->fetchColumn(); $pic = is_string($pic) ? $pic : null; ?>
+  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6 lg:col-span-2" aria-labelledby="pic-h">
+    <h2 id="pic-h" class="text-lg font-bold tracking-tight">Profile picture</h2>
+    <p class="mt-1 text-sm text-soft">Shown next to your name at the top of every page and in the team list. JPG, PNG, WebP and <strong class="text-ink">GIF are supported, animated GIFs included</strong>. Up to <?= (int) (AVATAR_MAX_BYTES / 1048576) ?> MB and <?= AVATAR_MAX_PIXELS ?> by <?= AVATAR_MAX_PIXELS ?> pixels. The picture is shown round, so a square one fits best.</p>
+    <div class="mt-5 flex flex-wrap items-center gap-5">
+      <?= avatar_html($pic, $admin['name'], 'h-20 w-20', 'text-2xl') ?>
+      <form method="post" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="avatar_upload">
+        <label for="avatar" class="sr-only">Choose a picture</label>
+        <input id="avatar" name="avatar" type="file" accept="image/gif,image/png,image/jpeg,image/webp" required class="max-w-full text-sm file:mr-3 file:h-11 file:cursor-pointer file:rounded-xl file:border file:border-line file:bg-panel file:px-4 file:text-sm file:font-semibold hover:file:bg-butter-50">
+        <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Upload picture</button>
+      </form>
+      <?php if ($pic !== null): ?>
+      <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="avatar_remove">
+        <button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50">Remove picture</button>
+      </form>
+      <?php endif; ?>
+    </div>
+  </section>
+
   <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="pw-h">
     <h2 id="pw-h" class="text-lg font-bold tracking-tight">Change password</h2>
     <p class="mt-1 text-sm text-soft">Signed in as <?= e($admin['email']) ?> · <?= e($roleText) ?><?php if (module_enabled('health')): ?> · Integrations: <?= e($integ) ?><?php endif; ?></p>

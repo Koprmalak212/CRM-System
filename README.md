@@ -234,7 +234,7 @@ The **Overview** shows key numbers, trends and what needs attention, each chart 
 <td valign="top">
 
 ### 👥 Run a team
-Invite colleagues by email, set roles and permissions, turn on **two-step sign-in** (and require it for admins), and reset a lost device.
+Invite colleagues by email, set roles and permissions, turn on **two-step sign-in** (and require it for admins), and reset a lost device. Everyone can set their own **profile picture** (JPG, PNG, WebP or **GIF, animated GIFs included**, up to 2 MB).
 
 </td>
 <td valign="top">
@@ -326,7 +326,7 @@ C:\xampp\php\php.exe bin\setup.php
 | `bin/sync_connectors.php` | every 5 minutes | Fetches calls, messages and short links |
 | `bin/check_endpoints.php`, `bin/kuma_poll.php` | every minute | Health checks and Uptime history |
 
-The full guide, with scheduled jobs and updates, is in [`docs/INSTALL.md`](docs/INSTALL.md).
+The full guide, with scheduled jobs and updates, is in [`docs/INSTALL.md`](docs/INSTALL.md). To run it in containers instead, copy `.env.example` to `.env`, fill in the three secrets and run `docker compose up -d --build` (see "Docker" in the guide).
 
 <br>
 
@@ -372,7 +372,7 @@ tests/              the test suite
 | --- | --- |
 | [`docs/SYSTEM_FEATURES_EXPLAINED.txt`](docs/SYSTEM_FEATURES_EXPLAINED.txt) | Every page and feature, how to use it, with worked examples |
 | [`docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt`](docs/SYSTEM_GUIDE_SECURITY_AND_COMPLIANCE.txt) | How each part is secured, how it supports the GDPR and Dutch rules, known gaps, go-live checklist |
-| [`docs/INSTALL.md`](docs/INSTALL.md) | Setup, choosing modules, folder layout, scheduled jobs, tests, running on a network |
+| [`docs/INSTALL.md`](docs/INSTALL.md) | Setup, choosing modules, folder layout, scheduled jobs, tests, running on a network, Docker |
 | [`docs/PRODUCT.md`](docs/PRODUCT.md) | Product and design notes |
 | [`docs/datalekprocedure.md`](docs/datalekprocedure.md), [`docs/verwerkingsregister.md`](docs/verwerkingsregister.md) | Data-breach procedure and processing register (Dutch, drafts for legal review) |
 

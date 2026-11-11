@@ -8,12 +8,15 @@ declare(strict_types=1);
 
 // ---------- Configuration: credentials live in includes/config.local.php (git-ignored), never in code ----------
 $__cfg = is_file(dirname(__DIR__) . '/config.local.php') ? (require dirname(__DIR__) . '/config.local.php') : [];
-define('DB_HOST', (string) ($__cfg['db_host'] ?? '127.0.0.1'));
-define('DB_NAME', (string) ($__cfg['db_name'] ?? 'ops_console'));
-define('DB_USER', (string) ($__cfg['db_user'] ?? 'ops_console_app'));
-define('DB_PASS', (string) ($__cfg['db_pass'] ?? ''));
-define('APP_KEY', base64_decode((string) ($__cfg['app_key'] ?? '')));                  // 32 bytes, encrypts stored API secrets
-define('ALLOW_PRIVATE_TARGETS', (bool) ($__cfg['allow_private_targets'] ?? false));    // SSRF guard: public addresses only unless set
+// A container install (docker-compose.yml) has no config file: the same values come from CRM_* environment variables, which win when set.
+$__env = static fn(string $n, $default) => (($v = getenv($n)) !== false && $v !== '') ? $v : $default;
+define('DB_HOST', (string) $__env('CRM_DB_HOST', $__cfg['db_host'] ?? '127.0.0.1'));
+define('DB_NAME', (string) $__env('CRM_DB_NAME', $__cfg['db_name'] ?? 'ops_console'));
+define('DB_USER', (string) $__env('CRM_DB_USER', $__cfg['db_user'] ?? 'ops_console_app'));
+define('DB_PASS', (string) $__env('CRM_DB_PASS', $__cfg['db_pass'] ?? ''));
+define('APP_KEY', base64_decode((string) $__env('CRM_APP_KEY', $__cfg['app_key'] ?? '')));                  // 32 bytes, encrypts stored API secrets
+define('ALLOW_PRIVATE_TARGETS', filter_var($__env('CRM_ALLOW_PRIVATE_TARGETS', $__cfg['allow_private_targets'] ?? false), FILTER_VALIDATE_BOOLEAN));    // SSRF guard: public addresses only unless set
+unset($__env);
 unset($__cfg);
 
 // ---------- Errors: log them, never show them ----------

@@ -1,0 +1,4 @@
+# The site-wide request limit is 256 KB (see the .htaccess in the project root). The Account tab takes profile pictures
+# up to 2 MB (AVATAR_MAX_BYTES in includes/modules/avatars.php, GIFs included). This folder allows 4 MB, so a picture that is
+# too large is refused with a message on the page (the application checks the 2 MB) instead of a bare "413" error from Apache.
+LimitRequestBody 4194304

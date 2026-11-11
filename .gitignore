@@ -9,3 +9,6 @@ node_modules/
 # Data dumps hold real settings and account hashes: never commit them
 database/ops_console_data.sql
 database/*_data.sql
+
+# Profile pictures people upload (the starter picture oia-cat.gif is tracked)
+assets/avatars/u*-*

@@ -4,6 +4,8 @@ Options -Indexes
   RewriteEngine On
   # Production: send plain HTTP to HTTPS (localhost and private network addresses such as 10.0.0.67 are left alone, so local and LAN use keeps working)
   RewriteCond %{HTTPS} off
+  # TLS ended by a proxy in front of Apache (docker/apache.conf turns X-Forwarded-Proto: https into HTTPS=on): already secure
+  RewriteCond %{ENV:HTTPS} !=on
   RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
   RewriteCond %{HTTP_HOST} !^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9.]+(:[0-9]+)?$
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

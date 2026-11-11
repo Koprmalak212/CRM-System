@@ -665,6 +665,10 @@ locked?
 
 Account (everyone)
   - Change your password.
+  - Profile picture: upload a JPG, PNG, WebP or GIF (animated GIFs are
+    supported and stay animated), up to 2 MB and 4096 x 4096 pixels. It shows
+    next to your name on every page and in the team list. "Remove picture"
+    goes back to your initials.
   - Two-step sign-in: scan the QR code or enter the key in an authenticator
     app, confirm with a code, and save your 10 recovery codes. Turn it off
     again with your password and a code.

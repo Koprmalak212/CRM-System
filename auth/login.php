@@ -75,12 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'That username and password do not match. Check both and try again.';
     }
 }
-// The demo credentials are only shown while the default password is still in place.
-$showDemo = false;
-try {
-    $h = db()->query("SELECT password_hash FROM admins WHERE username = 'admin' AND is_active = 1")->fetchColumn();
-    $showDemo = $h && password_verify('admin', (string) $h);   // the hint disappears by itself once the demo password is changed
-} catch (Throwable $e) { /* hint is optional */ }
 ?>
 <!doctype html>
 <html lang="en" class="h-full">
@@ -141,10 +135,6 @@ try {
       <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy shadow-[0_6px_18px_-8px_rgba(199,243,107,.6)] transition hover:brightness-95 active:translate-y-px">Sign in</button>
 
       <p class="mt-4 text-center text-sm"><a href="auth/forgot.php" class="font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Forgot password?</a></p>
-
-      <?php if ($showDemo): ?>
-      <p class="mt-6 rounded-xl bg-butter px-4 py-3 text-sm text-navy">Demo account: <strong class="font-semibold">admin</strong> / <strong class="font-semibold">admin</strong>.</p>
-      <?php endif; ?>
     </form>
     <footer class="absolute inset-x-0 bottom-5 px-6 text-center text-xs text-soft">
       <p>© <?= date('Y') ?> Telecomlijn Zakelijk · KvK 65586492 · <a href="privacy/privacybeleid.php" class="notranslate font-semibold text-ink underline decoration-lime decoration-2 underline-offset-4 hover:decoration-white">Privacybeleid</a></p>

@@ -121,6 +121,15 @@ function tab_handle(PDO $pdo, array $admin): void
         return;
     }
 
+    if ($action === 'delete_user') {
+        if ($isSelf) { flash('You can not delete your own account.', 'bad'); return; }
+        if ((int) $target['is_active'] === 1) { flash('Disable the account first. Only a disabled account can be deleted.', 'bad'); return; }
+        $pdo->prepare('DELETE FROM admins WHERE id = ? AND is_active = 0')->execute([$id]);   // related recovery codes and reset tokens go with it; tickets keep existing, unassigned
+        log_activity('warning', 'Account deleted', $target['username'] . ' · ' . $target['role']);
+        flash('The account of ' . $target['name'] . ' was deleted.');
+        return;
+    }
+
     if ($action === 'reset_2fa') {
         if ($isSelf) { flash('Turn off your own two-step sign-in from the Account tab.', 'bad'); return; }
         if (!(int) $target['totp_enabled']) { flash($target['name'] . ' does not use two-step sign-in.', 'bad'); return; }
@@ -189,6 +198,7 @@ function tab_render(PDO $pdo, array $admin): void
               <?php if ((int) $m['totp_enabled']): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="reset_2fa"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?> hover:bg-[#FFD3CC] hover:text-[#7E160A]">Reset two-step</button></form><?php endif; ?>
               <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="reset_password"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?>">Reset password</button></form>
               <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="toggle_active"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?> <?= $active ? 'hover:bg-[#FFD3CC] hover:text-[#7E160A]' : 'hover:bg-lime hover:text-navy' ?>"><?= $active ? 'Disable' : 'Enable' ?></button></form>
+              <?php if (!$active): ?><form method="post" onsubmit="return confirm('Delete the account of <?= e(addslashes($m['name'])) ?> for good? This can not be undone.');"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="delete_user"><input type="hidden" name="id" value="<?= $id ?>"><button class="<?= $btn ?> hover:bg-[#FFD3CC] hover:text-[#7E160A]">Delete</button></form><?php endif; ?>
             <?php else: ?><span class="text-xs text-soft">Use the Account tab for your own password.</span><?php endif; ?>
           </div>
         </td>

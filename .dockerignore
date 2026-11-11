@@ -1,0 +1,17 @@
+.git
+.github
+.githooks
+.impeccable
+node_modules
+.env
+*.log
+includes/config.local.php
+storage/*
+!storage/.htaccess
+tests
+docs/screenshots
+database/*_data.sql
+Dockerfile
+docker-compose.yml
+.dockerignore
+assets/avatars/u*-*

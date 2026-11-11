@@ -19,7 +19,7 @@ define('DB_PASS', getenv('SETUP_DB_PASS') !== false ? (string) getenv('SETUP_DB_
 const ADMIN_USERNAME = 'admin';
 const ADMIN_EMAIL = 'admin@telecomlijn.test';
 require __DIR__ . '/../includes/modules/passwords.php';
-const DEMO_ADMIN_PASSWORD = 'admin';   // only for --demo installs (the sign-in page shows a hint while it is unchanged)
+const DEMO_ADMIN_PASSWORD = 'admin';   // only for --demo installs
 
 $demo = in_array('--demo', $argv ?? [], true);    // seed fake demo data
 // A real install gets a random first password, printed once, and must change it at the first sign-in.
@@ -54,15 +54,18 @@ $pdo->exec(file_get_contents(__DIR__ . '/../database/schema.sql'));
 
 
 // Least-privilege database account for the web app (never root). Credentials go to includes/config.local.php, which is git-ignored and blocked by .htaccess.
-$appPass = bin2hex(random_bytes(16));
-foreach (['127.0.0.1', 'localhost'] as $h) {
+// A container install (docker-compose.yml) sets CRM_DB_PASS and CRM_APP_KEY itself, and SETUP_APP_HOST='%' because the web server is another container.
+$appPass = getenv('CRM_DB_PASS') ?: bin2hex(random_bytes(16));
+$appHosts = array_values(array_filter(array_map('trim', explode(',', getenv('SETUP_APP_HOST') ?: '127.0.0.1,localhost')), static fn($h) => preg_match('/^[A-Za-z0-9_.%:-]+$/', $h) === 1));
+if (!$appHosts) { fwrite(STDERR, "SETUP_APP_HOST holds no valid host name.\n"); exit(1); }
+foreach ($appHosts as $h) {
     $pdo->exec("DROP USER IF EXISTS 'ops_console_app'@'$h'");
-    $pdo->exec("CREATE USER 'ops_console_app'@'$h' IDENTIFIED BY '$appPass'");
+    $pdo->exec("CREATE USER 'ops_console_app'@'$h' IDENTIFIED BY " . $pdo->quote($appPass));
     $pdo->exec("GRANT SELECT, INSERT, UPDATE, DELETE ON `" . DB_NAME . "`.* TO 'ops_console_app'@'$h'");
 }
 $pdo->exec('FLUSH PRIVILEGES');
 $oldConfig = (!$wipe && is_file(__DIR__ . '/../includes/config.local.php')) ? (require __DIR__ . '/../includes/config.local.php') : [];
-$appKey = (string) ($oldConfig['app_key'] ?? '');   // reused, so secrets saved before the reset can still be decrypted
+$appKey = (string) (getenv('CRM_APP_KEY') ?: ($oldConfig['app_key'] ?? ''));   // reused, so secrets saved before the reset can still be decrypted
 if (strlen((string) base64_decode($appKey)) !== 32) { $appKey = base64_encode(random_bytes(32)); }   // encrypts stored API secrets (AES-256-GCM)
 file_put_contents(
     __DIR__ . '/../includes/config.local.php',
@@ -84,6 +87,9 @@ foreach ($keep as $t => $rows) {
     }
     if ($rows) { $restored[] = count($rows) . ' ' . str_replace('_', ' ', $t); }
 }
+// A test account like admin / admin, but a normal user: well-known password, no forced password change (every install).
+$pdo->prepare("INSERT INTO admins (username, email, name, password_hash, role, perm_integrations, must_change_password) VALUES ('user', 'user@telecomlijn.test', 'Test User', ?, 'user', 'none', 0)")
+    ->execute([defined('PASSWORD_ARGON2ID') ? password_hash('user', PASSWORD_ARGON2ID) : password_hash('user', PASSWORD_BCRYPT, ['cost' => 12])]);
 $supportPass = null;
 if ($demo) {
     // A normal (non-admin) demo account to try the permission model. Random password, printed once below.
@@ -99,9 +105,12 @@ echo "Done. Database '" . DB_NAME . "' created" . ($demo ? " and seeded with FAK
 ";
 if ($supportPass !== null) { echo "Normal demo account: support / $supportPass (no integrations access until an admin grants it)
 "; }
+echo "Test account: username user and password user (a normal, non-admin account, no password change required)
+";
 echo "Sign in at http://localhost/Websites/test/auth/login.php\n";
 if ($demo) {
     echo 'Demo account: username ' . ADMIN_USERNAME . ' and password ' . DEMO_ADMIN_PASSWORD . " (for trying the system only)\n";
+    echo "Demo test user: username user and password user (a normal, non-admin account)\n";
 } else {
     echo "\n  First sign-in\n  username: " . ADMIN_USERNAME . "\n  password: " . $adminPassword . "\n\n  This password is shown only now and is stored only as a hash. You must choose a new one at the first sign-in.\n";
 }

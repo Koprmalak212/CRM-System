@@ -1,0 +1,67 @@
+# Telecomlijn CRM: web (PHP + Apache), scheduler (the cron jobs) and db (MariaDB).
+#
+#   cp .env.example .env        then fill in the three secrets in it
+#   docker compose up -d --build
+#   docker compose logs web     the first admin password is printed once, on the first start
+#
+# Then open http://localhost:8080 (change the port with CRM_PORT). For a real server put a TLS proxy in front, see docs/INSTALL.md ("Docker").
+
+x-app: &app
+  build: .
+  image: telecomlijn-crm:latest
+  restart: unless-stopped
+  environment:
+    CRM_DB_HOST: db
+    CRM_DB_PASS: ${CRM_DB_PASS:?Set CRM_DB_PASS in .env}
+    CRM_APP_KEY: ${CRM_APP_KEY:?Set CRM_APP_KEY in .env (openssl rand -base64 32)}
+    DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+    CRM_TIMEZONE: ${CRM_TIMEZONE:-Europe/Amsterdam}
+    TZ: ${CRM_TIMEZONE:-Europe/Amsterdam}
+    CRM_TRUSTED_PROXY: ${CRM_TRUSTED_PROXY:-}
+    CRM_ALLOW_PRIVATE_TARGETS: ${CRM_ALLOW_PRIVATE_TARGETS:-false}
+    SMTP_SERVER: ${SMTP_SERVER:-}
+    SMTP_PORT: ${SMTP_PORT:-}
+    SMTP_USERNAME: ${SMTP_USERNAME:-}
+    SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    EMAIL_FROM: ${EMAIL_FROM:-}
+    EMAIL_TARGET: ${EMAIL_TARGET:-}
+  volumes:
+    - storage:/var/www/html/storage
+    - avatars:/var/www/html/assets/avatars   # profile pictures people upload (a new volume starts with the image's starter picture)
+
+services:
+  web:
+    <<: *app
+    ports:
+      - "${CRM_PORT:-8080}:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app
+    command: ["scheduler.sh"]
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+    # Not published: only the other containers reach the database.
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  dbdata:
+  storage:
+  avatars:

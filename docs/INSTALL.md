@@ -17,7 +17,7 @@ Everything needed to run, update and test the system. For what the system does, 
    C:\xampp\php\php.exe bin\setup.php
    ```
 
-   The script prints a **random first password for the `admin` account, once**. Write it down: it is stored only as a hash, and you must choose a new password at the first sign-in. Add `--demo` for a trial install with fake demo data; that install keeps the well-known demo account `admin` / `admin` (the sign-in page shows a hint while it is unchanged), so never use `--demo` for real data. If the database already exists the script refuses to run; `--reset` rebuilds it (your Kuma connection, API keys and endpoints are kept) and `--reset --wipe-all` removes those too.
+   The script prints a **random first password for the `admin` account, once**. Write it down: it is stored only as a hash, and you must choose a new password at the first sign-in. Add `--demo` for a trial install with fake demo data; that install keeps the well-known demo account `admin` / `admin`, so never use `--demo` for real data. If the database already exists the script refuses to run; `--reset` rebuilds it (your Kuma connection, API keys and endpoints are kept) and `--reset --wipe-all` removes those too.
 3. Open <http://localhost/Websites/test/>, sign in as `admin` with the password the script printed, and choose your own password when asked. (A demo install: `admin` / `admin`, for trying only.)
 
 An existing database is brought up to date, keeping its data, with `C:\xampp\php\php.exe database\migrate.php`. It runs as root, can be repeated safely, and also migrates the old `users.company` text into companies.
@@ -54,7 +54,7 @@ bin/                       command-line jobs and installer; refused by the web s
 includes/core/             bootstrap, security, layout, theme, translation
 includes/modules/          feature logic: companies, tickets, invoices, mailer, PDF writer, two-factor, Kuma, ...
 includes/settings/         the tabs of the Settings page
-assets/css js img          app.css (compiled Tailwind), motion system, phone table cards, logos; fonts/ and avatars/ beside them
+assets/css js img          app.css (compiled Tailwind), motion system, phone table cards, logos; fonts/ and avatars/ beside them (avatars/ also holds the profile pictures people upload: JPG, PNG, WebP and GIF, animated GIFs included; the folder must be writable by the web server, and its .htaccess only serves pictures)
 database/                  schema, migration, dumps, test-log baseline
 docs/                      guides, data-breach procedure, processing register
 tests/                     test suite (tests/parts, one file per stage), mock Kuma and mock SMTP server
@@ -248,6 +248,24 @@ SetEnvIf X-Forwarded-Proto "https" HTTPS=on
 ```
 
 After this, `curl -I https://crm.example.com/auth/login.php` should show a `Set-Cookie: __Host-ops_console` with `Secure`, and the activity log should show the visitors' own addresses.
+
+### Docker
+
+`docker-compose.yml` runs three containers: `web` (PHP 8.2 + Apache, the `.htaccess` rules work as on a normal server), `scheduler` (the jobs of "Scheduled jobs", so no cron is needed) and `db` (MariaDB, not published to the network).
+
+```
+cp .env.example .env          # fill in DB_ROOT_PASSWORD, CRM_DB_PASS and CRM_APP_KEY (openssl rand -base64 32)
+docker compose up -d --build
+docker compose logs web       # the first admin password is printed once, on the first start
+```
+
+Open <http://localhost:8080> (`CRM_PORT` in `.env` changes the port) and sign in as `admin`; you must choose a new password at the first sign-in.
+
+- **Configuration** comes from environment variables instead of `includes/config.local.php` (when both exist, the variable wins): `CRM_DB_HOST`, `CRM_DB_NAME`, `CRM_DB_USER`, `CRM_DB_PASS`, `CRM_APP_KEY`, `CRM_ALLOW_PRIVATE_TARGETS`, and the mail variables `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM`. **Keep a copy of `CRM_APP_KEY`:** without it, saved API secrets can no longer be decrypted.
+- **First start** creates the database and the limited `ops_console_app` account (`bin/setup.php`, using the MariaDB root password only for that). **Every later start** runs `database/migrate.php`, so updating is `git pull && docker compose up -d --build`.
+- **Data** lives in two volumes: `dbdata` (the database) and `storage` (logs and runtime files). Back up the database with `docker compose exec db sh -c 'mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --databases ops_console' > backup.sql`.
+- **HTTPS.** The container speaks plain HTTP. For a real server put a proxy that ends TLS (Caddy, Traefik, nginx) in front of `web` and pass `X-Forwarded-Proto`: the program then treats the visit as HTTPS (secure cookie, HSTS, no redirect loop). Set `CRM_TRUSTED_PROXY` to the proxy's address or network, so the rate limiter and sign-in lockout see visitors' real addresses. Do not publish port 8080 to the internet without a proxy. Plain HTTP on `localhost` and private addresses (10.x, 192.168.x) keeps working.
+- **Demo data.** `docker compose exec -u www-data web php bin/setup.php --reset --demo` rebuilds the database as a demo install (fake data, `admin` / `admin`), with the same `SETUP_*` variables the entrypoint uses: run it with `-e SETUP_DB_HOST=db -e SETUP_DB_USER=root -e SETUP_DB_PASS=<DB_ROOT_PASSWORD> -e SETUP_APP_HOST=%`. Never use it for real data.
 
 ### Lines-of-code badge
 

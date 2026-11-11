@@ -1,0 +1,14 @@
+# Profile pictures only (uploaded by people on Settings > Account): nothing here is ever run, and only pictures are served.
+Options -Indexes -ExecCGI
+<FilesMatch ".">
+  Require all denied
+</FilesMatch>
+<FilesMatch "\.(gif|jpe?g|png|webp)$">
+  Require all granted
+</FilesMatch>
+<FilesMatch "\.(php[0-9]?|phtml|phar)\.">
+  Require all denied
+</FilesMatch>
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+</IfModule>
