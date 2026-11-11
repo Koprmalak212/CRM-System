@@ -92,4 +92,21 @@ if (!col_exists($pdo, 'admins', 'notify_optin')) { $pdo->exec('ALTER TABLE admin
 // ---- Hardening: lockout per account counts failures from every address
 if (!index_exists($pdo, 'login_attempts', 'idx_user_time')) { $pdo->exec('ALTER TABLE login_attempts ADD KEY idx_user_time (username, attempted_at)'); say('login_attempts.idx_user_time added'); }
 
+// ---- Contracts: invoices can belong to a contract
+if (!col_exists($pdo, 'invoices', 'contract_id')) {
+    $pdo->exec('ALTER TABLE invoices ADD COLUMN contract_id INT UNSIGNED NULL, ADD UNIQUE KEY uq_inv_contract (contract_id, issue_date), ADD CONSTRAINT fk_inv_contract FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE SET NULL');
+    say('invoices.contract_id added');
+}
+
+// ---- SLA and email to ticket: targets and the requester on tickets, the source of a comment.
+// Tickets that already exist get no targets: the SLA counts from the tickets opened after this step.
+if (!col_exists($pdo, 'tickets', 'resolve_due_at')) {
+    $pdo->exec("ALTER TABLE tickets ADD COLUMN requester_email VARCHAR(190) NOT NULL DEFAULT '', ADD COLUMN first_response_at DATETIME NULL, ADD COLUMN respond_due_at DATETIME NULL, ADD COLUMN resolve_due_at DATETIME NULL, ADD COLUMN waiting_since DATETIME NULL, ADD COLUMN sla_paused_s INT UNSIGNED NOT NULL DEFAULT 0, ADD COLUMN escalated_at DATETIME NULL, ADD KEY idx_ticket_sla (resolve_due_at)");
+    say('tickets: SLA columns and requester_email added');
+}
+if (!col_exists($pdo, 'ticket_comments', 'source')) {
+    $pdo->exec("ALTER TABLE ticket_comments ADD COLUMN source ENUM('web','email') NOT NULL DEFAULT 'web'");
+    say('ticket_comments.source added');
+}
+
 echo "Database is up to date.\n";

@@ -21,6 +21,8 @@ Contents
    8. Tickets
    9. Calendar and appointments
   10. Invoices, payments, PDF and recurring invoices
+  10A. Quotes (offertes)
+  10B. Contracts and subscriptions
   11. Global search
   12. CSV export and import
   13. Notifications and email
@@ -281,6 +283,44 @@ New ticket
   From the Tickets page, or from a user or company page with the person or
   company already filled in.
 
+SLA (service level)
+  Every new ticket gets two moments: when the first response is due and when
+  the solution is due. They follow from the priority (Settings > Tickets;
+  out of the box Urgent 30 minutes and 4 hours, High 2 and 8 hours, Normal
+  8 and 24 hours, Low 1 and 3 days). The clock runs 24 hours a day.
+  - First response: the first comment a staff member writes, or a staff
+    member changing the status. System notes and customer emails do not count.
+  - Waiting: while the status is Waiting (for the customer) the clock stands
+    still. That time is added to the resolve target when the ticket moves on.
+  - A contract can give one company shorter targets (see 10B).
+  - The list has an SLA column with a countdown, and a filter for tickets
+    past a target, about to breach, or escalated. The ticket page has an SLA
+    box with both targets.
+  - About to breach: with less than a quarter of the time left a
+    notification is raised once. Breached: another one when the moment
+    passes. A ticket that misses its SOLUTION target is escalated: it is
+    marked, and a note is added to its thread.
+  - The Overview shows "SLA met, 30 days": of the tickets resolved in the
+    last 30 days, the share that was resolved in time.
+  - Tickets from before this feature have no targets ("No target") and are
+    left out of the numbers.
+
+Email to ticket
+  Mail sent to your support address becomes a ticket (Settings > Tickets,
+  and the job bin/poll_inbox.php, see 23).
+  - A new message opens a ticket. A sender who is a known user is linked to
+    that person and their company; the general address of a company links
+    the company. The sender gets one confirmation with the reference.
+  - A reply with the reference in its subject, for example [TCK-0042], is
+    added to that ticket as a comment marked "by email", without the quoted
+    earlier mail. It reopens a resolved ticket and ends "Waiting".
+  - Only the requester, the contact person or a colleague of the same
+    company can add to a ticket. Anyone else gets a new ticket.
+  - On the ticket page, tick "Also email this reply to ..." to send your
+    comment to the customer, signed with your name and the company name.
+  - Automatic mail (out-of-office, bounces, newsletters) is ignored.
+    Attachments are not stored.
+
 
 ===============================================================================
 9. CALENDAR AND APPOINTMENTS
@@ -370,6 +410,73 @@ Recurring invoices (invoices/recurring.php)
     twice for the same period, even if the job runs twice.
   - A generated invoice is an ordinary invoice that you can open, send and
     record payments on.
+  - Services that belong to a contract do not need a schedule: see 10B.
+
+
+===============================================================================
+10A. QUOTES (quotes/quotes.php)   [module: Quotes]
+===============================================================================
+
+A quote (offerte) is an offer to a customer. It has the same lines as an
+invoice, a date until which it is valid, and an outcome.
+
+  - New quote: choose a company (fills in name, email and address) or type
+    the customer by hand, add the lines, pick the BTW rate. It is saved as
+    a draft with a number such as OFF-2026-1001.
+  - Download PDF gives the quote in the same layout as an invoice, without
+    payment lines.
+  - Outcome: Mark as sent, Accepted by the customer, or Declined (with an
+    optional reason). An accepted or declined quote can be reopened as a
+    draft, unless it already became an invoice or a contract.
+  - Expired: a draft or sent quote whose "valid until" date has passed. It
+    counts as lost. Edit it and set a new date to offer it again.
+  - Turn it into an invoice: one click copies the customer and the lines
+    into a new invoice dated today, payable in 14 days. Only once.
+  - Turn it into a contract: one click makes a DRAFT contract whose monthly
+    services are the lines of the quote. Check the dates and the invoicing,
+    then make it active. Only once.
+  - The four numbers on top: what is open, what was won, what was lost, and
+    the win rate (accepted quotes out of all quotes with an outcome).
+
+  Example: you quote 10 seats of 3CX. The customer says yes: click
+  "Accepted", then "A contract". Set the start date, make it active, and the
+  first invoice follows on the date you chose.
+
+
+===============================================================================
+10B. CONTRACTS AND SUBSCRIPTIONS (contracts/contracts.php)   [module: Contracts]
+===============================================================================
+
+A contract says which services one company has and what they cost a month.
+
+  - Lines: one per service. Choose the kind (Fiber / internet, 3CX seats,
+    Yeastar seats, Security, Phone numbers, Other), a description, the
+    quantity (for seats: the number of seats) and the price per unit per
+    month, excluding BTW.
+  - Term: a start date and an end date. Leave the end date empty for a
+    contract that runs until you end it.
+  - Renews automatically: on the end date the contract goes on for the
+    renewal period (12 months unless you change it). Without the tick it
+    ends that day.
+  - Renewal alert: so many days before the end date (60 unless you change
+    it) the contract is marked "Renewal due", a notification is raised once,
+    and the Overview lists it under Needs attention.
+  - Invoicing: every month, quarter or year, or not from the contract. The
+    contract then creates its own invoices on the scheduled day, with one
+    line per service. A quarterly invoice is three months. A period is never
+    invoiced twice. With the Invoices module off nothing is invoiced.
+  - Status: Draft (no invoices, no alerts), Active, Ended. End contract
+    stops it today; the invoices it made are kept.
+  - SLA of the contract (optional): a response and a resolve target in
+    hours. They apply to the tickets of that company whenever they are
+    shorter than the standard targets.
+  - The four numbers on top: revenue per month and per year of all active
+    contracts, the number of active contracts, and what is inside its
+    notice period.
+  - The company page shows the running contracts and what the company pays
+    a month.
+  - The daily job is bin/run_contracts.php (see 23). The same work is also
+    done when the site is opened.
 
 
 ===============================================================================
@@ -377,7 +484,8 @@ Recurring invoices (invoices/recurring.php)
 ===============================================================================
 
 Type in the search box on any page and press Enter. Results are grouped:
-Users, Companies, Invoices, Tickets, each with the matching text and a link.
+Users, Companies, Invoices, Tickets, Quotes, Contracts, each with the matching
+text and a link.
 Characters like % and _ are searched literally, so searching "50%" finds
 "50%". Searches that are too frequent are slowed down.
 
@@ -674,11 +782,16 @@ Set these up in the Windows Task Scheduler (or cron on Linux):
                      php C:\xampp\htdocs\Websites\test\bin\purge.php
   bin/run_recurring.php  daily. Creates the recurring invoices that are due.
                      php C:\xampp\htdocs\Websites\test\bin\run_recurring.php
+  bin/run_contracts.php  daily. Creates the invoices of contracts that are due,
+                     renews contracts that renew by themselves, ends the
+                     ones that are over.
+  bin/poll_inbox.php     every 3 minutes. Reads the support mailbox and turns
+                     new mail into tickets and replies (email to ticket).
   bin/check_endpoints.php  every minute; runs the endpoint checks that are due.
   bin/kuma_poll.php      every minute; keeps the Uptime history continuous when
                      nobody has the page open.
 
-bin/purge.php, bin/run_recurring.php, bin/check_endpoints.php and bin/kuma_poll.php all refuse to run from a browser.
+bin/purge.php, bin/run_recurring.php, bin/run_contracts.php, bin/poll_inbox.php, bin/check_endpoints.php and bin/kuma_poll.php all refuse to run from a browser.
 
 
 ===============================================================================

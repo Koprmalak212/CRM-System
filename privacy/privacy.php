@@ -42,7 +42,15 @@ function collect_subject(PDO $pdo, string $email): array
         $inv['payments'] = $p->fetchAll();
     }
     unset($inv);
-    return ['user' => $user, 'connections' => $conns, 'calls_and_messages' => $comm, 'activity_logs' => $logs, 'invoices' => $invoices];
+    // tickets this address sent in by email, with what it wrote in their threads, and the quotes addressed to it
+    $tk = $pdo->prepare('SELECT id, reference, subject, description, status, created_at FROM tickets WHERE requester_email = ? ORDER BY created_at DESC LIMIT 2000');
+    $tk->execute([$email]);
+    $tickets = $tk->fetchAll();
+    $tc = $pdo->prepare("SELECT t.reference, c.body, c.created_at FROM ticket_comments c JOIN tickets t ON t.id = c.ticket_id WHERE c.source = 'email' AND c.author = ? ORDER BY c.created_at DESC LIMIT 5000");
+    $tc->execute([mb_substr($email, 0, 60)]);
+    $qt = $pdo->prepare('SELECT number, customer, customer_address, title, issue_date, valid_until, total_cents, status FROM quotes WHERE email = ? ORDER BY issue_date DESC');
+    $qt->execute([$email]);
+    return ['user' => $user, 'connections' => $conns, 'calls_and_messages' => $comm, 'activity_logs' => $logs, 'invoices' => $invoices, 'emailed_tickets' => $tickets, 'emailed_ticket_replies' => $tc->fetchAll(), 'quotes' => $qt->fetchAll()];
 }
 
 $email = mb_substr(trim((string) ($_GET['email'] ?? $_POST['email'] ?? '')), 0, 190);
@@ -67,6 +75,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validEmail) {
         exit;
     }
 
+    if ($action === 'erase_mail') {   // a sender without a user account: their address goes from the emailed tickets; the tickets stay as company records
+        if (($_POST['confirm'] ?? '') !== 'yes') { flash('Tick the confirmation box to remove this address.', 'bad'); redirect('privacy/privacy.php?email=' . urlencode($email)); }
+        $n = $pdo->prepare("UPDATE tickets SET requester_email = '' WHERE requester_email = ?"); $n->execute([$email]);
+        $pdo->prepare("UPDATE ticket_comments SET author = 'anonymised' WHERE source = 'email' AND author = ?")->execute([mb_substr($email, 0, 60)]);
+        $pdo->prepare("UPDATE ticket_emails SET from_email = '' WHERE from_email = ?")->execute([$email]);
+        log_activity('warning', 'Privacy erasure completed', 'email sender · ' . $n->rowCount() . ' tickets');
+        flash('The address was removed from ' . $n->rowCount() . ' emailed ticket' . ($n->rowCount() === 1 ? '' : 's') . ', their replies and the list of messages read. What was written in the tickets stays: check it for personal details.');
+        redirect('privacy/privacy.php');
+    }
+
     if ($action === 'erase') {
         if (!$data['user']) {
             flash('No user account exists for that address, so there is nothing to anonymise. Invoice contacts are kept for the legal retention period.', 'bad');
@@ -80,6 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validEmail) {
                 // calls and messages: the person link, the matching key, the message text and the person's own number go; the rest is a company record
                 $pdo->prepare("UPDATE comm_log SET user_id = NULL, party_key = '', body = '', from_number = IF(direction = 'in', '', from_number), to_number = IF(direction = 'out', '', to_number) WHERE user_id = ?")->execute([$id]);
                 $pdo->prepare("UPDATE activity_logs SET actor = 'anonymised', ip = '0.0.0.0' WHERE actor = ?")->execute([$email]);
+                // email to ticket: the address goes from the tickets, the replies and the list of messages read; the ticket itself is a company record
+                $pdo->prepare("UPDATE tickets SET requester_email = '' WHERE requester_email = ?")->execute([$email]);
+                $pdo->prepare("UPDATE ticket_comments SET author = 'anonymised' WHERE source = 'email' AND author = ?")->execute([mb_substr($email, 0, 60)]);
+                $pdo->prepare("UPDATE ticket_emails SET from_email = '' WHERE from_email = ?")->execute([$email]);
                 $pdo->prepare("UPDATE users SET name = 'Anonymised user', email = ?, country = '', status = 'suspended' WHERE id = ?")
                     ->execute(['anonymised-' . $id . '@invalid.example', $id]);
                 $pdo->commit();
@@ -96,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validEmail) {
 }
 
 $data = $validEmail ? collect_subject($pdo, $email) : null;
-$found = $data && ($data['user'] || $data['activity_logs'] || $data['invoices']);
+$found = $data && ($data['user'] || $data['activity_logs'] || $data['invoices'] || $data['emailed_tickets'] || $data['emailed_ticket_replies'] || $data['quotes']);
 
 page_start('Privacy requests', 'settings', 'Handle a request under the GDPR (AVG): see what is held about a person, export it, or anonymise their account.');
 $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
@@ -127,12 +149,28 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Calls and messages</dt><dd class="text-soft"><?= count($data['calls_and_messages']) ?> (from the phone systems and Twilio, deleted automatically after <?= COMM_RETENTION_MONTHS ?> months)</dd></div><?php endif; ?>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Activity-log entries</dt><dd class="text-soft"><?= count($data['activity_logs']) ?> (deleted automatically after <?= LOG_RETENTION_MONTHS ?> months)</dd></div>
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Invoices as contact</dt><dd class="text-soft"><?= count($data['invoices']) ?> <?= $data['invoices'] ? '(kept 7 years: legal obligation, tax records)' : '' ?></dd></div>
+<?php if (module_enabled('tickets')): ?>
+      <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Tickets sent in by email</dt><dd class="text-soft"><?= count($data['emailed_tickets']) ?> tickets and <?= count($data['emailed_ticket_replies']) ?> replies with this address as the sender</dd></div>
+<?php endif; ?>
+<?php if (module_enabled('quotes')): ?>
+      <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">Quotes as contact</dt><dd class="text-soft"><?= count($data['quotes']) ?></dd></div>
+<?php endif; ?>
     </dl>
     <div class="flex flex-wrap gap-3 border-t border-line p-5 sm:p-6">
       <form method="post"><?= csrf_field() ?><input type="hidden" name="email" value="<?= e($email) ?>"><input type="hidden" name="action" value="export">
         <button class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('download', 'h-4 w-4') ?>Download export (JSON)</button></form>
     </div>
   </section>
+
+  <?php if (!$data['user'] && ($data['emailed_tickets'] || $data['emailed_ticket_replies'])): ?>
+  <section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="erasem-h">
+    <h2 id="erasem-h" class="text-lg font-bold tracking-tight">Remove this address from emailed tickets</h2>
+    <p class="mt-1 text-sm text-soft">This person has no user account, but wrote to the support address. The address is removed from the tickets, the replies and the list of messages read. The tickets themselves stay as records of the company.</p>
+    <form method="post" class="mt-4 space-y-3"><?= csrf_field() ?><input type="hidden" name="email" value="<?= e($email) ?>"><input type="hidden" name="action" value="erase_mail">
+      <label for="confirm_mail" class="flex cursor-pointer items-center gap-2 text-sm"><input id="confirm_mail" type="checkbox" name="confirm" value="yes" class="h-4 w-4 accent-lime"><span>I have confirmed who is asking. Remove the address.</span></label>
+      <button class="pressable h-11 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Remove the address</button></form>
+  </section>
+  <?php endif; ?>
 
   <?php if ($data['user']): ?>
   <section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="erase-h">

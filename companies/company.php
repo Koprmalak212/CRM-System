@@ -7,6 +7,8 @@ require __DIR__ . '/../includes/modules/notes.php';
 require __DIR__ . '/../includes/modules/tickets.php';
 require __DIR__ . '/../includes/modules/appointments.php';
 require __DIR__ . '/../includes/modules/comm.php';
+require __DIR__ . '/../includes/modules/contracts.php';
+require __DIR__ . '/../includes/modules/quotes.php';
 require __DIR__ . '/../includes/core/layout.php';
 require_login();
 $pdo = db();
@@ -52,6 +54,9 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
 <div class="rise mb-5 flex flex-wrap gap-3">
   <a href="companies/company_edit.php?id=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Edit company</a>
   <a href="users/user_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Add user</a>
+<?php if (module_enabled('quotes')): ?>
+  <a href="quotes/quote_edit.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">New quote</a>
+<?php endif; ?>
 <?php if (module_enabled('invoices')): ?>
   <a href="invoices/invoice_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a>
 <?php endif; ?>
@@ -81,6 +86,8 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
     <?php endif; ?>
   </section>
 
+  <?php if (module_enabled('contracts')): ?><?= contracts_panel($pdo, $id) ?><?php endif; ?>
+  <?php if (module_enabled('quotes')): ?><?= quotes_panel($pdo, $id) ?><?php endif; ?>
   <?php if (module_enabled('tickets')): ?><?= tickets_panel($pdo, 'company_id', $id, 'tickets/ticket_new.php?company=' . $id) ?><?php endif; ?>
   <?php if (module_enabled('calendar')): ?><?= appointments_panel($pdo, $id, 'Upcoming appointments', 'calendar/appointment_edit.php?company=' . $id) ?><?php endif; ?>
   <?php if (module_enabled('calls')): ?><?= comm_panel($pdo, 'company_id', $id, 'Calls and messages') ?><?php endif; ?>

@@ -8,15 +8,15 @@
 # Telecomlijn CRM
 
 ### The CRM you switch on one module at a time.
-Customers at the core. Tickets, calendar, invoices, calls, uptime and more as modules you turn on when you need them.
+Customers at the core. Tickets, quotes, contracts, invoices, calendar, calls, uptime and more as modules you turn on when you need them.
 
 <br>
 
-![11 modules](https://img.shields.io/badge/modules-11%20on%2Foff-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![13 modules](https://img.shields.io/badge/modules-13%20on%2Foff-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![PHP 8.2](https://img.shields.io/badge/PHP-8.2-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![MariaDB](https://img.shields.io/badge/MariaDB-10.4+-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
-![Lines of code](https://img.shields.io/badge/lines%20of%20code-14%2C885-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
+![Lines of code](https://img.shields.io/badge/lines%20of%20code-18%2C063-111D36?style=for-the-badge&labelColor=111D36&color=C7F36B)
 ![Proprietary](https://img.shields.io/badge/licence-proprietary-111D36?style=for-the-badge&labelColor=111D36&color=FFF1A8)
 
 <br>
@@ -36,7 +36,7 @@ Customers at the core. Tickets, calendar, invoices, calls, uptime and more as mo
 
 <br>
 
-Telecomlijn CRM is a private CRM and operations dashboard for a business that sells and supports connectivity. Not every business needs every part of it, so it is **built from modules**: a small core that knows your customers, and eleven features around it that each client turns on or off. A support desk can run only Tickets and Calendar. A reseller can add Invoices. A network team can add Uptime and Connections. It runs on your own server, and your data stays there.
+Telecomlijn CRM is a private CRM and operations dashboard for a business that sells and supports connectivity. Not every business needs every part of it, so it is **built from modules**: a small core that knows your customers, and thirteen features around it that each client turns on or off. A support desk can run only Tickets and Calendar. A reseller can add Quotes, Contracts and Invoices. A network team can add Uptime and Connections. It runs on your own server, and your data stays there.
 
 <br>
 
@@ -46,7 +46,7 @@ Telecomlijn CRM is a private CRM and operations dashboard for a business that se
 flowchart TB
     subgraph work [" Work with customers "]
         direction LR
-        tickets["🎫 Tickets"] ~~~ calendar["📅 Calendar"] ~~~ invoices["💶 Invoices"] ~~~ calls["📞 Calls & messages"] ~~~ links["🔗 Short links"]
+        tickets["🎫 Tickets"] ~~~ calendar["📅 Calendar"] ~~~ quotes["📝 Quotes"] ~~~ contracts["🔁 Contracts"] ~~~ invoices["💶 Invoices"] ~~~ calls["📞 Calls & messages"] ~~~ links["🔗 Short links"]
     end
     core(["🏢 CORE · always on<br/>Users · Companies · Notes · Search · Notifications · Settings"])
     subgraph ops [" Watch and run the system "]
@@ -57,7 +57,7 @@ flowchart TB
     classDef core fill:#C7F36B,stroke:#111D36,stroke-width:2px,color:#111D36,font-weight:bold
     classDef mod fill:#111D36,stroke:#C7F36B,stroke-width:1.5px,color:#EEF2FA
     class core core
-    class tickets,calendar,invoices,calls,links,connections,uptime,health,reports,backups,logs mod
+    class tickets,calendar,quotes,contracts,invoices,calls,links,connections,uptime,health,reports,backups,logs mod
     style work fill:transparent,stroke:#8A96B4,stroke-dasharray:4 4
     style ops fill:transparent,stroke:#8A96B4,stroke-dasharray:4 4
 ```
@@ -79,7 +79,7 @@ flowchart TB
 
 ### 🧱
 **Fully independent**<br>
-<sub>Any combination works, from all eleven to none at all. Nothing breaks when a neighbour is off.</sub>
+<sub>Any combination works, from all thirteen to none at all. Nothing breaks when a neighbour is off.</sub>
 
 </td>
 <td width="25%" valign="top" align="center">
@@ -103,8 +103,10 @@ flowchart TB
 
 | | Module | What it gives you |
 | :-: | --- | --- |
-| 🎫 | **Tickets** | Support tickets with status, priority, owner and a comment thread. Urgent tickets raise an alert and an email at once, and time to resolve is measured for you. |
+| 🎫 | **Tickets** | Support tickets with status, priority, owner and a comment thread. **SLA targets** per priority (or per contract) with a countdown, a warning before a breach and escalation after it. **Email to ticket**: mail to your support address becomes a ticket, replies land in the right thread, and you answer by email from the ticket. |
 | 📅 | **Calendar** | Appointments per company and contact person, as a month grid and an agenda. Add any appointment to your own calendar app with one download. |
+| 📝 | **Quotes** | Quotes (offertes) with the same lines and PDF as an invoice, a "valid until" date and an outcome. One click turns a quote into an invoice or a contract, and the win rate is worked out for you. |
+| 🔁 | **Contracts** | Per company: which services it has (fiber, 3CX or Yeastar seats, security), the price per month, start and end date, and a renewal alert. A contract creates its own invoices, one per period and never twice. |
 | 💶 | **Invoices** | Invoices from a company in seconds, payments, and what is open, due soon or overdue. Clean PDFs, and recurring invoices that bill once per period and never twice. |
 | 📞 | **Calls & messages** | Calls and messages per customer from 3CX, Yeastar and Twilio. |
 | 🔗 | **Short links** | Short links per company from Short.io. |
@@ -127,6 +129,7 @@ flowchart TB
 | **Settings** | Its settings tab disappears (Kuma, Connectors, Integrations). |
 | **Export** | Its CSV export is refused. |
 | **Scheduled jobs** | Its job prints one line and stops, so a forgotten task does no harm. |
+| **Other modules** | Nothing breaks. A quote simply stops offering "make an invoice" while Invoices is off, and a contract is still tracked but invoices nothing. |
 | **Your data** | **Untouched.** Switch it on again and it is all there. |
 
 <br>
@@ -146,7 +149,7 @@ Every customer is a **company** with its address, KvK and VAT numbers and the **
 <td width="33%" valign="top">
 
 ### 🔎 Find anything
-One search box finds people and companies, plus the invoices and tickets of the modules that are on. **CSV export and import** move data in and out safely, and explain every row they refuse.
+One search box finds people and companies, plus the invoices, tickets, quotes and contracts of the modules that are on. **CSV export and import** move data in and out safely, and explain every row they refuse.
 
 </td>
 <td width="33%" valign="top">
@@ -224,7 +227,7 @@ Contrast measured in light and dark, charts with data tables, full keyboard use,
 </tr>
 </table>
 
-An automated suite of **over 1,250 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. Every test and fix is documented inside the product, under *Settings → Tests*.
+An automated suite of **1,500 checks** (run on every push by GitHub Actions) runs against a real server. It includes a crawler that follows every link and form in the program, and it switches modules off, one at a time and all at once, to prove the rest keeps working. Every test and fix is documented inside the product, under *Settings → Tests*.
 
 <br>
 
@@ -244,7 +247,7 @@ The full guide, with scheduled jobs and updates, is in [`docs/INSTALL.md`](docs/
 
 ## 🛠 For developers
 
-PHP 8.2 and MariaDB with Tailwind CSS: no framework, on a plain XAMPP stack. The stylesheet is compiled once with the Tailwind CLI and committed, so running the system needs no Node. The PDF writer, the two-factor code (RFC 6238) and the SMTP client are written in-house, so customer data does not leave the server through third-party services.
+PHP 8.2 and MariaDB with Tailwind CSS: no framework, on a plain XAMPP stack. The stylesheet is compiled once with the Tailwind CLI and committed, so running the system needs no Node. The PDF writer, the two-factor code (RFC 6238), the SMTP client and the IMAP reader for email to ticket are written in-house, so customer data does not leave the server through third-party services.
 
 **One folder per module, one registry for all of them.** Each module keeps its pages in its own folder. `includes/core/modules.php` lists every module and the pages it owns:
 
@@ -270,7 +273,7 @@ The state is one row per module in the database. No row means on, so adding a mo
 includes/core/      bootstrap, security, layout and the module registry (the core)
 includes/modules/   the function library of each feature
 includes/settings/  one file per Settings tab
-tickets/  calendar/  invoices/  calls/  links/  monitoring/  system/     module pages
+tickets/  calendar/  quotes/  contracts/  invoices/  calls/  links/  monitoring/  system/     module pages
 users/  companies/  search/  notifications/  settings/  auth/            core pages
 bin/                scheduled jobs
 tests/              the test suite

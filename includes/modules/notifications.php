@@ -28,7 +28,7 @@ function notify_add(PDO $pdo, string $kind, string $key, string $title, string $
 
 /** Which module each kind of notification belongs to: kind, dedupe-key prefix (the start of the key tells the source), module. Others are core. */
 const NOTIFY_MODULE_RULES = [
-    ['invoice_overdue', '', 'invoices'], ['backup_failed', '', 'backups'], ['ticket_urgent', '', 'tickets'],
+    ['invoice_overdue', '', 'invoices'], ['backup_failed', '', 'backups'], ['ticket_urgent', '', 'tickets'], ['ticket_sla', '', 'tickets'], ['contract_renewal', '', 'contracts'],
     ['service_down', 'kuma-', 'uptime'], ['service_down', 'endpoint-', 'health'],
 ];
 
@@ -109,6 +109,12 @@ function notifications_refresh(PDO $pdo, bool $force = false): int
         foreach ($pdo->query("SELECT id, reference, subject, is_demo FROM tickets WHERE priority = 'urgent' AND status NOT IN ('resolved','closed') LIMIT 100") as $r) {
             $new += notify_add($pdo, 'ticket_urgent', 'ticket-urgent:' . $r['id'], 'Urgent ticket ' . $r['reference'], $r['subject'], 'tickets/ticket.php?id=' . $r['id'], (bool) $r['is_demo']) ? 1 : 0;
         }
+        // 5. SLA: tickets that are about to miss or have missed a target; a missed resolve target escalates the ticket
+        try { require_once __DIR__ . '/sla.php'; $new += sla_check($pdo); } catch (Throwable $e) { error_log('SLA check failed: ' . $e->getMessage()); }
+    }
+    // 6. contracts: invoices that are due, renewals and endings, then the renewal alerts
+    if (module_enabled('contracts')) {
+        try { require_once __DIR__ . '/contracts.php'; contracts_run_due($pdo); $new += contracts_notify($pdo); } catch (Throwable $e) { error_log('Contract run failed: ' . $e->getMessage()); }
     }
     $pdo->exec('DELETE FROM notifications WHERE created_at < NOW() - INTERVAL ' . NOTIFY_KEEP_DAYS . ' DAY');
     require_once __DIR__ . '/mailer.php';
@@ -130,7 +136,7 @@ function notifications_mark_read(PDO $pdo, int $id = 0): int
     return $s->rowCount();
 }
 
-const NOTIFY_ICONS = ['invoice_overdue' => 'card', 'backup_failed' => 'database', 'service_down' => 'alert', 'ticket_urgent' => 'ticket'];
+const NOTIFY_ICONS = ['invoice_overdue' => 'card', 'backup_failed' => 'database', 'service_down' => 'alert', 'ticket_urgent' => 'ticket', 'ticket_sla' => 'ticket', 'contract_renewal' => 'contract'];
 
 /** The bell in the top bar: unread count and a small dropdown with the latest items. Works without JavaScript (a details element). */
 function notifications_bell(PDO $pdo): string

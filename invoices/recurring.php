@@ -70,6 +70,10 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
   <div role="alert" class="mb-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><p class="font-semibold">This schedule can not be saved yet:</p><ul class="mt-1 list-disc pl-5"><?php foreach ($errors as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div>
 <?php endif; ?>
 
+<?php if (module_enabled('contracts')): ?>
+  <p role="note" class="rise mb-6 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-soft">Services that belong to a contract do not need a schedule here: a <a href="contracts/contracts.php" class="font-semibold text-ink underline decoration-lime decoration-2 underline-offset-4">contract</a> creates its own invoices, one line per service.</p>
+<?php endif; ?>
+
 <section class="rise mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="run-h">
   <div><h2 id="run-h" class="text-base font-bold">Run schedules</h2>
     <p class="text-sm text-soft"><?= $dueNow > 0 ? '<strong class="text-ink">' . $dueNow . '</strong> schedule' . ($dueNow === 1 ? ' is' : 's are') . ' due now.' : 'Nothing is due right now.' ?> Due schedules are also run automatically when the site is opened. On a real server a scheduled task can run <code class="notranslate">php bin/run_recurring.php</code> every day.</p></div>

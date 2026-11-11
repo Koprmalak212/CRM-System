@@ -42,7 +42,7 @@ set_exception_handler(static function (Throwable $e): void {
 foreach ($_GET as $k => $v) {
     if (is_array($v)) { $_GET[$k] = ''; }
 }
-$__arrayFields = ['desc', 'qty', 'price', 'modules'];   // invoice lines and the module checkboxes (Settings > Modules) are the only legitimate array fields
+$__arrayFields = ['desc', 'qty', 'price', 'service', 'modules'];   // the lines of invoices, quotes and contracts and the module checkboxes (Settings > Modules) are the only legitimate array fields
 foreach ($_POST as $k => $v) {
     if (is_array($v) && !in_array($k, $__arrayFields, true)) { $_POST[$k] = ''; }
 }
@@ -301,7 +301,7 @@ function enforce_rate_limit(): void
     if ($script === 'auth/forgot.php' && $isPost) { $rules[] = ['reset', 5, 60]; }
     if (in_array($script, ['auth/reset.php', 'auth/invite.php'], true) && $isPost) { $rules[] = ['token', 10, 60]; }
     if ($script === 'search/search.php') { $rules[] = ['search', 60, 60]; }   // the heaviest read page: several LIKE queries per request
-    if (in_array($script, ['system/report_download.php', 'system/export.php', 'invoices/invoice_pdf.php'], true)) { $rules[] = ['export', 15, 60]; }   // downloads of personal data share one small budget
+    if (in_array($script, ['system/report_download.php', 'system/export.php', 'invoices/invoice_pdf.php', 'quotes/quote_pdf.php'], true)) { $rules[] = ['export', 15, 60]; }   // downloads of personal data share one small budget
     if ($script === 'system/import.php' && $isPost) { $rules[] = ['import', 10, 60]; }
     if ($script === 'auth/login.php' && $isPost) { $rules[] = ['login', 20, 60]; }
 
@@ -347,5 +347,7 @@ function purge_expired_data(PDO $pdo): int
     if (!function_exists('comm_purge')) { require_once __DIR__ . '/../modules/comm.php'; }
     try { comm_purge($pdo); }   // calls and messages hold phone numbers: kept 12 months
     catch (PDOException $e) { error_log('Purge of calls and messages skipped (run database/migrate.php): ' . $e->getMessage()); }   // the table does not exist yet on a database that was not migrated
+    try { $pdo->prepare('DELETE FROM ticket_emails WHERE received_at < ?')->execute([date('Y-m-d H:i:s', strtotime('-' . LOG_RETENTION_MONTHS . ' months'))]); }   // the list of emails read holds sender addresses
+    catch (PDOException $e) { error_log('Purge of read emails skipped (run database/migrate.php): ' . $e->getMessage()); }
     return $removed;
 }

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../includes/core/bootstrap.php';
-require __DIR__ . '/../includes/modules/tickets.php';
+require __DIR__ . '/../includes/modules/inbound.php';   // loads the ticket library too; used to mail a reply to the customer
 require __DIR__ . '/../includes/core/layout.php';
 require_login();
 $pdo = db();
@@ -12,8 +12,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $action = (string) ($_POST['action'] ?? '');
     if ($action === 'comment') {
-        $err = ticket_comment($pdo, $id, (string) ($_POST['body'] ?? ''));
-        flash($err ?? 'Comment added.', $err ? 'error' : 'ok');
+        $body = (string) ($_POST['body'] ?? '');
+        $err = ticket_comment($pdo, $id, $body);
+        $msg = $err ?? 'Comment added.';
+        if (!$err && !empty($_POST['email_reply'])) {   // also send it to the customer
+            [$status, $note] = ticket_reply_mail($pdo, $t, $body, (string) ($_SESSION['admin']['name'] ?? ''));
+            $to = ticket_reply_address($pdo, $t);
+            $msg = $status === 'sent' ? 'Comment added and emailed to ' . $to . '.' : ($status === 'recorded' ? 'Comment added. The email to ' . $to . ' is in the outbox (no mail server is set up).' : 'Comment added, but the email was not sent: ' . $note);
+            if ($status !== 'failed') { ticket_comment($pdo, $id, 'Emailed this reply to ' . $to . '.', 'system'); }
+            else { $err = $note; }
+        }
+        flash($msg, $err ? 'error' : 'ok');
     } elseif ($action === 'update') {
         [$changes, $err] = ticket_update($pdo, $t, $_POST);
         if ($err) { flash(implode(' ', $err), 'error'); }
@@ -30,6 +39,7 @@ $comments = $pdo->prepare('SELECT * FROM ticket_comments WHERE ticket_id = ? ORD
 $comments->execute([$id]);
 $comments = $comments->fetchAll();
 $assignees = ticket_assignees($pdo);
+$replyTo = ticket_reply_address($pdo, $t);
 $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 
 page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['created_at']));
@@ -50,7 +60,7 @@ page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['c
         <ol class="mt-4 space-y-4">
           <?php foreach ($comments as $c): $sys = $c['author'] === 'system'; ?>
             <li class="rounded-xl <?= $sys ? 'border border-dashed border-line px-4 py-2.5' : 'bg-raised px-4 py-3' ?>">
-              <div class="flex flex-wrap items-center gap-x-2 text-xs text-soft"><span class="font-semibold text-ink"><?= $sys ? 'Update' : e($c['author']) ?></span><span><?= e(ago($c['created_at'])) ?></span></div>
+              <div class="flex flex-wrap items-center gap-x-2 text-xs text-soft"><span class="font-semibold text-ink notranslate"><?= $sys ? 'Update' : e($c['author']) ?></span><?php if (($c['source'] ?? 'web') === 'email'): ?><span class="rounded-full bg-ink/10 px-2 py-0.5 font-semibold text-ink">by email</span><?php endif; ?><span><?= e(ago($c['created_at'])) ?></span></div>
               <p class="mt-1 whitespace-pre-line text-sm <?= $sys ? 'text-soft' : '' ?>"><?= e($c['body']) ?></p>
             </li>
           <?php endforeach; ?>
@@ -60,11 +70,13 @@ page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['c
         <div><label for="body" class="sr-only">Write a comment</label>
           <textarea id="body" name="body" rows="3" maxlength="2000" required placeholder="Write a comment" class="w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></textarea></div>
         <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Add comment</button>
+        <?php if ($replyTo !== ''): ?><label for="email_reply" class="flex cursor-pointer items-center gap-2 text-sm sm:col-span-2"><input id="email_reply" type="checkbox" name="email_reply" value="1" <?= $t['requester_email'] !== '' ? 'checked' : '' ?> class="h-4 w-4 accent-lime"><span>Also email this reply to <span class="font-semibold notranslate"><?= e($replyTo) ?></span></span></label><?php endif; ?>
       </form>
     </section>
   </div>
 
   <div class="space-y-5">
+    <?= sla_panel($t) ?>
     <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="up-h">
       <h2 id="up-h" class="text-base font-bold">Handling</h2>
       <form method="post" class="mt-4 space-y-4"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="update">
@@ -83,6 +95,7 @@ page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['c
       <dl class="mt-4 space-y-3 text-sm">
         <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Company</dt><dd class="mt-1 font-medium"><?= $t['company_id'] !== null ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="companies/company.php?id=' . (int) $t['company_id'] . '">' . e($t['company_name']) . '</a>' : '<span class="text-soft">None</span>' ?></dd></div>
         <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Contact</dt><dd class="mt-1 font-medium"><?= $t['user_id'] !== null ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="users/user.php?id=' . (int) $t['user_id'] . '">' . e($t['user_name']) . '</a>' : '<span class="text-soft">None</span>' ?></dd></div>
+        <?php if ($t['requester_email'] !== ''): ?><div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Came in by email from</dt><dd class="mt-1 break-all font-medium notranslate"><?= e($t['requester_email']) ?></dd></div><?php endif; ?>
         <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Opened by</dt><dd class="mt-1 font-medium"><?= e($t['created_by'] ?: 'Unknown') ?></dd></div>
         <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Last update</dt><dd class="mt-1 font-medium"><?= e(date('j M Y, H:i', strtotime($t['updated_at']))) ?></dd></div>
         <?php if ($t['resolved_at'] !== null): ?><div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Resolved</dt><dd class="mt-1 font-medium"><?= e(date('j M Y, H:i', strtotime($t['resolved_at']))) ?></dd></div><?php endif; ?>

@@ -10,7 +10,7 @@ $basePath15 = (string) parse_url($base, PHP_URL_PATH);   // for example /Website
 section('43. File structure: layout of the project');
 $rootPhp = array_map('basename', glob($root15 . '/*.php') ?: []);
 same($rootPhp, ['index.php'], 'the only PHP file in the project root is index.php (the Overview)');
-foreach (['auth', 'users', 'companies', 'tickets', 'calendar', 'invoices', 'monitoring', 'system', 'search', 'notifications', 'settings', 'privacy', 'api', 'bin', 'includes/core', 'includes/modules', 'includes/settings', 'assets/css', 'assets/js', 'assets/img', 'docs', 'database', 'tests'] as $d) {
+foreach (['auth', 'users', 'companies', 'tickets', 'calendar', 'invoices', 'quotes', 'contracts', 'monitoring', 'system', 'search', 'notifications', 'settings', 'privacy', 'api', 'bin', 'includes/core', 'includes/modules', 'includes/settings', 'assets/css', 'assets/js', 'assets/img', 'docs', 'database', 'tests'] as $d) {
     check(is_dir($root15 . '/' . $d), "folder $d exists");
 }
 check(!glob($root15 . '/assets/*.css') && !glob($root15 . '/assets/*.js') && !glob($root15 . '/assets/*.png'), 'no loose css, js or png files are left in the assets root');
@@ -52,7 +52,7 @@ $resolve = function (string $href, string $pageUrl) use ($base): ?string {
     return $origin . rtrim((string) parse_url($base, PHP_URL_PATH), '/') . '/' . $href;   // every page sets <base href> to the project folder
 };
 $queue = ["$base/index.php"]; $seen = []; $pages = 0; $bad = []; $noBase = [];
-$skip = '~(assets/|[?&]export=|logout\.php|export\.php|invoice_pdf\.php|report_download\.php|calendar_ics\.php|api/|demo_data\.php|notifications\.php\?go=|\?(?:.*&)?delete=|check_endpoints)~';
+$skip = '~(assets/|[?&]export=|logout\.php|export\.php|invoice_pdf\.php|quote_pdf\.php|report_download\.php|calendar_ics\.php|api/|demo_data\.php|notifications\.php\?go=|\?(?:.*&)?delete=|check_endpoints)~';
 while ($queue && $pages < 260) {
     $url = array_shift($queue);
     $key = preg_replace('~([?&])(page|id|month|company|user|q|sort|dir|from|to)=[^&]*~', '$1$2=', $url);

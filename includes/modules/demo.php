@@ -17,7 +17,7 @@ require_once __DIR__ . '/../core/demo_state.php';   // demo_loaded()
 require_once __DIR__ . '/comm.php';   // phone_key(): also used when this file is loaded on its own (bin/setup.php)
 
 const DEMO_TABLES = [
-    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'appointments' => 'Appointments', 'comm_log' => 'Calls and messages', 'short_links' => 'Short links', 'ticket_comments' => 'Ticket comments', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
+    'companies' => 'Companies', 'users' => 'Users', 'notes' => 'Notes', 'tickets' => 'Tickets', 'appointments' => 'Appointments', 'comm_log' => 'Calls and messages', 'short_links' => 'Short links', 'ticket_comments' => 'Ticket comments', 'contracts' => 'Contracts', 'quotes' => 'Quotes', 'connections' => 'Connections', 'services' => 'Services', 'invoices' => 'Invoices',
     'payments' => 'Payments', 'recurring_invoices' => 'Recurring invoices', 'reports' => 'Reports', 'backups' => 'Backups',
     'monitored_endpoints' => 'Endpoints', 'activity_logs' => 'Log entries',
 ];
@@ -124,6 +124,9 @@ function demo_seed(PDO $pdo): array
         $replies = ['Looking into it now.', 'We checked the line and see packet loss on our side. An engineer is scheduled.', 'Thanks, we will call you back this afternoon.', 'Can you confirm the issue is still happening?', 'Fixed on our side. Please confirm that it works for you.', 'Waiting for the customer to reply.'];
         $adminIds = $pdo->query('SELECT id FROM admins WHERE is_active = 1')->fetchAll(PDO::FETCH_COLUMN);
         $tIns = $pdo->prepare('INSERT INTO tickets (reference, company_id, user_id, subject, description, status, priority, assignee_id, created_by, created_at, updated_at, resolved_at, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)');
+        // SLA moments for the sample tickets: most resolved ones made their target, and of the open ones a few are late or close to it
+        $slaUp = $pdo->prepare('UPDATE tickets SET respond_due_at = ?, first_response_at = ?, resolve_due_at = ?, waiting_since = ? WHERE id = ?');
+        $slaMin = ['urgent' => [30, 240], 'high' => [120, 480], 'normal' => [480, 1440], 'low' => [1440, 4320]];
         $tcIns = $pdo->prepare('INSERT INTO ticket_comments (ticket_id, author, body, created_at, is_demo) VALUES (?,?,?,?,1)');
         $uByCo = [];
         foreach ($pdo->query('SELECT id, company_id FROM users WHERE is_demo = 1')->fetchAll() as $ur) { $uByCo[(int) $ur['company_id']][] = (int) $ur['id']; }
@@ -138,6 +141,12 @@ function demo_seed(PDO $pdo): array
             $tIns->execute(['TMP-D' . $i, $co, $uid, demo_pick($subjects), demo_pick($descs), $st, $pr, $adminIds && mt_rand(0, 100) < 75 ? demo_pick($adminIds) : null, 'admin', demo_ts($age), demo_ts($upd), $done]);
             $tid = (int) $pdo->lastInsertId();
             $pdo->prepare('UPDATE tickets SET reference = ? WHERE id = ?')->execute(['TCK-' . str_pad((string) $tid, 4, '0', STR_PAD_LEFT), $tid]);
+            [$respMin, $resMin] = $slaMin[$pr];
+            $respDue = time() - $age + $respMin * 60;
+            $firstResp = time() - $age + (int) ($respMin * 60 * mt_rand(10, mt_rand(0, 100) < 88 ? 90 : 160) / 100);
+            if ($done !== null) { $resDue = time() - $upd + (mt_rand(0, 100) < 86 ? mt_rand(600, 72000) : -mt_rand(900, 28800)); }
+            else { $resDue = time() + (mt_rand(0, 100) < 78 ? mt_rand(4 * 3600, 40 * 3600) : (mt_rand(0, 1) ? mt_rand(300, 2400) : -mt_rand(600, 9000))); }
+            $slaUp->execute([date('Y-m-d H:i:s', $respDue), date('Y-m-d H:i:s', min($firstResp, time() - 60)), date('Y-m-d H:i:s', $resDue), $st === 'waiting' ? demo_ts($upd) : null, $tid]);
             for ($k = mt_rand(1, 4); $k > 0; $k--) {
                 $tcIns->execute([$tid, demo_pick(['admin', 'support']), demo_pick($replies), demo_ts(mt_rand($upd, max($upd, $age - 60)))]);
             }
@@ -329,6 +338,47 @@ function demo_seed(PDO $pdo): array
             $recIns->execute([$co['id'], $d, $amt, 21, $freq, $next, (int) date('j', strtotime($next)), $act, 'admin']);
         }
 
+        // ----- Contracts: what a few companies have, with a monthly price. Next invoice dates are in the future, so loading demo data never
+        //       creates invoices by itself; one contract is inside its notice period so the renewal alert can be seen
+        $ctIns = $pdo->prepare('INSERT INTO contracts (number, company_id, title, status, start_date, end_date, auto_renew, renew_months, notice_days, billing, vat_rate, terms_days, next_invoice_date, anchor_day, sla_respond_min, sla_resolve_min, notes, created_by, is_demo, created_at) VALUES (?,?,?,?,?,?,?,12,60,?,21,14,?,?,?,?,?,?,1,?)');
+        $ciIns = $pdo->prepare('INSERT INTO contract_items (contract_id, service, description, qty, unit_cents) VALUES (?,?,?,?,?)');
+        $ctPlan = [
+            ['Fiber and telephony, head office', 'active', -300, 65, 1, 'month', [['fiber', 'Business fiber 1 Gbps', 1, 14900], ['voip_3cx', 'VoIP seat, 3CX', 12, 950], ['numbers', '085 business number', 2, 500]], null, null],
+            ['Managed security', 'active', -120, 245, 1, 'quarter', [['security', 'Managed firewall', 1, 8900], ['security', 'DDoS protection', 1, 3900]], 60, 240],
+            ['Yeastar telephony', 'active', -500, 40, 0, 'month', [['voip_yeastar', 'VoIP seat, Yeastar', 8, 850]], null, null],
+            ['Fiber 10 Gbps, data centre', 'active', -40, null, 0, 'year', [['fiber', 'Business fiber 10 Gbps', 1, 59900]], 30, 480],
+            ['Telephony for the new office', 'draft', 14, 378, 1, 'month', [['voip_3cx', 'VoIP seat, 3CX', 6, 950], ['other', 'WhatsApp Business integration', 1, 2500]], null, null],
+            ['Fiber 1 Gbps (old office)', 'ended', -800, -70, 0, 'none', [['fiber', 'Business fiber 1 Gbps', 1, 13900]], null, null],
+        ];
+        foreach ($ctPlan as $n => [$ctTitle, $ctStatus, $startIn, $endIn, $renew, $bill, $ctLines, $slaA, $slaB]) {
+            $co = $customers[($n * 2 + 1) % count($customers)];
+            $next = $bill === 'none' ? null : $day(mt_rand(5, 24));
+            $ctIns->execute(['DEMO-CTR-' . str_pad((string) ($n + 1), 4, '0', STR_PAD_LEFT), $co['id'], $ctTitle, $ctStatus, $day($startIn), $endIn === null ? null : $day($endIn), $renew, $bill, $next, $next !== null ? (int) date('j', strtotime($next)) : 1, $slaA, $slaB, '', 'admin', $day(min(0, $startIn)) . ' 10:00:00']);
+            $ctId = (int) $pdo->lastInsertId();
+            foreach ($ctLines as [$svc, $d, $qty, $cents]) { $ciIns->execute([$ctId, $svc, $d, $qty, $cents]); }
+        }
+
+        // ----- Quotes: some open, some won, some lost, one expired
+        $qIns = $pdo->prepare('INSERT INTO quotes (number, company_id, customer, email, customer_address, title, issue_date, valid_until, vat_rate, subtotal_cents, vat_cents, total_cents, notes, status, decided_at, lost_reason, created_by, is_demo, created_at) VALUES (?,?,?,?,?,?,?,?,21,?,?,?,?,?,?,?,?,1,?)');
+        $qiIns = $pdo->prepare('INSERT INTO quote_items (quote_id, description, qty, unit_cents) VALUES (?,?,?,?)');
+        $qTitles = ['Move to 3CX', 'Second fiber line', 'Managed firewall', 'New desk phones', 'DDoS protection', 'Extra 085 numbers', 'Office move: relocate the connection', 'WhatsApp Business integration'];
+        $qPlan = [['draft', 2, 30], ['sent', 6, 30], ['sent', 12, 30], ['sent', 25, 30], ['accepted', 20, 30], ['accepted', 45, 30], ['accepted', 70, 14], ['accepted', 95, 30], ['declined', 33, 30], ['declined', 80, 30], ['sent', 50, 30], ['draft', 1, 14]];
+        foreach ($qPlan as $n => [$qStatus, $ago, $valid]) {
+            $co = demo_pick($customers);
+            $lines = [];
+            foreach ((array) array_rand($catalog, mt_rand(1, 3)) as $k) {
+                $qty = str_contains($catalog[$k][0], 'per user') ? mt_rand(3, 24) : (str_contains($catalog[$k][0], 'phone') ? mt_rand(2, 10) : 1);
+                $lines[] = [$catalog[$k][0], $qty, $catalog[$k][1]];
+            }
+            $sub = 0;
+            foreach ($lines as $l) { $sub += (int) round($l[1] * $l[2]); }
+            $vat = (int) round($sub * 0.21);
+            $decided = in_array($qStatus, ['accepted', 'declined'], true) ? $day(-max(0, $ago - mt_rand(2, 9))) . ' 11:00:00' : null;
+            $qIns->execute(['DEMO-OFF-' . str_pad((string) ($n + 1), 4, '0', STR_PAD_LEFT), $co['id'], $co['name'], $co['email'], $co['address'], demo_pick($qTitles), $day(-$ago), $day($valid - $ago), $sub, $vat, $sub + $vat, '', $qStatus, $decided, $qStatus === 'declined' ? demo_pick(['Chose another supplier', 'Too expensive for now', 'Project postponed']) : '', 'admin', $day(-$ago) . ' 09:30:00']);
+            $qId = (int) $pdo->lastInsertId();
+            foreach ($lines as $l) { $qiIns->execute([$qId, $l[0], $l[1], $l[2]]); }
+        }
+
         // ----- Example endpoints (real checks, but tagged so they can be removed with the rest)
         $pdo->exec("INSERT INTO monitored_endpoints (name, url, method, expected_status, interval_min, is_demo) VALUES ('Telecomlijn website (demo)', 'https://telecomlijn.nl/', 'GET', 200, 5, 1), ('Example.com (demo)', 'https://example.com/', 'HEAD', 200, 5, 1)");
 
@@ -351,6 +401,8 @@ function demo_remove(PDO $pdo): array
     $pdo->beginTransaction();
     try {
         $pdo->exec('DELETE FROM appointments WHERE is_demo = 1');
+        $pdo->exec('DELETE FROM quotes WHERE is_demo = 1');      // their lines go with them
+        $pdo->exec('DELETE FROM contracts WHERE is_demo = 1');   // their lines go too; an invoice a demo contract made is a demo invoice
         $pdo->exec('DELETE FROM comm_log WHERE is_demo = 1');
         $pdo->exec('DELETE FROM short_links WHERE is_demo = 1');
         $pdo->exec('DELETE FROM notifications WHERE is_demo = 1');
@@ -361,7 +413,7 @@ function demo_remove(PDO $pdo): array
         $pdo->exec("DELETE FROM notes WHERE about_type = 'user' AND about_id NOT IN (SELECT id FROM users)");   // notes typed by hand on a removed demo user go with that user
         $pdo->exec('DELETE FROM invoices WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = invoices.id AND p.is_demo = 0)');
         // a demo company stays while a real user or a kept invoice still points at it
-        $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM recurring_invoices r WHERE r.company_id = companies.id AND r.is_demo = 0) AND NOT EXISTS (SELECT 1 FROM appointments ap WHERE ap.company_id = companies.id AND ap.is_demo = 0)');
+        $pdo->exec('DELETE FROM companies WHERE is_demo = 1 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.company_id = companies.id) AND NOT EXISTS (SELECT 1 FROM recurring_invoices r WHERE r.company_id = companies.id AND r.is_demo = 0) AND NOT EXISTS (SELECT 1 FROM appointments ap WHERE ap.company_id = companies.id AND ap.is_demo = 0) AND NOT EXISTS (SELECT 1 FROM contracts ct WHERE ct.company_id = companies.id AND ct.is_demo = 0)');
         $pdo->exec("DELETE FROM notes WHERE about_type = 'company' AND about_id NOT IN (SELECT id FROM companies)");
         $pdo->exec('DELETE FROM recurring_invoices WHERE is_demo = 1');   // after the invoices: the ones it made that were kept lose the link
         $pdo->exec('DELETE FROM monitored_endpoints WHERE is_demo = 1');

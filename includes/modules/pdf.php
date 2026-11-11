@@ -103,15 +103,20 @@ final class Pdf
     }
 }
 
-/** The PDF of one invoice. $inv is a row of invoice_base_sql(), $items its lines, $co the supplier details (includes/company.php). */
-function invoice_pdf(array $inv, array $items, array $co): string
+/**
+ * The PDF of one invoice. $inv is a row of invoice_base_sql(), $items its lines, $co the supplier details (includes/company.php).
+ * With $quote = true the same layout is a quote: $inv is then a row of quote_base_sql() (valid_until instead of a due date, nothing paid).
+ */
+function invoice_pdf(array $inv, array $items, array $co, bool $quote = false): string
 {
+    $word = $quote ? 'Quote' : 'Invoice';
+    if ($quote) { $inv['due_date'] = $inv['valid_until']; $inv['paid_cents'] = 0; $inv['balance_cents'] = 0; }   // a quote has nothing to pay yet
     $money = fn(int $c) => '€ ' . number_format($c / 100, 2, ',', '.');
     $navy = [0.067, 0.114, 0.212]; $grey = [0.4, 0.4, 0.45]; $line = [0.8, 0.8, 0.82];
-    $pdf = new Pdf('Invoice ' . $inv['number']);
+    $pdf = new Pdf($word . ' ' . $inv['number']);
     $L = 50.0; $R = 545.0;
 
-    $header = function (bool $first) use ($pdf, $inv, $co, $L, $R, $navy, $grey, $line): float {
+    $header = function (bool $first) use ($pdf, $inv, $co, $L, $R, $navy, $grey, $line, $word): float {
         $pdf->addPage();
         $pdf->rect(0, 0, Pdf::W, 8, $navy);
         $pdf->text($L, 52, $co['name'], 17, true, 'left', $navy);
@@ -119,11 +124,11 @@ function invoice_pdf(array $inv, array $items, array $co): string
             $y = 68;
             foreach ($co['address_lines'] as $a) { $pdf->text($L, $y, $a, 9, false, 'left', $grey); $y += 12; }
             if ($co['email'] !== '' || $co['phone'] !== '') { $pdf->text($L, $y, trim($co['email'] . ($co['email'] !== '' && $co['phone'] !== '' ? '  |  ' : '') . $co['phone']), 9, false, 'left', $grey); }
-            $pdf->text($R, 52, 'INVOICE', 20, true, 'right', $navy);
+            $pdf->text($R, 52, strtoupper($word), 20, true, 'right', $navy);
             $pdf->text($R, 68, $inv['number'], 11, true, 'right');
             return 130;
         }
-        $pdf->text($R, 52, 'Invoice ' . $inv['number'] . ' (continued)', 10, false, 'right', $grey);
+        $pdf->text($R, 52, $word . ' ' . $inv['number'] . ' (continued)', 10, false, 'right', $grey);
         $pdf->line($L, 64, $R, 64, 0.5, $line);
         return 90;
     };
@@ -131,11 +136,12 @@ function invoice_pdf(array $inv, array $items, array $co): string
     $y = $header(true);
 
     // billed to, and the dates
-    $pdf->text($L, $y, 'BILLED TO', 8, true, 'left', $grey);
+    $pdf->text($L, $y, $quote ? 'QUOTE FOR' : 'BILLED TO', 8, true, 'left', $grey);
     $pdf->text($L, $y + 15, $inv['customer'], 11, true);
     $by = $y + 29;
     foreach (array_filter([$inv['customer_address'] !== '' ? $inv['customer_address'] : null, $inv['email'] !== '' ? $inv['email'] : null]) as $t) { $pdf->text($L, $by, (string) $t, 9.5, false, 'left', $grey); $by += 12.5; }
     $meta = [['Invoice date', date('j F Y', strtotime($inv['issue_date']))], ['Supply date', date('j F Y', strtotime($inv['supply_date'] ?? $inv['issue_date']))], ['Due date', date('j F Y', strtotime($inv['due_date']))], ['BTW rate', (int) $inv['vat_rate'] . '%']];
+    if ($quote) { $meta = [['Quote date', date('j F Y', strtotime($inv['issue_date']))], ['Valid until', date('j F Y', strtotime($inv['valid_until']))], ['BTW rate', (int) $inv['vat_rate'] . '%']]; }
     $my = $y;
     foreach ($meta as [$k, $v]) { $pdf->text(340, $my, $k, 9, false, 'left', $grey); $pdf->text($R, $my, $v, 9.5, true, 'right'); $my += 14; }
     $y = max($by, $my) + 18;
@@ -190,16 +196,22 @@ function invoice_pdf(array $inv, array $items, array $co): string
     $row('BTW ' . (int) $inv['vat_rate'] . '%', $money((int) $inv['vat_cents']));
     $pdf->line(380, $y - 10, $R, $y - 10, 0.8, $navy);
     $row('Total', $money((int) $inv['total_cents']), true);
-    $row('Paid', $money((int) $inv['paid_cents']));
-    $row('Balance due', $money(max(0, (int) $inv['balance_cents'])), true);
+    if (!$quote) {
+        $row('Paid', $money((int) $inv['paid_cents']));
+        $row('Balance due', $money(max(0, (int) $inv['balance_cents'])), true);
+    }
 
     $y += 14;
     if ($inv['notes'] !== '') { $pdf->text($L, $y, 'Note: ' . $inv['notes'], 9, false, 'left', $grey); $y += 16; }
+    if ($quote) {
+        if ((string) ($inv['title'] ?? '') !== '') { $pdf->text($L, $y, 'Subject: ' . $inv['title'], 9, false, 'left', $grey); $y += 16; }
+        $pdf->text($L, $y, 'This quote is valid until ' . date('j F Y', strtotime($inv['valid_until'])) . '. Prices exclude BTW unless stated otherwise.', 9, false, 'left');
+    }
     $pay = 'Please pay ' . $money(max(0, (int) $inv['balance_cents']));
     $pay .= $co['iban'] !== '' ? ' to IBAN ' . $co['iban'] . ' in the name of ' . $co['name'] : ' to ' . $co['name'];
     $pay .= ', quoting ' . $inv['number'] . ', no later than ' . date('j F Y', strtotime($inv['due_date'])) . '.';
     if ((int) $inv['balance_cents'] > 0) { $pdf->text($L, $y, $pay, 9, false, 'left'); }
-    else { $pdf->text($L, $y, 'This invoice has been paid in full. Thank you.', 9, true, 'left', $navy); }
+    elseif (!$quote) { $pdf->text($L, $y, 'This invoice has been paid in full. Thank you.', 9, true, 'left', $navy); }
 
     // footer on every page, now that the page count is known
     $n = $pdf->pageCount();

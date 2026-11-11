@@ -94,11 +94,13 @@ Set these up in the Windows Task Scheduler (or cron). **The retention job is the
 | --- | --- | --- |
 | Retention | daily | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\purge.php` |
 | Recurring invoices | daily | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\run_recurring.php` |
+| Contracts (invoices, renewals, endings) | daily | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\run_contracts.php` |
+| Email to ticket (reads the support mailbox) | every 3 minutes | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\poll_inbox.php` |
 | Endpoint checks | every minute | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\check_endpoints.php` |
 | Kuma history | every minute | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\kuma_poll.php` |
 | Connectors (calls, messages, short links) | every 5 minutes | `C:\xampp\php\php.exe C:\xampp\htdocs\Websites\test\bin\sync_connectors.php` |
 
-Recurring invoices are also created when the site is opened.
+Recurring invoices and contract invoices are also created when the site is opened, and the SLA of open tickets is checked then too (at most every three minutes). The support mailbox is only read by its job or by the "Read the mailbox now" button, never inside an ordinary page view.
 
 On Linux the same jobs as cron lines (`crontab -e` for the web server's user, or the owner of the files):
 
@@ -107,6 +109,10 @@ On Linux the same jobs as cron lines (`crontab -e` for the web server's user, or
 15 3 * * *  php /var/www/crm/bin/purge.php >> /var/www/crm/storage/purge.log 2>&1
 # recurring invoices: every day at 06:00
 0 6 * * *   php /var/www/crm/bin/run_recurring.php >> /var/www/crm/storage/recurring.log 2>&1
+# contracts: invoices that are due, renewals and endings, every day at 06:05
+5 6 * * *   php /var/www/crm/bin/run_contracts.php >> /var/www/crm/storage/contracts.log 2>&1
+# email to ticket: every 3 minutes
+*/3 * * * * php /var/www/crm/bin/poll_inbox.php >> /var/www/crm/storage/inbox.log 2>&1
 # endpoint checks and Kuma history: every minute
 * * * * *   php /var/www/crm/bin/check_endpoints.php
 * * * * *   php /var/www/crm/bin/kuma_poll.php
@@ -132,11 +138,22 @@ Open Settings, Connectors (admins only). Every service has its own box with a **
 - Data is fetched by `bin/sync_connectors.php` (see Scheduled jobs) or with Sync now: never inside an ordinary page view.
 - The field names of each service follow its public API documentation as far as known, and the code accepts several spellings. It could not be tried against real accounts while it was built: if a real service answers differently, the sync reports "Invalid response" and stores nothing. Tell the developer which service and what it said.
 
+## SLA and email to ticket
+
+Both belong to the Tickets module and are set under Settings > Tickets (admins only).
+
+- **SLA targets.** Per priority: the hours allowed for a first response and for the solution. The clock runs 24 hours a day and stands still while a ticket is "Waiting". A contract can carry shorter targets for one company. Tickets that existed before this feature have no targets and are left out of the SLA numbers.
+- **Email to ticket.** Enter the IMAP server, user name and password of the support mailbox (the password is stored encrypted), the folder (normally `INBOX`) and the support address. Use "Test the connection", then tick "Read this mailbox" and schedule `bin/poll_inbox.php`. The reader is written in-house: the PHP imap extension is not needed.
+- A message becomes a comment on an existing ticket when its subject holds the reference (`[TCK-0042]`) or it answers a mail that is already known, **and** it comes from the requester, the contact person or someone of the same company. Everything else becomes a new ticket. Automatic mail (out-of-office, bounces, mailing lists) and mail from the support address itself are ignored, and one sender can open at most 10 tickets an hour.
+- Only the first 512 KB of a message is read and attachments are not stored. Messages are marked as read in the mailbox, never deleted.
+- For replies to reach the customer, outgoing mail must work (Settings > Email). Set the sender address or the support address so that the customer's reply comes back to the mailbox that is read.
+- It could only be tried against a stand-in IMAP server while it was built. Run "Test the connection" against your real mailbox before relying on it.
+
 ## Choosing modules
 
-Under Settings > Modules (admins only) switch off what this install does not use: calendar, tickets, invoices, calls, short links, connections, uptime, health checks and API, reports, backups and activity logs. A module that is off has no menu item, and its pages answer 404. Its data is kept, so it can be switched on again later. The core (companies, users, notes, search, notifications and settings) is always on.
+Under Settings > Modules (admins only) switch off what this install does not use: calendar, tickets, quotes, contracts, invoices, calls, short links, connections, uptime, health checks and API, reports, backups and activity logs. A module that is off has no menu item, and its pages answer 404. Its data is kept, so it can be switched on again later. The core (companies, users, notes, search, notifications and settings) is always on.
 
-The scheduled scripts of a module that is off (`bin/kuma_poll.php`, `bin/run_recurring.php`, `bin/check_endpoints.php`) print one line and exit, so they can stay in the scheduler.
+The scheduled scripts of a module that is off (`bin/kuma_poll.php`, `bin/run_recurring.php`, `bin/run_contracts.php`, `bin/poll_inbox.php`, `bin/check_endpoints.php`) print one line and exit, so they can stay in the scheduler.
 
 ## Tests
 
@@ -144,7 +161,7 @@ The scheduled scripts of a module that is off (`bin/kuma_poll.php`, `bin/run_rec
 C:\xampp\php\php.exe tests\run.php
 ```
 
-About 1,100 checks (one file per stage in `tests/parts/`): authentication, permissions, rate limiting, the SSRF guards, encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast, the phone layout, the calendar, and the folder structure (a crawler follows every link and form in the program). Results and fixes are also documented in Settings, Tests.
+About 1,500 checks (one file per stage in `tests/parts/`): authentication, permissions, rate limiting, the SSRF guards, encrypted key storage, the Kuma parser and uptime maths (against a mock Kuma on port 3199, which must be free), the settings endpoints, companies, notes, tickets, search, CSV round trips, notifications, the two-factor algorithm against the RFC test values, email (against a mock SMTP server on port 3225, which must be free), password reset and invitations, trend numbers (in a scratch database), PDF structure and totals, recurring invoices, theme contrast, the phone layout, the calendar, the folder structure (a crawler follows every link and form in the program), modules switched off one by one and all at once, contracts and their invoices, quotes, the SLA clock, and email to ticket (against a stand-in IMAP server on port 3243, which must be free). Results and fixes are also documented in Settings, Tests.
 
 Apache and MariaDB must be running; the run takes about two minutes. An optional pre-commit hook runs the suite before each commit: `git config core.hooksPath .githooks` (it uses `php` from the PATH, or `PHP_BIN`).
 

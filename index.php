@@ -3,6 +3,8 @@ declare(strict_types=1);
 require __DIR__ . '/includes/core/bootstrap.php';
 require __DIR__ . '/includes/modules/invoices.php';
 require __DIR__ . '/includes/modules/trends.php';
+require __DIR__ . '/includes/modules/sla.php';
+require __DIR__ . '/includes/modules/contracts.php';
 require __DIR__ . '/includes/core/layout.php';
 require_login();
 $pdo = db();
@@ -16,6 +18,8 @@ if (module_enabled('tickets')) {
     $ticketsOpen = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed')")->fetchColumn();
     $ticketsUrgent = (int) $pdo->query("SELECT COUNT(*) FROM tickets WHERE status NOT IN ('resolved','closed') AND priority = 'urgent'")->fetchColumn();
 }
+$sla = module_enabled('tickets') && sla_enabled($pdo) ? sla_stats($pdo) : null;   // null: no SLA tile and no SLA line
+$renewing = module_enabled('contracts') ? (int) contracts_stats($pdo)['renewing'] : 0;
 $usersPending = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
 $conn = ['total' => 0, 'flagged' => 0];
 if (module_enabled('connections')) { $conn = $pdo->query("SELECT COUNT(*) total, SUM(status = 'flagged') flagged FROM connections")->fetch(); }
@@ -69,7 +73,7 @@ $recent = $pdo->query("SELECT level, actor, action, target, created_at FROM acti
 
 $od = ['n' => 0, 's' => 0];
 if (module_enabled('invoices')) { $od = $pdo->query("SELECT COUNT(*) n, COALESCE(SUM(balance_cents), 0) s FROM (" . invoice_base_sql() . ") t WHERE state = 'overdue'")->fetch(); }
-$problems = count($notHealthy) + (count($epDown) > 0 ? 1 : 0) + ((int) $od['n'] > 0 ? 1 : 0) + count($failedBackups) + ((int) $conn['flagged'] > 0 ? 1 : 0);
+$problems = count($notHealthy) + (count($epDown) > 0 ? 1 : 0) + ((int) $od['n'] > 0 ? 1 : 0) + count($failedBackups) + ((int) $conn['flagged'] > 0 ? 1 : 0) + ($sla !== null && $sla['open_breached'] > 0 ? 1 : 0) + ($renewing > 0 ? 1 : 0);
 $delta = $err24 - $errPrev;
 // the headline names only the parts whose module is on
 $headParts = [];
@@ -79,11 +83,19 @@ $headline = $headParts ? implode(', ', $headParts) . '.' : 'Nothing needs attent
 // stat tiles: only the ones whose module is on, and the grid gets as many columns as there are tiles
 $stats = [['Accounts', number_format($usersTotal), '+' . $usersNew . ' in 30 days', 'users/users.php']];
 if (module_enabled('tickets')) { $stats[] = ['Open tickets', (string) $ticketsOpen, $ticketsUrgent . ' urgent', 'tickets/tickets.php?status=open']; }
+if ($sla !== null) { $stats[] = ['SLA met, 30 days', $sla['pct'] === null ? '–' : rtrim(rtrim(number_format($sla['pct'], 1, ',', ''), '0'), ',') . '%', $sla['pct'] === null ? 'Nothing resolved with a target yet' : $sla['met'] . ' of ' . $sla['total'] . ' resolved in time', 'tickets/tickets.php?sla=breached']; }
 if (module_enabled('connections')) { $stats[] = ['Open sessions', (string) (int) $conn['total'], (int) $conn['flagged'] . ' flagged', 'monitoring/connections.php']; }
 if (module_enabled('backups')) { $stats[] = ['Last good backup', $lastBackup ? ago($lastBackup) : 'None', count($failedBackups) . ' failed in 48 h', 'system/backups.php']; }
 if (module_enabled('logs')) { $stats[] = ['Errors, 24 h', (string) $err24, ($delta === 0 ? 'same as before' : ($delta > 0 ? '+' . $delta . ' vs previous 24 h' : $delta . ' vs previous 24 h')), 'system/logs.php?level=error']; }
 $statN = count($stats);
-$statCols = ['', '', 'lg:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-cols-4', 'lg:grid-cols-5'][$statN];
+$statCols = ['', '', 'lg:grid-cols-2 lg:divide-x', 'lg:grid-cols-3 lg:divide-x', 'lg:grid-cols-4 lg:divide-x', 'lg:grid-cols-5 lg:divide-x', 'lg:grid-cols-3'][$statN];
+// the lines between the tiles: two columns on a phone, one row on a wide screen; six tiles make two rows of three there
+$tileCls = function (int $i) use ($statN): string {
+    if ($statN === 6) {
+        return [0 => '', 1 => 'border-l border-line', 2 => 'border-t border-line lg:border-l lg:border-t-0', 3 => 'border-l border-t border-line lg:border-l-0', 4 => 'border-t border-line lg:border-l', 5 => 'border-l border-t border-line'][$i];
+    }
+    return ($i > 1 ? 'border-t border-line lg:border-t-0' : '') . ' ' . ($i === $statN - 1 && $statN % 2 === 1 ? ($statN === 1 ? 'col-span-2' : 'col-span-2 lg:col-span-1') : '') . ' ' . ($i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '');
+};
 
 page_start('Overview', 'overview', 'Live state of the platform over the last 24 hours.');
 ?>
@@ -106,9 +118,9 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
   </div>
 </section>
 
-<div class="stat-grid rise mt-6 grid grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel <?= $statCols ?> lg:divide-x" style="animation-delay:.05s">
+<div class="stat-grid rise mt-6 grid grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel <?= $statCols ?>" style="animation-delay:.05s">
   <?php foreach ($stats as $i => [$label, $value, $note, $href]): ?>
-    <a href="<?= e($href) ?>" class="group block p-5 hover:bg-butter-50 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i === $statN - 1 && $statN % 2 === 1 ? ($statN === 1 ? 'col-span-2' : 'col-span-2 lg:col-span-1') : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
+    <a href="<?= e($href) ?>" class="group block p-5 hover:bg-butter-50 <?= $tileCls($i) ?>">
       <dl>
       <dt class="text-sm font-medium text-soft"><?= e($label) ?></dt>
       <dd class="mt-1 text-[30px] font-bold leading-none tracking-tight"<?= ctype_digit($value) ? ' data-count="' . e($value) . '" data-delay="' . ($i * 90) . '"' : '' ?>><?= e($value) ?></dd>
@@ -169,6 +181,14 @@ page_start('Overview', 'overview', 'Live state of the platform over the last 24 
       <?php if ($epDown && integrations_level() !== 'none'): ?>
         <li><a href="settings/settings.php?tab=integrations" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
           <?= badge('down') ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= e(implode(', ', array_slice($epDown, 0, 3))) ?></span> did not respond to the last health check.</span></a></li>
+      <?php endif; ?>
+      <?php if ($sla !== null && $sla['open_breached'] > 0): ?>
+        <li><a href="tickets/tickets.php?sla=breached" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+          <?= badge('overdue') ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= (int) $sla['open_breached'] ?> ticket<?= $sla['open_breached'] === 1 ? '' : 's' ?></span> <?= $sla['open_breached'] === 1 ? 'is' : 'are' ?> past an SLA target.</span></a></li>
+      <?php endif; ?>
+      <?php if ($renewing > 0): ?>
+        <li><a href="contracts/contracts.php?state=renewal" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">
+          <?= badge('due_renewal') ?><span class="min-w-0 flex-1 text-[15px]"><span class="font-semibold"><?= $renewing ?> contract<?= $renewing === 1 ? '' : 's' ?></span> <?= $renewing === 1 ? 'ends or renews' : 'end or renew' ?> soon.</span></a></li>
       <?php endif; ?>
       <?php if ((int) $od['n'] > 0): ?>
         <li><a href="invoices/invoices.php?state=overdue" class="flex items-start gap-3 px-5 py-3.5 hover:bg-butter-50">

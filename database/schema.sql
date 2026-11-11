@@ -533,3 +533,132 @@ CREATE TABLE IF NOT EXISTS short_links (
   KEY idx_short_company (company_id),
   CONSTRAINT fk_short_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+-- Contracts & subscriptions: which services a company has, the monthly price, start and end date, renewal and how it is invoiced.
+-- A contract can carry its own SLA targets (minutes); when they are shorter than the standard ones they apply to the tickets of that company.
+CREATE TABLE IF NOT EXISTS contracts (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  number VARCHAR(20) NOT NULL UNIQUE,
+  company_id INT UNSIGNED NOT NULL,
+  title VARCHAR(160) NOT NULL,
+  status ENUM('draft','active','ended') NOT NULL DEFAULT 'active',
+  start_date DATE NOT NULL,
+  end_date DATE NULL,                                      -- NULL = runs until it is ended by hand
+  auto_renew TINYINT(1) NOT NULL DEFAULT 0,
+  renew_months SMALLINT UNSIGNED NOT NULL DEFAULT 12,
+  notice_days SMALLINT UNSIGNED NOT NULL DEFAULT 60,       -- the renewal alert is raised this many days before the end date
+  billing ENUM('none','month','quarter','year') NOT NULL DEFAULT 'month',
+  vat_rate TINYINT UNSIGNED NOT NULL DEFAULT 21,
+  terms_days TINYINT UNSIGNED NOT NULL DEFAULT 14,
+  next_invoice_date DATE NULL,
+  anchor_day TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  last_invoiced DATE NULL,
+  sla_respond_min INT UNSIGNED NULL,
+  sla_resolve_min INT UNSIGNED NULL,
+  notes VARCHAR(1000) NOT NULL DEFAULT '',
+  quote_id INT UNSIGNED NULL,                              -- the quote it was made from, if any
+  ended_at DATETIME NULL,
+  created_by VARCHAR(60) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ctr_company (company_id),
+  KEY idx_ctr_due (status, next_invoice_date),
+  KEY idx_ctr_end (status, end_date),
+  CONSTRAINT fk_ctr_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+-- One line per service. unit_cents is the price per unit PER MONTH, excluding BTW.
+CREATE TABLE IF NOT EXISTS contract_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  contract_id INT UNSIGNED NOT NULL,
+  service VARCHAR(20) NOT NULL DEFAULT 'other',            -- fiber | voip_3cx | voip_yeastar | security | numbers | other
+  description VARCHAR(200) NOT NULL,
+  qty DECIMAL(8,2) NOT NULL,
+  unit_cents INT UNSIGNED NOT NULL,
+  KEY idx_ci_contract (contract_id),
+  CONSTRAINT fk_ci_contract FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+-- An invoice made from a contract. The unique key on (contract, issue date) means a period can never be invoiced twice.
+ALTER TABLE invoices ADD COLUMN contract_id INT UNSIGNED NULL, ADD UNIQUE KEY uq_inv_contract (contract_id, issue_date), ADD CONSTRAINT fk_inv_contract FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE SET NULL;
+
+-- Quotes (offertes): the same lines as an invoice. "expired" is not stored: it is a draft or sent quote whose valid_until has passed.
+CREATE TABLE IF NOT EXISTS quotes (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  number VARCHAR(20) NOT NULL UNIQUE,
+  company_id INT UNSIGNED NULL,
+  customer VARCHAR(160) NOT NULL,
+  email VARCHAR(190) NOT NULL DEFAULT '',
+  customer_address VARCHAR(255) NOT NULL DEFAULT '',
+  title VARCHAR(160) NOT NULL DEFAULT '',
+  issue_date DATE NOT NULL,
+  valid_until DATE NOT NULL,
+  vat_rate TINYINT UNSIGNED NOT NULL DEFAULT 21,
+  subtotal_cents INT UNSIGNED NOT NULL,
+  vat_cents INT UNSIGNED NOT NULL,
+  total_cents INT UNSIGNED NOT NULL,
+  notes VARCHAR(500) NOT NULL DEFAULT '',
+  status ENUM('draft','sent','accepted','declined') NOT NULL DEFAULT 'draft',
+  decided_at DATETIME NULL,
+  lost_reason VARCHAR(200) NOT NULL DEFAULT '',
+  invoice_id INT UNSIGNED NULL,                            -- what it became (no foreign keys: the invoice or contract may be removed later)
+  contract_id INT UNSIGNED NULL,
+  created_by VARCHAR(60) NOT NULL DEFAULT '',
+  is_demo TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_quote_company (company_id),
+  KEY idx_quote_status (status, valid_until),
+  CONSTRAINT fk_quote_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS quote_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  quote_id INT UNSIGNED NOT NULL,
+  description VARCHAR(200) NOT NULL,
+  qty DECIMAL(8,2) NOT NULL,
+  unit_cents INT UNSIGNED NOT NULL,
+  KEY idx_qi_quote (quote_id),
+  CONSTRAINT fk_qi_quote FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- SLA: the time allowed for a first response and for resolving a ticket, per priority, in minutes (the clock runs 24 hours a day).
+CREATE TABLE IF NOT EXISTS sla_policies (
+  priority ENUM('low','normal','high','urgent') NOT NULL PRIMARY KEY,
+  respond_min INT UNSIGNED NOT NULL,
+  resolve_min INT UNSIGNED NOT NULL
+) ENGINE=InnoDB;
+INSERT IGNORE INTO sla_policies (priority, respond_min, resolve_min) VALUES ('urgent', 30, 240), ('high', 120, 480), ('normal', 480, 1440), ('low', 1440, 4320);
+-- Per ticket: when the first response and the solution are due, when staff first answered, the time spent waiting for the customer (the
+-- clock stands still then) and when it was escalated. requester_email is the sender of a ticket that came in by email.
+ALTER TABLE tickets ADD COLUMN requester_email VARCHAR(190) NOT NULL DEFAULT '', ADD COLUMN first_response_at DATETIME NULL, ADD COLUMN respond_due_at DATETIME NULL, ADD COLUMN resolve_due_at DATETIME NULL, ADD COLUMN waiting_since DATETIME NULL, ADD COLUMN sla_paused_s INT UNSIGNED NOT NULL DEFAULT 0, ADD COLUMN escalated_at DATETIME NULL, ADD KEY idx_ticket_sla (resolve_due_at);
+ALTER TABLE ticket_comments ADD COLUMN source ENUM('web','email') NOT NULL DEFAULT 'web';
+
+-- Email to ticket: the mailbox that is read (one row, id = 1; the password is stored encrypted) and every message that was handled.
+-- The unique message id means one email can never become two tickets or two comments.
+CREATE TABLE IF NOT EXISTS inbox_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  enabled TINYINT(1) NOT NULL DEFAULT 0,
+  host VARCHAR(190) NOT NULL DEFAULT '',
+  port SMALLINT UNSIGNED NOT NULL DEFAULT 993,
+  encryption ENUM('ssl','starttls','none') NOT NULL DEFAULT 'ssl',
+  username VARCHAR(190) NOT NULL DEFAULT '',
+  password_enc TEXT NULL,
+  folder VARCHAR(80) NOT NULL DEFAULT 'INBOX',
+  address VARCHAR(190) NOT NULL DEFAULT '',                -- the support address customers write to; replies to them carry it as Reply-To
+  auto_reply TINYINT(1) NOT NULL DEFAULT 1,
+  last_run_at DATETIME NULL,
+  last_state VARCHAR(20) NOT NULL DEFAULT 'never',         -- never | ok | unauthorized | unreachable | invalid | busy
+  last_error VARCHAR(200) NOT NULL DEFAULT '',
+  last_count INT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at DATETIME NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS ticket_emails (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ticket_id INT UNSIGNED NULL,
+  message_id VARCHAR(255) NOT NULL UNIQUE,
+  from_email VARCHAR(190) NOT NULL DEFAULT '',
+  subject VARCHAR(190) NOT NULL DEFAULT '',
+  outcome ENUM('new','reply','ignored') NOT NULL,
+  note VARCHAR(120) NOT NULL DEFAULT '',
+  received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_te_ticket (ticket_id),
+  KEY idx_te_from (from_email, received_at),
+  CONSTRAINT fk_te_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

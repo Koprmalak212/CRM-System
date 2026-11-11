@@ -465,6 +465,10 @@ try {
     require TESTS_DIR . '/parts/stage15_structure.php';
     require TESTS_DIR . '/parts/stage16_hardening.php';
     require TESTS_DIR . '/parts/stage17_modules.php';
+    require TESTS_DIR . '/parts/stage18_contracts.php';
+    require TESTS_DIR . '/parts/stage19_quotes.php';
+    require TESTS_DIR . '/parts/stage20_sla.php';
+    require TESTS_DIR . '/parts/stage21_inbound.php';
 
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();

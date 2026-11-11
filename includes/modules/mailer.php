@@ -78,9 +78,19 @@ function mail_clean_line(string $s): string { return trim(preg_replace('/[\r\n\t
 
 function mail_encode_header(string $s): string { return preg_match('/^[\x20-\x7E]*$/', $s) ? $s : '=?UTF-8?B?' . base64_encode($s) . '?='; }
 
-/** The full message text (headers and body) as it goes over the wire. */
-function mail_build(string $from, string $fromName, string $to, string $subject, string $body, string $host): string
+/**
+ * The full message text (headers and body) as it goes over the wire. $opts can hold 'reply_to' (an address), 'in_reply_to' (the Message-ID
+ * of the mail being answered, so mail programs keep the conversation together) and 'auto' (true for an automatic answer).
+ * Anything that is not a plain address or message id is left out, so nothing typed by a visitor ends up in a header.
+ */
+function mail_build(string $from, string $fromName, string $to, string $subject, string $body, string $host, array $opts = []): string
 {
+    $extra = [];
+    $replyTo = (string) ($opts['reply_to'] ?? '');
+    if ($replyTo !== '' && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) { $extra[] = 'Reply-To: <' . $replyTo . '>'; }
+    $irt = (string) ($opts['in_reply_to'] ?? '');
+    if (preg_match('/^<[A-Za-z0-9.!#$%&*+=?^_{|}~@-]{3,240}>$/', $irt)) { $extra[] = 'In-Reply-To: ' . $irt; $extra[] = 'References: ' . $irt; }
+    if (!empty($opts['auto'])) { $extra[] = 'Auto-Submitted: auto-replied'; }   // other systems must not answer an automatic answer in turn
     $h = [
         'Date: ' . date('r'),
         'From: ' . mail_encode_header(mail_clean_line($fromName)) . ' <' . $from . '>',
@@ -92,7 +102,7 @@ function mail_build(string $from, string $fromName, string $to, string $subject,
         'Content-Transfer-Encoding: base64',
         'X-Auto-Response-Suppress: All',
     ];
-    return implode("\r\n", $h) . "\r\n\r\n" . chunk_split(base64_encode(str_replace(["\r\n", "\r"], "\n", $body)), 76, "\r\n");
+    return implode("\r\n", array_merge($h, $extra)) . "\r\n\r\n" . chunk_split(base64_encode(str_replace(["\r\n", "\r"], "\n", $body)), 76, "\r\n");
 }
 
 /** Reads one SMTP reply (several lines possible). Returns [code, text]. */
@@ -150,9 +160,9 @@ function smtp_send(array $cfg, string $password, string $from, string $to, strin
 
 /**
  * Records and (if possible) delivers a message. Returns [status, outbox id, note]; status is sent, recorded or failed.
- * $kind lets the outbox show what it was for: reset, invite, notification, test.
+ * $kind lets the outbox show what it was for: reset, invite, notification, test, ticket. $opts: see mail_build().
  */
-function mail_send(PDO $pdo, string $to, string $subject, string $body, string $kind = 'other'): array
+function mail_send(PDO $pdo, string $to, string $subject, string $body, string $kind = 'other', array $opts = []): array
 {
     $to = trim($to);
     if (!filter_var($to, FILTER_VALIDATE_EMAIL) || mb_strlen($to) > 190) { return ['failed', 0, 'That is not a valid email address.']; }
@@ -163,7 +173,7 @@ function mail_send(PDO $pdo, string $to, string $subject, string $body, string $
     $from = filter_var((string) $cfg['from_email'], FILTER_VALIDATE_EMAIL) ? (string) $cfg['from_email'] : 'no-reply@' . (preg_replace('/[^A-Za-z0-9.-]/', '', (string) parse_url((string) $cfg['base_url'], PHP_URL_HOST)) ?: 'localhost');
     $status = 'recorded'; $note = 'No mail server is set up on this computer, so the message is only recorded in the outbox.';
     if ($cfg['host'] !== '') {
-        $err = smtp_send($cfg, $cfg['password_plain'] ?? secret_decrypt((string) $cfg['password_enc']), $from, $to, mail_build($from, (string) $cfg['from_name'], $to, $subject, $body, (string) $cfg['host']));
+        $err = smtp_send($cfg, $cfg['password_plain'] ?? secret_decrypt((string) $cfg['password_enc']), $from, $to, mail_build($from, (string) $cfg['from_name'], $to, $subject, $body, (string) $cfg['host'], $opts));
         $status = $err === null ? 'sent' : 'failed'; $note = $err ?? 'Sent.';
     } elseif (!mail_is_local()) {
         $ok = @mail($to, mail_encode_header($subject), str_replace("\n", "\r\n", $body), 'From: ' . $from . "\r\nContent-Type: text/plain; charset=UTF-8\r\nMIME-Version: 1.0");

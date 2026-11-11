@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/sla.php';   // targets, countdowns and escalation
+
 const TICKET_STATUSES = ['open' => 'Open', 'in_progress' => 'In progress', 'waiting' => 'Waiting', 'resolved' => 'Resolved', 'closed' => 'Closed'];
 const TICKET_PRIORITIES = ['low' => 'Low', 'normal' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'];
 
@@ -47,6 +49,8 @@ function ticket_create(PDO $pdo, array $in, ?string $author = null): array
     $companyId = (int) ($in['company_id'] ?? 0);
     $userId = (int) ($in['user_id'] ?? 0);
     $assignee = (int) ($in['assignee_id'] ?? 0);
+    $requester = strtolower(trim((string) ($in['requester_email'] ?? '')));   // only set for tickets that come in by email
+    if ($requester !== '' && (!filter_var($requester, FILTER_VALIDATE_EMAIL) || mb_strlen($requester) > 190)) { $requester = ''; }
     if ($subject === '') { $err[] = 'Enter a subject.'; }
     if (mb_strlen($subject) > 160) { $err[] = 'The subject can be at most 160 characters.'; }
     if ($desc === '') { $err[] = 'Describe the problem or request.'; }
@@ -76,10 +80,11 @@ function ticket_create(PDO $pdo, array $in, ?string $author = null): array
     $author = mb_substr($author ?? (string) ($_SESSION['admin']['username'] ?? 'system'), 0, 60);
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('INSERT INTO tickets (reference, company_id, user_id, subject, description, priority, assignee_id, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,NOW(),NOW())')
-            ->execute(['TMP-' . bin2hex(random_bytes(6)), $company, $user, $subject, $desc, $priority, $aid, $author]);
+        $pdo->prepare('INSERT INTO tickets (reference, company_id, user_id, subject, description, priority, assignee_id, created_by, requester_email, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,NOW(),NOW())')
+            ->execute(['TMP-' . bin2hex(random_bytes(6)), $company, $user, $subject, $desc, $priority, $aid, $author, $requester]);
         $id = (int) $pdo->lastInsertId();
         $pdo->prepare('UPDATE tickets SET reference = ? WHERE id = ?')->execute([ticket_reference($id), $id]);
+        sla_apply($pdo, $id);   // when the first response and the solution are due
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) { $pdo->rollBack(); }
@@ -91,24 +96,29 @@ function ticket_create(PDO $pdo, array $in, ?string $author = null): array
 
 function ticket_reference(int $id): string { return 'TCK-' . str_pad((string) $id, 4, '0', STR_PAD_LEFT); }
 
-/** Adds a comment. Returns an error message or null. */
-function ticket_comment(PDO $pdo, int $ticketId, string $body, ?string $author = null): ?string
+/**
+ * Adds a comment. Returns an error message or null. $source is 'web' (typed in the program) or 'email' (a customer reply that came in by mail).
+ * The first comment typed by staff counts as the first response for the SLA; system notes and customer emails do not.
+ */
+function ticket_comment(PDO $pdo, int $ticketId, string $body, ?string $author = null, string $source = 'web'): ?string
 {
     $body = trim(str_replace("\r\n", "\n", $body));
     if (!ticket_find($pdo, $ticketId)) { return 'That ticket does not exist.'; }
     if ($body === '') { return 'Write a comment first.'; }
     if (mb_strlen($body) > 2000) { return 'A comment can be at most 2000 characters.'; }
-    $pdo->prepare('INSERT INTO ticket_comments (ticket_id, author, body, created_at) VALUES (?,?,?,NOW())')
-        ->execute([$ticketId, mb_substr($author ?? (string) ($_SESSION['admin']['username'] ?? 'system'), 0, 60), $body]);
-    $pdo->prepare('UPDATE tickets SET updated_at = NOW() WHERE id = ?')->execute([$ticketId]);
+    $source = $source === 'email' ? 'email' : 'web';
+    $author = mb_substr($author ?? (string) ($_SESSION['admin']['username'] ?? 'system'), 0, 60);
+    $pdo->prepare('INSERT INTO ticket_comments (ticket_id, author, body, source, created_at) VALUES (?,?,?,?,NOW())')->execute([$ticketId, $author, $body, $source]);
+    $staff = $source === 'web' && $author !== 'system';
+    $pdo->prepare('UPDATE tickets SET updated_at = NOW()' . ($staff ? ', first_response_at = COALESCE(first_response_at, NOW())' : '') . ' WHERE id = ?')->execute([$ticketId]);
     return null;
 }
 
 /**
  * Changes status, priority and assignee. Returns [list of change descriptions, list of errors].
- * Anything not sent, or sent unchanged, is left alone.
+ * Anything not sent, or sent unchanged, is left alone. $byCustomer is true when a customer email moves the ticket (that is not a staff response).
  */
-function ticket_update(PDO $pdo, array $t, array $in): array
+function ticket_update(PDO $pdo, array $t, array $in, bool $byCustomer = false): array
 {
     $set = []; $args = []; $changes = []; $err = [];
     if (isset($in['status']) && $in['status'] !== $t['status']) {
@@ -116,6 +126,10 @@ function ticket_update(PDO $pdo, array $t, array $in): array
         else {
             $set[] = 'status = ?'; $args[] = $in['status'];
             $set[] = in_array($in['status'], ['resolved', 'closed'], true) ? 'resolved_at = COALESCE(resolved_at, NOW())' : 'resolved_at = NULL';
+            if (!$byCustomer) { $set[] = 'first_response_at = COALESCE(first_response_at, NOW())'; }   // staff picking it up is a response
+            // waiting for the customer: the SLA clock stands still, and that time is added to the targets when the ticket moves on
+            if ($in['status'] === 'waiting') { $set[] = 'waiting_since = NOW()'; }
+            elseif ($t['status'] === 'waiting') { $set[] = 'sla_paused_s = sla_paused_s + GREATEST(0, TIMESTAMPDIFF(SECOND, COALESCE(waiting_since, NOW()), NOW()))'; $set[] = 'waiting_since = NULL'; }
             $changes[] = 'status ' . TICKET_STATUSES[$t['status']] . ' → ' . TICKET_STATUSES[$in['status']];
         }
     }
@@ -131,6 +145,7 @@ function ticket_update(PDO $pdo, array $t, array $in): array
     }
     if ($set && !$err) {
         $pdo->prepare('UPDATE tickets SET ' . implode(', ', $set) . ', updated_at = NOW() WHERE id = ?')->execute([...$args, (int) $t['id']]);
+        if (($t['resolve_due_at'] ?? null) !== null) { sla_apply($pdo, (int) $t['id']); }   // tickets from before the SLA stay without targets; another priority has other targets, and time spent waiting moves them
         log_activity('info', 'Ticket updated', $t['reference'] . ' · ' . implode(', ', $changes));
     }
     return [$err ? [] : $changes, $err];

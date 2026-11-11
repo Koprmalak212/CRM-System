@@ -3,6 +3,8 @@ declare(strict_types=1);
 require __DIR__ . '/../includes/core/bootstrap.php';
 require __DIR__ . '/../includes/modules/invoices.php';
 require __DIR__ . '/../includes/modules/tickets.php';
+require __DIR__ . '/../includes/modules/contracts.php';
+require __DIR__ . '/../includes/modules/quotes.php';
 require __DIR__ . '/../includes/core/layout.php';
 require_login();
 $pdo = db();
@@ -37,12 +39,24 @@ if ($q !== '') {
             'SELECT t.id, t.reference, t.subject, t.status, c.name AS company FROM tickets t LEFT JOIN companies c ON c.id = t.company_id WHERE t.reference LIKE ? OR t.subject LIKE ? OR c.name LIKE ? ORDER BY t.updated_at DESC', 3);
         $groups['tickets'] = ['Tickets', $n, array_map(fn($r) => ['tickets/ticket.php?id=' . $r['id'], $r['subject'], $r['reference'] . ($r['company'] !== null ? ' · ' . $r['company'] : ''), badge($r['status'])], $rows), 'tickets/tickets.php' . qs_args(['q' => $q])];
     }
+
+    if (module_enabled('quotes')) {
+        [$n, $rows] = $one('SELECT COUNT(*) FROM quotes WHERE number LIKE ? OR customer LIKE ? OR title LIKE ?',
+            'SELECT * FROM (' . quote_base_sql() . ') t WHERE number LIKE ? OR customer LIKE ? OR title LIKE ? ORDER BY issue_date DESC, id DESC', 3);
+        $groups['quotes'] = ['Quotes', $n, array_map(fn($r) => ['quotes/quote.php?id=' . $r['id'], $r['number'], $r['customer'] . ' · ' . money((int) $r['total_cents']), badge($r['state'])], $rows), 'quotes/quotes.php' . qs_args(['q' => $q])];
+    }
+
+    if (module_enabled('contracts')) {
+        [$n, $rows] = $one('SELECT COUNT(*) FROM (' . contract_base_sql() . ') t WHERE number LIKE ? OR title LIKE ? OR company_name LIKE ?',
+            'SELECT * FROM (' . contract_base_sql() . ') t WHERE number LIKE ? OR title LIKE ? OR company_name LIKE ? ORDER BY status = \'ended\', start_date DESC, id DESC', 3);
+        $groups['contracts'] = ['Contracts', $n, array_map(fn($r) => ['contracts/contract.php?id=' . $r['id'], $r['title'], $r['number'] . ' · ' . $r['company_name'] . ' · ' . money((int) $r['monthly_cents']) . ' a month', badge($r['status'])], $rows), 'contracts/contracts.php' . qs_args(['q' => $q])];
+    }
 }
 $total = array_sum(array_map(fn($g) => $g[1], $groups));
 // the wording follows the modules that are on (users and companies are always searched)
 $inv = module_enabled('invoices');
 $tix = module_enabled('tickets');
-$names = array_merge(['users', 'companies'], $inv ? ['invoices'] : [], $tix ? ['tickets'] : []);
+$names = array_merge(['users', 'companies'], $inv ? ['invoices'] : [], $tix ? ['tickets'] : [], module_enabled('quotes') ? ['quotes'] : [], module_enabled('contracts') ? ['contracts'] : []);
 $namesText = count($names) > 2 ? implode(', ', array_slice($names, 0, -1)) . ' and ' . end($names) : implode(' and ', $names);
 $refs = array_merge($inv ? ['invoice number'] : [], $tix ? ['ticket'] : []);
 $hint = 'Name, email, company, KvK' . ($refs ? ', ' . implode(' or ', $refs) : '');

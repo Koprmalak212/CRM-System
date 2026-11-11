@@ -5,7 +5,7 @@ const v = (n) => `rgb(var(--c-${n}) / <alpha-value>)`;
 module.exports = {
   content: [
     './index.php',
-    './{auth,users,companies,tickets,calendar,calls,links,invoices,monitoring,system,search,notifications,settings,privacy,extras,api}/*.php',
+    './{auth,users,companies,tickets,calendar,calls,links,invoices,quotes,contracts,monitoring,system,search,notifications,settings,privacy,extras,api}/*.php',
     './includes/**/*.php',
     './assets/js/*.js',
   ],
