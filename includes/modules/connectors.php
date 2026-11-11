@@ -305,6 +305,7 @@ function threecx_token(array $c, string $secret): array
     }
     if (!in_array($r['state'], ['unauthorized', 'invalid', 'ok'], true)) { return [$r['state'], '', '']; }   // unreachable or busy: a second try would not help
     // the API client was refused (or this address has no token endpoint): try the same values as a Management Console login
+    $word = static fn(mixed $v): string => is_string($v) && preg_match('/^[A-Za-z_]{3,40}$/', $v) ? $v : '';   // a status word of the PBX, shown only when it is plain letters
     $l = connector_http('POST', $base . '/webclient/api/Login/GetAccessToken', ['verify_tls' => $tls, 'unauthorized' => [400, 401, 403],
         'headers' => ['Content-Type: application/json'],
         'body' => json_encode(['SecurityCode' => '', 'Password' => $secret, 'Username' => (string) $c['account_ref']])]);
@@ -312,11 +313,12 @@ function threecx_token(array $c, string $secret): array
         $status = is_string($l['json']['Status'] ?? null) ? $l['json']['Status'] : '';
         $t = is_array($l['json']['Token'] ?? null) ? ($l['json']['Token']['access_token'] ?? '') : '';
         if ($status === 'AuthSuccess' && is_string($t) && $t !== '') { return ['ok', $t, '']; }
+        $detail = ' (API client: HTTP ' . $r['code'] . ($r['oauth'] !== '' ? ', ' . $r['oauth'] : '') . '. Login: HTTP ' . $l['code'] . ($word($status) !== '' ? ', ' . $word($status) : '') . '.)';
         if (preg_match('/two|factor|security|2fa|code/i', $status)) { return ['unauthorized', '', 'The login works but has two-step sign-in turned on, which can not be used here. Use an API client instead (Integrations, API).']; }
-        return ['unauthorized', '', 'The PBX refused both: the API client (Client ID and secret) and a Management Console login with the same values.'];
+        return ['unauthorized', '', 'The PBX refused both: the API client (Client ID and secret) and a Management Console login with the same values.' . $detail];
     }
-    $why = $r['oauth'] !== '' ? ' The PBX answered: ' . $r['oauth'] . '.' : '';
-    if ($r['state'] === 'invalid' && $l['state'] === 'invalid') { return ['invalid', '', '']; }   // neither path exists at this address
+    $why = ' (API client: HTTP ' . $r['code'] . ($r['oauth'] !== '' ? ', ' . $r['oauth'] : '') . '. Login: HTTP ' . $l['code'] . '.)';
+    if ($r['state'] === 'invalid' && $l['state'] === 'invalid') { return ['invalid', '', 'Neither sign-in address exists on that server' . $why . ' Check the server address and that it is 3CX version 20.']; }   // neither path exists at this address
     return [$l['state'] === 'unreachable' || $l['state'] === 'busy' ? $l['state'] : 'unauthorized', '', 'The PBX refused both: the API client (Client ID and secret) and a Management Console login with the same values.' . $why];
 }
 

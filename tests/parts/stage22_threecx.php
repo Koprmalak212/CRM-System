@@ -14,9 +14,9 @@ try {
     [$s, $m] = $try22('admin', 'sysadmin', 'adminpass');
     check($s === 'ok' && str_contains($m, 'Connected to 3CX'), 'a system administrator\'s own user name and password connect, typed in the same two fields');
     [$s, $m] = $try22('api', 'apiclient', 'wrong');
-    check($s === 'unauthorized' && str_contains($m, 'refused both') && str_contains($m, 'invalid_client'), 'a wrong secret says that both ways were refused and shows the error code the PBX gave', $m);
+    check($s === 'unauthorized' && str_contains($m, 'refused both') && str_contains($m, 'invalid_client') && str_contains($m, 'API client: HTTP 400') && str_contains($m, 'Login: HTTP 404'), 'a wrong secret says that both ways were refused and shows the codes the PBX gave for each', $m);
     [$s, $m] = $try22('admin', 'sysadmin', 'bad');
-    check($s === 'unauthorized' && str_contains($m, 'refused both'), 'a wrong password is refused with the same explanation');
+    check($s === 'unauthorized' && str_contains($m, 'refused both') && str_contains($m, 'Login: HTTP 200, AuthFailed'), 'a wrong password is refused, and the status word of the login is shown', $m);
     [$s, $m] = $try22('2fa', 'sysadmin', 'adminpass');
     check($s === 'unauthorized' && str_contains($m, 'two-step sign-in'), 'a login that has two-step sign-in turned on is explained, not just "rejected"');
     same($try22('api', 'apiclient', "x\r\nInjected: 1")[0], 'unauthorized', 'a secret with a line break in it is refused and breaks nothing');
