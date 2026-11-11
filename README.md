@@ -117,6 +117,21 @@ flowchart TB
 | 🗄️ | **Backups** | The backups page, with an alert when a backup fails. |
 | 📜 | **Activity logs** | The page that shows the audit trail, with filters and export. Activity is still recorded while it is off. |
 
+### From first contact to invoice
+
+The modules work alone, and when several are on they hand work to each other:
+
+```mermaid
+flowchart LR
+    mail["✉️ Email to support"] --> ticket["🎫 Ticket<br/>SLA countdown"]
+    quote["📝 Quote"] -- accepted --> contract["🔁 Contract<br/>services and price per month"]
+    quote -- accepted --> invoice["💶 Invoice"]
+    contract -- every period --> invoice
+    contract -. shorter SLA .-> ticket
+    contract -- renewal alert --> bell["🔔 Bell and email"]
+    ticket -- about to breach --> bell
+```
+
 ### What happens when you switch one off
 
 | Where | What changes |
@@ -126,7 +141,7 @@ flowchart TB
 | **Overview** | Its tiles, charts and "needs attention" items leave, and the rest closes up. |
 | **Search** | Its results are no longer searched or shown. |
 | **Notifications and email** | Nothing new is raised, and older notices are hidden from the bell and the digest. |
-| **Settings** | Its settings tab disappears (Kuma, Connectors, Integrations). |
+| **Settings** | Its settings tab disappears (Tickets, Kuma, Connectors, Integrations). |
 | **Export** | Its CSV export is refused. |
 | **Scheduled jobs** | Its job prints one line and stops, so a forgotten task does no harm. |
 | **Other modules** | Nothing breaks. A quote simply stops offering "make an invoice" while Invoices is off, and a contract is still tracked but invoices nothing. |
@@ -175,7 +190,7 @@ Invite colleagues by email, set roles and permissions, turn on **two-step sign-i
 <td valign="top">
 
 ### 🎚️ Shape the product
-**Settings → Modules** is where an admin decides what this install is. Every change is written to the audit trail.
+**Settings → Modules** is where an admin decides what this install is. **Settings → Tickets** holds the SLA targets and the support mailbox. Every change is written to the audit trail.
 
 </td>
 </tr>
@@ -215,7 +230,7 @@ Passwords are stored only as strong hashes. Sign-in has lockout and rate limits,
 <td width="33%" valign="top">
 
 ### 🛡️ Privacy built in
-Retention is automatic (logs after 12 months, invoices after the legal 7 years). Staff can look up, export and anonymise what is held about a person. Translation through Google happens only after explicit consent.
+Retention is automatic (logs after 12 months, invoices after the legal 7 years). Staff can look up, export and anonymise what is held about a person, including the tickets they mailed in. The support mailbox password is stored encrypted. Translation through Google happens only after explicit consent.
 
 </td>
 <td width="33%" valign="top">
@@ -240,6 +255,8 @@ C:\xampp\php\php.exe bin\setup.php
 1. **Install.** Put the project under `htdocs`, start Apache and MySQL, and run the line above. It creates the database and prints the first admin password once.
 2. **Sign in** and choose your own password.
 3. **Choose your modules** under *Settings → Modules*. A new install starts with everything on, so switch off what this client does not need.
+
+4. **Schedule the jobs** (all are optional and safe to run often): `bin/purge.php` daily, `bin/run_recurring.php` and `bin/run_contracts.php` daily, `bin/poll_inbox.php` every few minutes to read the support mailbox, plus the Uptime and health checks if those modules are on.
 
 The full guide, with scheduled jobs and updates, is in [`docs/INSTALL.md`](docs/INSTALL.md).
 
@@ -297,7 +314,7 @@ tests/              the test suite
 
 **Design and development by Denis Mehmed for Telecomlijn.**
 
-Copyright © 2026 Denis Mehmed. All rights reserved. No one may use, copy, modify or distribute this software without written permission. See [LICENSE](LICENSE).
+Copyright © 2026 Denis Mehmed. All rights reserved. No one may use, copy, modify or distribute this software without written permission. See [LICENSE](LICENSE). Permission requests and questions: [koprmalak212@gmail.com](mailto:koprmalak212@gmail.com).
 Third-party components (Tailwind CSS, Hanken Grotesk, icon shapes) keep their own licences, listed in [`assets/LICENSES.txt`](assets/LICENSES.txt).
 
 </div>
