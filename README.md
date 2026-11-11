@@ -21,7 +21,7 @@ Customers at the core. Tickets, quotes, contracts, invoices, calendar, calls, up
 
 <br>
 
-[**Modules**](#-built-from-modules) &nbsp;·&nbsp; [**The core**](#-the-core-always-on) &nbsp;·&nbsp; [**Screenshots**](#-see-it) &nbsp;·&nbsp; [**Trust**](#-built-to-be-trusted) &nbsp;·&nbsp; [**Get started**](#-get-started) &nbsp;·&nbsp; [**For developers**](#-for-developers) &nbsp;·&nbsp; [**Docs**](#-documentation)
+[**Highlights**](#-at-a-glance) &nbsp;·&nbsp; [**Modules**](#-built-from-modules) &nbsp;·&nbsp; [**The core**](#-the-core-always-on) &nbsp;·&nbsp; [**Screenshots**](#-see-it) &nbsp;·&nbsp; [**Trust**](#-built-to-be-trusted) &nbsp;·&nbsp; [**Get started**](#-get-started) &nbsp;·&nbsp; [**For developers**](#-for-developers) &nbsp;·&nbsp; [**Docs**](#-documentation)
 
 <br>
 
@@ -37,6 +37,39 @@ Customers at the core. Tickets, quotes, contracts, invoices, calendar, calls, up
 <br>
 
 Telecomlijn CRM is a private CRM and operations dashboard for a business that sells and supports connectivity. Not every business needs every part of it, so it is **built from modules**: a small core that knows your customers, and thirteen features around it that each client turns on or off. A support desk can run only Tickets and Calendar. A reseller can add Quotes, Contracts and Invoices. A network team can add Uptime and Connections. It runs on your own server, and your data stays there.
+
+<br>
+
+## ✨ At a glance
+
+<table>
+<tr>
+<td width="25%" valign="top">
+
+### ⏱️ Support that keeps its promises
+Set how fast a ticket must be answered and solved. A countdown on every ticket, a warning **before** a breach, and escalation **after** it.
+
+</td>
+<td width="25%" valign="top">
+
+### ✉️ Mail becomes tickets
+Write to your support address and a ticket appears. Replies land in the right thread, and you answer from the ticket by email.
+
+</td>
+<td width="25%" valign="top">
+
+### 📝➜🔁➜💶 Offer to cash
+A quote becomes a contract or an invoice with one click. Contracts bill themselves, once per period, and warn you before they renew.
+
+</td>
+<td width="25%" valign="top">
+
+### 🔌 Connectors you can debug
+3CX, Yeastar, Twilio and Short.io, each with a **log** that shows what the service really answered, instead of a vague "rejected".
+
+</td>
+</tr>
+</table>
 
 <br>
 
@@ -131,6 +164,19 @@ flowchart LR
     contract -- renewal alert --> bell["🔔 Bell and email"]
     ticket -- about to breach --> bell
 ```
+
+### Connectors, with a log
+
+Under **Settings → Connectors** you link your phone systems and link shortener. Every service gets the same four buttons: **Save**, **Test connection**, **Sync now** and **Remove credentials**. Secrets are stored encrypted and never shown again.
+
+| Service | You enter | You get |
+| --- | --- | --- |
+| **3CX** (version 20) | The server address and an API client (Client ID and secret), or a system owner's own login | Calls, matched to the right company and person by phone number |
+| **Yeastar** (P-Series) | The server address, a client ID and a secret | Calls |
+| **Twilio** | Account SID and auth token | Calls and text messages (the text is kept only if you tick it) |
+| **Short.io** | A secret API key | Short links per company |
+
+Under every connector sits a **log**: each test and sync with its result and **one line per request**, such as `POST pbx.example.com/connect/token -> HTTP 200` or a certificate error. It opens by itself after a failure, never holds a secret, and tells "wrong credentials" from "signed in but not allowed" from "no answer". That is how a refusal gets diagnosed in minutes instead of days.
 
 ### What happens when you switch one off
 
@@ -264,7 +310,17 @@ C:\xampp\php\php.exe bin\setup.php
 2. **Sign in** and choose your own password.
 3. **Choose your modules** under *Settings → Modules*. A new install starts with everything on, so switch off what this client does not need.
 
-4. **Schedule the jobs** (all are optional and safe to run often): `bin/purge.php` daily, `bin/run_recurring.php` and `bin/run_contracts.php` daily, `bin/poll_inbox.php` every few minutes to read the support mailbox, plus the Uptime and health checks if those modules are on.
+4. **Connect what you use** (all optional): email under *Settings → Email*, the support mailbox and SLA targets under *Settings → Tickets*, phone systems and Short.io under *Settings → Connectors*, Uptime Kuma under *Settings → Kuma API Key*.
+5. **Schedule the jobs** below. Each one is safe to run as often as you like, and prints one line and stops when its module is off.
+
+| Job | How often | What it does |
+| --- | --- | --- |
+| `bin/purge.php` | daily | Removes expired data (logs, old checks, the connector log after 90 days) |
+| `bin/run_recurring.php` | daily | Creates the recurring invoices that are due |
+| `bin/run_contracts.php` | daily | Invoices contracts per period, renews and ends them |
+| `bin/poll_inbox.php` | every few minutes | Reads the support mailbox and turns mail into tickets |
+| `bin/sync_connectors.php` | every 5 minutes | Fetches calls, messages and short links |
+| `bin/check_endpoints.php`, `bin/kuma_poll.php` | every minute | Health checks and Uptime history |
 
 The full guide, with scheduled jobs and updates, is in [`docs/INSTALL.md`](docs/INSTALL.md).
 
