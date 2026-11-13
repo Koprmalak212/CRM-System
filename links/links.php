@@ -55,7 +55,7 @@ if ($q !== '') { $like = '%' . addcslashes($q, '%_\\') . '%'; $w[] = '(s.title L
 $where = $w ? 'WHERE ' . implode(' AND ', $w) : '';
 
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 20;
+$per = page_size(20);
 $cnt = $pdo->prepare("SELECT COUNT(*) FROM short_links s $where");
 $cnt->execute($a);
 $total = (int) $cnt->fetchColumn();
@@ -67,7 +67,7 @@ $companies = $pdo->query('SELECT id, name FROM companies ORDER BY name LIMIT 500
 $conn = connector_get($pdo, 'shortio');
 $connected = $conn['enabled'] && connector_has_secret($conn);
 $filtered = implode('', $f) !== '';
-$field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 $coOpt = static function (string $cur, string $all, bool $none) use ($companies): string {
     $h = '<option value="">' . e($all) . '</option>' . ($none ? '<option value="none"' . ($cur === 'none' ? ' selected' : '') . '>No company</option>' : '');
     foreach ($companies as $c) { $h .= '<option value="' . (int) $c['id'] . '"' . ((string) $c['id'] === $cur ? ' selected' : '') . '>' . e((string) $c['name']) . '</option>'; }
@@ -78,38 +78,38 @@ $base = $f;
 page_start('Short links', 'links', 'Short links made with Short.io, kept per company.');
 ?>
 <?php if (!$connected): ?>
-  <p role="status" class="rise mb-6 rounded-xl bg-butter-100 px-4 py-3 text-sm"><strong class="text-butter">Short.io is not connected.</strong>
+  <p role="status" class="rise mb-6 rounded-lg bg-butter-100 px-4 py-3 text-sm"><strong class="text-butter">Short.io is not connected.</strong>
     <?= is_admin() ? '<a class="font-semibold underline decoration-lime decoration-2 underline-offset-4" href="settings/settings.php?tab=connectors#c-shortio">Connect it in Settings</a> with an API key to make and list links.' : 'Ask an admin to connect it under Settings, Connectors.' ?></p>
 <?php endif; ?>
 
 <div class="rise mb-6 grid gap-4 lg:grid-cols-[1fr_auto]">
-  <form method="post" class="grid gap-3 rounded-2xl bg-butter p-4 text-navy sm:grid-cols-2 sm:p-5"><?= csrf_field() ?><input type="hidden" name="action" value="create">
+  <form method="post" class="grid gap-3 rounded-xl bg-butter p-4 text-navy sm:grid-cols-2 sm:p-5"><?= csrf_field() ?><input type="hidden" name="action" value="create">
     <div class="sm:col-span-2"><label for="n-url" class="block text-sm font-semibold">Address to shorten</label>
-      <input id="n-url" name="url" type="url" required maxlength="2000" placeholder="https://www.example.com/a/long/address" class="mt-1.5 h-11 w-full rounded-xl border border-navy/15 bg-panel px-3 text-sm text-ink focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></div>
+      <input id="n-url" name="url" type="url" required maxlength="2000" placeholder="https://www.example.com/a/long/address" class="mt-1.5 h-11 w-full rounded-lg border border-navy/15 bg-panel px-3 text-sm text-ink focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></div>
     <div><label for="n-title" class="block text-sm font-semibold">Title (optional)</label>
-      <input id="n-title" name="title" maxlength="190" class="mt-1.5 h-11 w-full rounded-xl border border-navy/15 bg-panel px-3 text-sm text-ink focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></div>
+      <input id="n-title" name="title" maxlength="190" class="mt-1.5 h-11 w-full rounded-lg border border-navy/15 bg-panel px-3 text-sm text-ink focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></div>
     <div><label for="n-co" class="block text-sm font-semibold">Company (optional)</label>
-      <select id="n-co" name="company" class="mt-1.5 h-11 w-full rounded-xl border border-navy/15 bg-panel px-3 text-sm text-ink focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"><?= $coOpt('', 'No company', false) ?></select></div>
-    <div class="sm:col-span-2"><button class="inline-flex h-11 items-center gap-2 rounded-xl bg-navy px-5 text-sm font-bold text-white hover:bg-navy-800" <?= $connected ? '' : 'disabled aria-disabled="true"' ?>><?= icon('plus', 'h-4 w-4') ?>Make short link</button></div>
+      <select id="n-co" name="company" class="mt-1.5 h-11 w-full rounded-lg border border-navy/15 bg-panel px-3 text-sm text-ink focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"><?= $coOpt('', 'No company', false) ?></select></div>
+    <div class="sm:col-span-2"><button class="inline-flex h-11 items-center gap-2 rounded-lg bg-navy px-5 text-sm font-bold text-white hover:bg-navy-800" <?= $connected ? '' : 'disabled aria-disabled="true"' ?>><?= icon('plus', 'h-4 w-4') ?>Make short link</button></div>
   </form>
   <?php if (is_admin() && $connected): ?>
-    <form method="post" class="flex items-end rounded-2xl border border-line bg-panel p-4 sm:p-5"><?= csrf_field() ?><input type="hidden" name="action" value="sync">
-      <button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50">Sync now</button></form>
+    <form method="post" class="flex items-end rounded-xl border border-line bg-panel p-4 sm:p-5"><?= csrf_field() ?><input type="hidden" name="action" value="sync">
+      <button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-butter-50">Sync now</button></form>
   <?php endif; ?>
 </div>
 
-<form method="get" action="links/links.php" class="rise mb-4 grid gap-3 rounded-2xl border border-line bg-panel p-4 shadow-panel sm:grid-cols-2 lg:grid-cols-4 sm:p-5" aria-label="Filter short links">
+<form method="get" action="links/links.php" data-auto class="rise mb-4 grid gap-3 rounded-xl border border-line bg-panel p-4 shadow-panel sm:grid-cols-2 lg:grid-cols-4 sm:p-5" aria-label="Filter short links">
   <div><label for="l-co" class="text-sm font-semibold">Company</label><select id="l-co" name="company" class="<?= e($field) ?>"><?= $coOpt($f['company'], 'All companies', true) ?></select></div>
   <div><label for="l-from" class="text-sm font-semibold">Created from</label><input id="l-from" name="from" type="date" value="<?= e($f['from']) ?>" class="<?= e($field) ?>"></div>
   <div><label for="l-to" class="text-sm font-semibold">Created to</label><input id="l-to" name="to" type="date" value="<?= e($f['to']) ?>" class="<?= e($field) ?>"></div>
   <div><label for="l-q" class="text-sm font-semibold">Title or address</label><input id="l-q" name="q" type="search" maxlength="80" value="<?= e($f['q']) ?>" class="<?= e($field) ?>"></div>
   <div class="flex items-end gap-3 sm:col-span-2">
-    <button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($filtered): ?><a href="links/links.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </div>
 </form>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
   <?php if (!$rows): ?>
     <div class="p-6 text-sm"><p class="font-semibold"><?= $filtered ? 'Nothing matches these filters.' : 'No short links yet.' ?></p>
       <p class="mt-1 text-soft"><?= $filtered ? 'Change or clear the filters.' : ($connected ? 'Make one above, or press Sync now to fetch the ones you already have.' : 'Connect Short.io first.') ?></p></div>
@@ -133,7 +133,7 @@ page_start('Short links', 'links', 'Short links made with Short.io, kept per com
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $base) ?>
+  <?= pagination($total, $per, $page, $base, true) ?>
   <?php endif; ?>
 </div>
 <?php page_end(); ?>

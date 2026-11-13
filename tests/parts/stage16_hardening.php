@@ -194,14 +194,14 @@ same($bad52, [], 'no page loads the Tailwind script or configures it inline');
 foreach (['auth/login.php', 'auth/login_2fa.php', 'index.php', 'privacy/privacybeleid.php', 'settings/settings.php?tab=account'] as $pg) {
     $r = http('GET', "$base/$pg", ['jar' => str_starts_with($pg, 'auth/login') || str_contains($pg, 'privacybeleid') ? '' : $admin]);
     if ($r['code'] === 302) { $r = http('GET', "$base/auth/login.php", ['jar' => '']); }
-    if (!str_contains($r['body'], '<link rel="stylesheet" href="assets/css/app.css">') || str_contains($r['body'], 'tailwind-3.4')) { $nolink[] = $pg; }
+    if (!preg_match('~<link rel="stylesheet" href="assets/css/app\.css\?v=\d+">~', $r['body']) || str_contains($r['body'], 'tailwind-3.4')) { $nolink[] = $pg; }
 }
 same($nolink, [], 'the pages link assets/css/app.css and nothing else Tailwind');
 $h52 = http('GET', "$base/assets/css/app.css");
 check($h52['code'] === 200 && stripos($h52['headers'], 'text/css') !== false && str_contains($h52['body'], 'rgb(var(--c-ground)'), 'app.css is served as text/css and carries the themed colour variables');
 // the link is the last thing in the head, as the in-browser Tailwind used to be: utilities win over the inline page rules
 $lay = http('GET', "$base/index.php", ['jar' => $admin])['body'];
-check(preg_match('~<link rel="stylesheet" href="assets/css/app.css">\s*</head>~', $lay) === 1, 'the stylesheet link is the last element of the head, so utilities keep their place in the cascade');
+check(preg_match('~<link rel="stylesheet" href="assets/css/app\.css\?v=\d+">\s*</head>~', $lay) === 1, 'the stylesheet link is the last element of the head, so utilities keep their place in the cascade');
 $cfg52 = (string) file_get_contents($root16 . '/tailwind.config.js');
 check(str_contains($cfg52, './includes/**/*.php') && str_contains($cfg52, './assets/js/*.js') && str_contains($cfg52, 'search,notifications,settings,privacy'), 'tailwind.config.js scans the pages, the includes and the scripts');
 $pkg = json_decode((string) file_get_contents($root16 . '/package.json'), true);

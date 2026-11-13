@@ -50,18 +50,18 @@ public_head('Choose a new password');
 ?>
 <?php if (!$row): ?>
     <h1 class="text-3xl font-bold tracking-tight">This link does not work</h1>
-    <p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= $locked ? 'Too many wrong links from your connection. Wait ' . TOKEN_WINDOW_MINUTES . ' minutes and try again.' : 'The reset link is not valid, has expired or was already used. Ask for a new one.' ?></p>
+    <p role="alert" class="mt-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= $locked ? 'Too many wrong links from your connection. Wait ' . TOKEN_WINDOW_MINUTES . ' minutes and try again.' : 'The reset link is not valid, has expired or was already used. Ask for a new one.' ?></p>
     <p class="mt-6 text-sm"><a href="auth/forgot.php" class="font-semibold underline decoration-lime decoration-2 underline-offset-4">Send a new reset link</a> · <a href="auth/login.php" class="font-semibold underline decoration-lime decoration-2 underline-offset-4">Sign in</a></p>
 <?php else: ?>
     <h1 class="text-3xl font-bold tracking-tight">Choose a new password</h1>
-    <p class="mt-2 text-[15px] text-soft">For <strong class="text-ink notranslate"><?= e($row['username']) ?></strong>. Use at least 12 characters. Everywhere you are signed in will be signed out.</p>
-    <?php if ($error): ?><p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
+    <p class="mt-2 text-sm text-soft">For <strong class="text-ink notranslate"><?= e($row['username']) ?></strong>. Use at least 12 characters. Everywhere you are signed in will be signed out.</p>
+    <?php if ($error): ?><p role="alert" class="mt-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
     <form method="post" class="mt-6" novalidate><?= csrf_field() ?><input type="hidden" name="token" value="<?= e($token) ?>">
       <label for="new" class="block text-sm font-semibold">New password</label>
       <input id="new" name="new" type="password" autocomplete="new-password" required minlength="12" autofocus class="<?= PUBLIC_FIELD ?>">
       <label for="confirm" class="mt-4 block text-sm font-semibold">Confirm new password</label>
       <input id="confirm" name="confirm" type="password" autocomplete="new-password" required class="<?= PUBLIC_FIELD ?>">
-      <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95">Save the new password</button>
+      <button class="mt-6 h-12 w-full rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95">Save the new password</button>
     </form>
 <?php endif; ?>
 <?php public_foot();

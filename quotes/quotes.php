@@ -12,7 +12,7 @@ $sorts = ['number' => 'number', 'customer' => 'customer', 'issue_date' => 'issue
 $sortKey = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'issue_date';
 $dir = ($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 15;
+$per = page_size(15);
 
 $where = []; $args = [];
 if ($q !== '') { $like = '%' . addcslashes($q, '\\%_') . '%'; $where[] = '(number LIKE ? OR customer LIKE ? OR title LIKE ?)'; array_push($args, $like, $like, $like); }
@@ -36,10 +36,10 @@ $baseQ = ['state' => $state, 'q' => $q, 'sort' => $sortKey, 'dir' => $dir];
 $decided = (int) $st['won_n'] + (int) $st['lost_n'];
 
 page_start('Quotes', 'quotes', 'Offers to customers: what is still open, what was won and what was lost.');
-$field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <div class="rise mb-6 flex flex-wrap items-center justify-between gap-3">
-  <dl class="grid flex-1 grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel lg:grid-cols-4 lg:divide-x" style="min-width:min(100%,640px)">
+  <dl class="grid flex-1 grid-cols-2 divide-line overflow-hidden rounded-xl border border-line bg-panel shadow-panel lg:grid-cols-4 lg:divide-x" style="min-width:min(100%,640px)">
     <?php
     $cards = [
         ['Open', money((int) $st['open_sum']), (int) $st['open_n'] . ' quote' . ((int) $st['open_n'] === 1 ? '' : 's') . ' waiting for an answer', 'text-ink'],
@@ -49,30 +49,30 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     ];
     foreach ($cards as $i => [$label, $value, $note, $tone]): ?>
       <div class="p-5 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
-        <dt class="text-sm font-medium text-soft"><?= e($label) ?></dt>
-        <dd class="mt-1 text-[26px] font-bold leading-none tracking-tight tabular-nums notranslate <?= $tone ?>"><?= e($value) ?></dd>
+        <dt class="text-sm font-semibold text-soft"><?= e($label) ?></dt>
+        <dd class="mt-1 text-2xl font-bold leading-none tracking-tight tabular-nums notranslate <?= $tone ?>"><?= e($value) ?></dd>
         <dd class="mt-2 text-sm text-soft"><?= e($note) ?></dd>
       </div>
     <?php endforeach; ?>
   </dl>
-  <a href="quotes/quote_edit.php" class="pressable inline-flex h-12 items-center gap-2 rounded-xl bg-lime px-5 text-[15px] font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New quote</a>
+  <a href="quotes/quote_edit.php" class="pressable inline-flex h-12 items-center gap-2 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New quote</a>
 </div>
 
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Quote status" style="animation-delay:.05s">
   <?php foreach (['' => 'All'] + QUOTE_STATES as $k => $label): $on = $state === $k; ?>
     <a href="<?= e(qs($baseQ, ['state' => $k, 'page' => 1])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
-       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>">
-      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
+       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>">
+      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
     </a>
   <?php endforeach; ?>
 </nav>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.08s">
-  <form method="get" class="flex flex-wrap items-center gap-3 border-b border-line p-4">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.08s">
+  <form method="get" data-auto class="flex flex-wrap items-center gap-3 border-b border-line p-4">
     <input type="hidden" name="state" value="<?= e($state) ?>">
     <label class="sr-only" for="q">Search</label>
     <input id="q" name="q" type="search" value="<?= e($q) ?>" placeholder="Number, customer or subject" class="<?= $field ?> w-full sm:w-64">
-    <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($q !== '' || $state !== ''): ?><a href="quotes/quotes.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </form>
   <div class="overflow-x-auto">
@@ -97,11 +97,11 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
           </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-          <tr><td colspan="6" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= !$counts && $q === '' ? 'No quotes yet' : 'No quotes match' ?></p><p class="mt-1 text-soft">Write a quote, send the PDF, and record whether it was won or lost.</p><a href="quotes/quote_edit.php" class="pressable mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">New quote</a></td></tr>
+          <tr><td colspan="6" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= !$counts && $q === '' ? 'No quotes yet' : 'No quotes match' ?></p><p class="mt-1 text-soft">Write a quote, send the PDF, and record whether it was won or lost.</p><a href="quotes/quote_edit.php" class="pressable mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">New quote</a></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $baseQ) ?>
+  <?= pagination($total, $per, $page, $baseQ, true) ?>
 </div>
 <?php page_end(); ?>

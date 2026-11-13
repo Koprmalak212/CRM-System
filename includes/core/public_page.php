@@ -16,12 +16,12 @@ function public_head(string $title): void
 <meta name="robots" content="noindex">
 <meta name="referrer" content="no-referrer">
 <title><?= e($title) ?> · Telecomlijn Admin</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link rel="icon" type="image/svg+xml" href="<?= asset('assets/img/favicon.svg') ?>">
+<link rel="stylesheet" href="<?= asset('assets/fonts/fonts.css') ?>">
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
 </style>
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="<?= asset('assets/css/app.css') ?>">
 </head>
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <main class="grid min-h-full place-items-center p-6">
@@ -35,7 +35,7 @@ function public_foot(): void
     ?>
   </div>
 </main>
-<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-lg border border-line bg-panel hover:bg-ink/10') ?></div>
 <?= theme_toggle_script() ?>
 </body>
 </html>
@@ -60,7 +60,7 @@ function token_fail(PDO $pdo): void
 }
 
 /** Input classes shared by the public pages. */
-const PUBLIC_FIELD = 'mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[15px] focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+const PUBLIC_FIELD = 'mt-1.5 h-12 w-full rounded-lg border border-line bg-panel px-4 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 
 /** The new-password rule used everywhere: 12 to 256 characters. Returns an error message or null. */
 function password_problem(string $new, string $confirm, string ...$notContaining): ?string

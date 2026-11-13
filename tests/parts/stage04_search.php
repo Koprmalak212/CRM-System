@@ -46,7 +46,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     $w = $S('%')['body'];
     check(str_contains($w, "companies/company.php?id=$pc") && !str_contains($w, "companies/company.php?id=$zc"), 'a lone % finds only text that contains a percent sign');
     $e = $S('qqqq-no-such-thing');
-    check($e['code'] === 200 && str_contains($e['body'], 'No results for') && !str_contains($e['body'], 'class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="h-'), 'no results: a clear empty state and no result groups');
+    check($e['code'] === 200 && str_contains($e['body'], 'No results for') && !str_contains($e['body'], 'class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="h-'), 'no results: a clear empty state and no result groups');
     check(str_contains($S('')['body'], 'Type a name') && $S('')['code'] === 200, 'an empty search shows help text');
     $h = $S("x' OR 1=1 -- ");
     check($h['code'] === 200 && str_contains($h['body'], 'No results for'), 'SQL-looking text finds nothing and causes no error');

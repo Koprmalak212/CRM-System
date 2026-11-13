@@ -35,7 +35,7 @@ function tab_handle(PDO $pdo, array $admin): void
             ON DUPLICATE KEY UPDATE host = VALUES(host), port = VALUES(port), encryption = VALUES(encryption), username = VALUES(username), password_enc = VALUES(password_enc), from_email = VALUES(from_email), from_name = VALUES(from_name), base_url = VALUES(base_url), updated_at = VALUES(updated_at)')
             ->execute([$host, $port, $enc, $user, $enc_pw, $fromEmail, $fromName !== '' ? $fromName : 'Telecomlijn Admin', $base]);
         $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('notify_email', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$target]);
-        log_activity('warning', 'Email settings saved', $host !== '' ? $host . ':' . $port : '(no SMTP server)');   // never the password
+        log_activity('info', 'Email settings saved', $host !== '' ? $host . ':' . $port : '(no SMTP server)');   // never the password
         flash($host !== '' ? 'Email settings saved. Use "Send a test email" to check them.' : 'Saved. Without a mail server, messages are only recorded in the outbox.');
         return;
     }
@@ -65,15 +65,15 @@ function tab_handle(PDO $pdo, array $admin): void
 function tab_render(PDO $pdo, array $admin): void
 {
     $c = mail_settings($pdo);
-    $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $hasPw = !empty($c['password_enc']) || $c['password_plain'] !== null;
     $rows = $pdo->query('SELECT id, kind, to_email, subject, body, status, error, created_at FROM mail_outbox ORDER BY id DESC LIMIT 50')->fetchAll();
     $count = (int) $pdo->query('SELECT COUNT(*) FROM mail_outbox')->fetchColumn();
     ?>
 <div class="grid gap-6 lg:grid-cols-2">
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="smtp-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="smtp-h">
     <h2 id="smtp-h" class="text-lg font-bold tracking-tight">Email / SMTP</h2>
-    <?php if ($c['from_env']): ?><p role="status" class="mt-3 rounded-xl bg-butter-100 px-4 py-3 text-sm"><strong class="text-butter">From the environment:</strong> <span class="notranslate"><?= e(implode(', ', $c['from_env'])) ?></span> are taken from environment variables or <code class="notranslate">includes/config.local.php</code> because nothing is saved here for them. Saving this form takes over.</p><?php endif; ?>
+    <?php if ($c['from_env']): ?><p role="status" class="mt-3 rounded-lg bg-butter-100 px-4 py-3 text-sm"><strong class="text-butter">From the environment:</strong> <span class="notranslate"><?= e(implode(', ', $c['from_env'])) ?></span> are taken from environment variables or <code class="notranslate">includes/config.local.php</code> because nothing is saved here for them. Saving this form takes over.</p><?php endif; ?>
     <p class="mt-2 text-xs text-soft">The grey names next to each field (<code class="notranslate">SMTP_SERVER</code>, <code class="notranslate">SMTP_PORT</code>, <code class="notranslate">SMTP_USERNAME</code>, <code class="notranslate">SMTP_PASSWORD</code>, <code class="notranslate">EMAIL_FROM</code>, <code class="notranslate">EMAIL_TARGET</code>) can also be set as environment variables or as keys in <code class="notranslate">includes/config.local.php</code>. What is saved on this page always wins.</p>
     <p class="mt-1 text-sm text-soft">For real delivery enter the details of an email account (SMTP) from your provider. Left blank, nothing is sent: password-reset and invitation links appear in the outbox below instead, so they can be copied by hand. The password is stored encrypted.</p>
     <form method="post" class="mt-5 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="save">
@@ -86,15 +86,15 @@ function tab_render(PDO $pdo, array $admin): void
       <div><label for="from_name" class="text-sm font-semibold">Sender name</label><input id="from_name" name="from_name" maxlength="80" value="<?= e($c['from_name']) ?>" class="<?= $field ?>"></div>
       <div class="sm:col-span-2"><label for="email_target" class="text-sm font-semibold">Send notifications to <code class="font-mono text-xs font-normal text-soft">EMAIL_TARGET</code></label><input id="email_target" name="email_target" type="email" maxlength="190" value="<?= e(notify_email($pdo)) ?>" placeholder="alerts@example.com" class="<?= $field ?> notranslate"><p class="mt-1 text-xs text-soft">Overdue invoices, failed backups, services that are down and urgent tickets are emailed here. Leave empty to turn those emails off (the bell still works).</p></div>
       <div class="sm:col-span-2"><label for="base_url" class="text-sm font-semibold">Site address used in links <span class="font-normal text-soft">(required on a real server)</span></label><input id="base_url" name="base_url" maxlength="190" value="<?= e($c['base_url']) ?>" placeholder="https://admin.telecomlijn.nl" class="<?= $field ?> notranslate"><p class="mt-1 text-xs text-soft">Links in emails always use this address, never the one in the request, so nobody can make a reset email point to another site. On localhost it can stay empty.</p></div>
-      <div class="flex flex-wrap gap-3 sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button></div>
+      <div class="flex flex-wrap gap-3 sm:col-span-2"><button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button></div>
     </form>
     <div class="mt-4 flex flex-wrap gap-3 border-t border-line pt-4">
-      <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="test"><button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Send a test email to <?= e($admin['email']) ?></button></form>
-      <?php if ($hasPw): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="clear_password"><button class="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Remove the saved password</button></form><?php endif; ?>
+      <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="test"><button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Send a test email to <?= e($admin['email']) ?></button></form>
+      <?php if ($hasPw): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="clear_password"><button class="h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Remove the saved password</button></form><?php endif; ?>
     </div>
   </section>
 
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="st-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="st-h">
     <h2 id="st-h" class="text-lg font-bold tracking-tight">Status</h2>
     <dl class="mt-4 divide-y divide-line text-sm">
       <div class="flex justify-between gap-4 py-3"><dt class="text-soft">Delivery</dt><dd class="text-right font-semibold"><?= $c['host'] !== '' ? 'SMTP: ' . e($c['host']) . ':' . (int) $c['port'] : (mail_is_local() ? 'Outbox only (no mail server on this computer)' : 'The server\'s mail system') ?></dd></div>
@@ -105,10 +105,10 @@ function tab_render(PDO $pdo, array $admin): void
   </section>
 </div>
 
-<section class="rise mt-6 rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="ob-h">
+<section class="rise mt-6 rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="ob-h">
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5 sm:p-6">
     <div><h2 id="ob-h" class="text-lg font-bold tracking-tight">Outbox</h2><p class="mt-1 text-sm text-soft">The last 50 messages. Delivered messages with a one-time link lose their text. Entries are removed after <?= MAIL_KEEP_DAYS ?> days.</p></div>
-    <?php if ($count): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="clear_outbox"><button class="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Empty the outbox</button></form><?php endif; ?>
+    <?php if ($count): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="email"><input type="hidden" name="action" value="clear_outbox"><button class="h-10 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Empty the outbox</button></form><?php endif; ?>
   </div>
   <?php if ($rows): ?>
     <ul class="divide-y divide-line">
@@ -120,7 +120,7 @@ function tab_render(PDO $pdo, array $admin): void
               <span class="font-semibold"><?= e($m['subject']) ?></span><span class="text-soft notranslate">to <?= e($m['to_email']) ?></span><span class="text-soft"><?= e(ago($m['created_at'])) ?> · <?= e($m['kind']) ?></span>
             </summary>
             <?php if ($m['error'] !== ''): ?><p class="mt-2 text-sm text-[#FF9C8C]"><?= e($m['error']) ?></p><?php endif; ?>
-            <pre class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-deep p-4 text-xs notranslate"><?= e($m['body']) ?></pre>
+            <pre class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-deep p-4 text-xs notranslate"><?= e($m['body']) ?></pre>
           </details>
         </li>
       <?php endforeach; ?>

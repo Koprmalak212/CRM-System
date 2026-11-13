@@ -54,7 +54,7 @@ function contract_not_found(): never
 {
     http_response_code(404);
     page_start('Contract not found', 'contracts', 'That contract does not exist. It may have been removed.');
-    echo '<a href="contracts/contracts.php" class="pressable inline-flex h-11 items-center rounded-xl bg-lime px-5 text-sm font-bold text-navy">Back to contracts</a>';
+    echo '<a href="contracts/contracts.php" class="pressable inline-flex h-11 items-center rounded-lg bg-lime px-5 text-sm font-bold text-navy">Back to contracts</a>';
     page_end();
     exit;
 }
@@ -269,7 +269,7 @@ function contracts_panel(PDO $pdo, int $companyId): string
     $s = $pdo->prepare('SELECT * FROM (' . contract_base_sql() . ") t WHERE company_id = ? AND status <> 'ended' ORDER BY status = 'active' DESC, start_date DESC LIMIT 10");
     $s->execute([$companyId]);
     $rows = $s->fetchAll();
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="ctr-h"><div class="flex items-center justify-between gap-3"><h2 id="ctr-h" class="text-base font-bold">Contracts</h2><a href="contracts/contract_edit.php?company=' . $companyId . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New contract</a></div>';
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="ctr-h"><div class="flex items-center justify-between gap-3"><h2 id="ctr-h" class="text-base font-bold">Contracts</h2><a href="contracts/contract_edit.php?company=' . $companyId . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New contract</a></div>';
     if (!$rows) { return $h . '<p class="mt-3 text-sm text-soft">No running contracts.</p></section>'; }
     $total = 0;
     $h .= '<ul class="mt-4 divide-y divide-line">';

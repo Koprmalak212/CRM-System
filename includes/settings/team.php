@@ -49,7 +49,7 @@ function tab_handle(PDO $pdo, array $admin): void
         $pdo->prepare('INSERT INTO admins (username, email, name, password_hash, role, perm_integrations, must_change_password) VALUES (?,?,?,?,?,?,1)')
             ->execute([$username, $email, $name, hash_password($pw), $role, $perm]);
         $_SESSION['temp_pw'] = ['username' => $username, 'name' => $name, 'password_enc' => secret_encrypt($pw), 'kind' => 'created'];   // encrypted while it waits to be shown once
-        log_activity('warning', 'Team member added', $username . ' · ' . $role . ' · integrations ' . $perm);
+        log_activity('info', 'Team member added', $username . ' · ' . $role . ' · integrations ' . $perm);
         flash('Account created for ' . $name . '. Copy the temporary password now: it will not be shown again.');
         return;
     }
@@ -80,7 +80,7 @@ function tab_handle(PDO $pdo, array $admin): void
         [$status, , $note] = mail_send($pdo, $email, 'You are invited to Telecomlijn Admin',
             "Hello " . $name . ",\n\n" . ($admin['name'] ?? 'An admin') . " invited you to Telecomlijn Admin as " . $username . ". Open this link within " . INVITE_VALID_DAYS . " days to choose your password:\n\n"
             . $base . '/auth/invite.php?token=' . $token . "\n\nThe link works once. After that you can also add a second sign-in step (an authenticator app) under Settings > Account.\n", 'invite');
-        log_activity('warning', 'Invitation sent', $username . ' · ' . $role . ' · ' . $status);
+        log_activity('info', 'Invitation sent', $username . ' · ' . $role . ' · ' . $status);
         flash($status === 'sent' ? 'Invitation sent to ' . $email . '.' : ($status === 'recorded' ? 'Invitation created for ' . $email . '. No mail server is set up, so copy the link from Settings > Email > Outbox.' : 'The invitation was created but the email failed: ' . $note . ' Open Settings > Email > Outbox to copy the link.'), $status === 'failed' ? 'bad' : 'ok');
         return;
     }
@@ -153,7 +153,7 @@ function tab_handle(PDO $pdo, array $admin): void
 
 function tab_render(PDO $pdo, array $admin): void
 {
-    $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $small = 'h-9 rounded-lg border border-line bg-panel px-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $btn = 'pressable inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold hover:bg-white/5';
     $members = $pdo->query('SELECT * FROM admins ORDER BY role = \'admin\' DESC, name')->fetchAll();
@@ -184,35 +184,34 @@ function tab_render(PDO $pdo, array $admin): void
     }
     ?>
 <?php if ($temp): ?>
-  <div role="alert" class="rise mb-6 rounded-2xl border border-butter/30 bg-butter-100 p-5">
+  <div role="alert" class="rise mb-6 rounded-xl border border-butter/30 bg-butter-100 p-5">
     <p class="font-semibold text-butter">Temporary password for <span class="notranslate"><?= e($temp['username']) ?></span>. Copy it now, it will not be shown again.</p>
     <label for="temp-msg" class="mt-3 block text-sm font-semibold">Message to send</label>
-    <textarea id="temp-msg" readonly rows="10" class="mt-1.5 w-full rounded-xl border border-line bg-deep p-3 text-sm text-ink notranslate select-all"><?= e($temp['message']) ?></textarea>
+    <textarea id="temp-msg" readonly rows="10" class="mt-1.5 w-full rounded-lg border border-line bg-deep p-3 text-sm text-ink notranslate select-all"><?= e($temp['message']) ?></textarea>
     <button type="button" class="pressable mt-2 inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold hover:bg-lime hover:text-navy" onclick="var t=document.getElementById('temp-msg');t.select();var b=this;(navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).catch(function(){document.execCommand('copy');}).then(function(){b.textContent='Copied';});">Copy message</button>
     <p class="mt-2 text-sm text-soft">They must choose their own password at first sign-in. Send it to them through a safe channel, not by email in plain text if you can avoid it.</p>
   </div>
 <?php endif; ?>
 
-<section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="team-h">
+<section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="team-h">
   <div class="border-b border-line p-5 sm:p-6">
     <h2 id="team-h" class="text-lg font-bold tracking-tight">People with a login</h2>
-    <p class="mt-1 max-w-2xl text-sm text-soft"><strong class="text-ink">Admins</strong> can use everything, including this tab<?= module_enabled('health') ? ' and the integrations' : '' ?>.<?php if (module_enabled('health')): ?> <strong class="text-ink">Users</strong> can use the dashboard but only open the Integrations tab if you give them <em>View only</em> (see results, run checks) or <em>Can manage</em> (also add endpoints and API keys).<?php endif; ?></p>
+    <p class="mt-1 max-w-2xl text-sm text-soft"><strong class="text-ink">Admins</strong> can use everything, including this tab<?= module_enabled('health') ? ' and the integrations' : '' ?>.<?php if (module_enabled('health')): ?> <strong class="text-ink">Users</strong> can use the dashboard but only open the Integrations tab if you give them <em>View only</em> (see results, run checks) or <em>Can manage</em> (also add endpoints and API keys). Admins always have full access to them.<?php endif; ?> Change a role and a Save button appears on that row.</p>
   </div>
   <div class="overflow-x-auto"><table class="w-full min-w-[880px] text-left text-sm">
     <thead class="bg-butter-50 text-xs text-soft"><tr><th scope="col" class="px-4 py-3 font-semibold">Person</th><th scope="col" class="px-4 py-3 font-semibold">Role</th><?php if (module_enabled('health')): ?><th scope="col" class="px-4 py-3 font-semibold">Integrations</th><?php endif; ?><th scope="col" class="px-4 py-3 font-semibold">Status</th><th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th></tr></thead>
     <tbody class="divide-y divide-line">
     <?php foreach ($members as $m): $id = (int) $m['id']; $self = $id === (int) $admin['id']; $active = (int) $m['is_active'] === 1; ?>
       <tr class="<?= $active ? 'hover:bg-butter-50' : 'bg-ink/5' ?>">
-        <td class="px-4 py-3"><div class="flex items-center gap-3"><?= avatar_html($m['avatar'] ?? null, $m['name'], 'h-10 w-10') ?><div class="min-w-0"><p class="font-semibold"><?= e($m['name']) ?><?= $self ? ' <span class="text-xs font-medium text-soft">(you)</span>' : '' ?></p><p class="text-soft"><span class="notranslate"><?= e($m['username']) ?></span> · <?= e($m['email']) ?></p></div></div></td>
+        <td class="px-4 py-3"><div class="flex items-center gap-3"><?= avatar_html($m['avatar'] ?? null, $m['name'], 'h-10 w-10') ?><div class="min-w-0"><p class="font-semibold"><?= e($m['name']) ?><?= $self ? ' <span class="text-xs font-semibold text-soft">(you)</span>' : '' ?></p><p class="text-soft"><span class="notranslate"><?= e($m['username']) ?></span> · <?= e($m['email']) ?></p></div></div></td>
         <td colspan="<?= module_enabled('health') ? 2 : 1 ?>" class="px-4 py-3">
-          <form method="post" class="flex flex-wrap items-center gap-2"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="update_user"><input type="hidden" name="id" value="<?= $id ?>">
+          <form method="post" data-dirty class="flex flex-wrap items-center gap-2"><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="update_user"><input type="hidden" name="id" value="<?= $id ?>">
             <label class="sr-only" for="role-<?= $id ?>">Role of <?= e($m['name']) ?></label>
             <select id="role-<?= $id ?>" name="role" class="<?= $small ?>"><option value="admin" <?= $m['role'] === 'admin' ? 'selected' : '' ?>>Admin</option><option value="user" <?= $m['role'] === 'user' ? 'selected' : '' ?>>User</option></select>
             <?php if (module_enabled('health')): ?><label class="sr-only" for="perm-<?= $id ?>">Integrations access of <?= e($m['name']) ?></label>
             <select id="perm-<?= $id ?>" name="perm" class="<?= $small ?>"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>" <?= $m['perm_integrations'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select><?php endif; ?>
-            <button class="<?= $btn ?> hover:bg-lime hover:text-navy">Save</button>
+            <button class="<?= $btn ?> bg-lime text-navy hover:brightness-95">Save</button>
           </form>
-          <?php if ($m['role'] === 'admin'): ?><p class="mt-1 text-xs text-soft">Admins always have full access.</p><?php endif; ?>
         </td>
         <td class="px-4 py-3"><?= $active ? badge('active') : badge('suspended') ?><?= (int) $m['must_change_password'] ? '<p class="mt-1 text-xs text-soft">Must set a new password</p>' : '' ?><?= (int) $m['totp_enabled'] ? '<p class="mt-1 text-xs text-soft">Two-step sign-in on</p>' : '' ?></td>
         <td class="px-4 py-3">
@@ -231,7 +230,7 @@ function tab_render(PDO $pdo, array $admin): void
   </table></div>
 </section>
 
-<section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="add-h">
+<section class="rise mt-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="add-h">
   <h2 id="add-h" class="text-lg font-bold tracking-tight">Add a person</h2>
   <form method="post" class="mt-4 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="add_user">
     <div><label for="n-name" class="text-sm font-semibold">Full name</label><input id="n-name" name="name" maxlength="80" required class="<?= $field ?> mt-1.5"></div>
@@ -242,10 +241,10 @@ function tab_render(PDO $pdo, array $admin): void
       <?php if (module_enabled('health')): ?><div><label for="n-perm" class="text-sm font-semibold">Integrations</label><select id="n-perm" name="perm" class="<?= $field ?> mt-1.5"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div><?php endif; ?>
     </div>
     <p class="text-sm text-soft sm:col-span-2">A temporary password is generated and shown once. The person must replace it at first sign-in.</p>
-    <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Create account</button></div>
+    <div class="sm:col-span-2"><button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Create account</button></div>
   </form>
 </section>
-<section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.08s" aria-labelledby="inv-h">
+<section class="rise mt-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.08s" aria-labelledby="inv-h">
   <h2 id="inv-h" class="text-lg font-bold tracking-tight">Invite by email</h2>
   <p class="mt-1 text-sm text-soft">The person gets a link, chooses their own password and can then turn on two-step sign-in. The link works once and expires after <?= INVITE_VALID_DAYS ?> days. No temporary password is involved.</p>
   <form method="post" class="mt-4 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="team"><input type="hidden" name="action" value="invite">
@@ -256,7 +255,7 @@ function tab_render(PDO $pdo, array $admin): void
       <div><label for="i-role" class="text-sm font-semibold">Role</label><select id="i-role" name="role" class="<?= $field ?> mt-1.5"><option value="user">User</option><option value="admin">Admin</option></select></div>
       <?php if (module_enabled('health')): ?><div><label for="i-perm" class="text-sm font-semibold">Integrations</label><select id="i-perm" name="perm" class="<?= $field ?> mt-1.5"><?php foreach (PERM_LABELS as $k => $l): ?><option value="<?= $k ?>"><?= e($l) ?></option><?php endforeach; ?></select></div><?php endif; ?>
     </div>
-    <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Send the invitation</button></div>
+    <div class="sm:col-span-2"><button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Send the invitation</button></div>
   </form>
   <?php if ($invites): ?>
     <h3 class="mt-6 text-sm font-bold">Waiting to be accepted</h3>

@@ -18,7 +18,7 @@ $inv = load_invoice($pdo, $id);
 if (!$inv) {
     http_response_code(404);
     page_start('Invoice not found', 'invoices', 'That invoice does not exist. It may have been removed.');
-    echo '<a href="invoices/invoices.php" class="pressable inline-flex h-11 items-center rounded-xl bg-lime px-5 text-sm font-bold text-navy">Back to invoices</a>';
+    echo '<a href="invoices/invoices.php" class="pressable inline-flex h-11 items-center rounded-lg bg-lime px-5 text-sm font-bold text-navy">Back to invoices</a>';
     page_end();
     exit;
 }
@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     } elseif ($action === 'remind' && in_array($inv['state'], ['overdue', 'due'], true)) {
-        log_activity('warning', 'Payment reminder sent', $inv['number'] . ' · ' . $inv['email']);
+        log_activity('info', 'Payment reminder sent', $inv['number'] . ' · ' . $inv['email']);
         flash('Reminder for ' . $inv['number'] . ' sent to ' . $inv['email'] . '.');
         redirect('invoices/invoice.php?id=' . $id);
     }
@@ -86,14 +86,14 @@ if ($form['amount'] === '' && (int) $inv['balance_cents'] > 0) {
 }
 $remaining = (int) $inv['balance_cents'];
 $company = require __DIR__ . '/../includes/modules/company.php';
-$field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 
 page_start($inv['number'], 'invoices', $inv['customer']);
 ?>
 <a href="invoices/invoices.php" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-soft hover:text-ink"><?= icon('left', 'h-4 w-4') ?>All invoices</a>
 
 <div class="grid items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
-  <section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="doc-h">
+  <section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="doc-h">
     <div class="flex flex-wrap items-start justify-between gap-4 border-b border-line p-5 sm:p-6">
       <div>
         <h2 id="doc-h" class="sr-only">Invoice <?= e($inv['number']) ?></h2>
@@ -104,7 +104,7 @@ page_start($inv['number'], 'invoices', $inv['customer']);
       </div>
       <div class="text-right">
         <?= badge($inv['state']) ?>
-        <p class="mt-2"><a href="invoices/invoice_pdf.php?id=<?= (int) $inv['id'] ?>" class="pressable inline-flex h-10 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('download', 'h-4 w-4') ?>Download PDF</a></p>
+        <p class="mt-2"><a href="invoices/invoice_pdf.php?id=<?= (int) $inv['id'] ?>" class="pressable inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('download', 'h-4 w-4') ?>Download PDF</a></p>
         <p class="mt-2 text-sm font-semibold <?= $inv['state'] === 'overdue' ? 'text-[#FF9C8C]' : 'text-soft' ?>"><?= e(invoice_state_text($inv)) ?></p>
       </div>
     </div>
@@ -148,11 +148,11 @@ page_start($inv['number'], 'invoices', $inv['customer']);
 
   <div class="space-y-6">
     <?php if ($remaining > 0): ?>
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="pay-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="pay-h">
       <h2 id="pay-h" class="text-lg font-bold tracking-tight">Record a payment</h2>
       <p class="mt-1 text-sm text-soft">Balance due <span class="font-semibold text-ink notranslate"><?= e(money($remaining)) ?></span></p>
       <?php if ($payErrors): ?>
-        <div role="alert" class="mt-4 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?php foreach ($payErrors as $er): ?><p><?= e($er) ?></p><?php endforeach; ?></div>
+        <div role="alert" class="mt-4 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?php foreach ($payErrors as $er): ?><p><?= e($er) ?></p><?php endforeach; ?></div>
       <?php endif; ?>
       <form method="post" class="mt-4 space-y-4" novalidate><?= csrf_field() ?>
         <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="pay">
@@ -166,16 +166,16 @@ page_start($inv['number'], 'invoices', $inv['customer']);
         </div>
         <div><label for="reference" class="text-sm font-semibold">Reference <span class="font-normal text-soft">(optional)</span></label>
           <input id="reference" name="reference" maxlength="60" value="<?= e($form['reference']) ?>" class="<?= $field ?> mt-1.5"></div>
-        <button class="pressable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95"><?= icon('check', 'h-4 w-4') ?>Record payment</button>
+        <button class="pressable inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95"><?= icon('check', 'h-4 w-4') ?>Record payment</button>
       </form>
       <?php if (in_array($inv['state'], ['overdue', 'due'], true)): ?>
         <form method="post" class="mt-3"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="remind">
-          <button class="pressable inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line text-sm font-semibold hover:bg-butter-50"><?= icon('send', 'h-4 w-4') ?>Send payment reminder</button></form>
+          <button class="pressable inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-line text-sm font-semibold hover:bg-butter-50"><?= icon('send', 'h-4 w-4') ?>Send payment reminder</button></form>
       <?php endif; ?>
     </section>
     <?php endif; ?>
 
-    <section class="rise rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.1s" aria-labelledby="hist-h">
+    <section class="rise rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.1s" aria-labelledby="hist-h">
       <div class="px-5 pb-2 pt-5 sm:px-6"><h2 id="hist-h" class="text-lg font-bold tracking-tight">Payments</h2></div>
       <?php if (!$pays): ?>
         <p class="px-5 pb-5 text-sm text-soft sm:px-6">No payments yet. They will be listed here as you record them.</p>

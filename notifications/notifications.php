@@ -46,14 +46,14 @@ page_start('Notifications', 'notifications', 'Things that need attention: overdu
 ?>
 <div class="rise mb-4 flex flex-wrap items-center gap-2">
   <?php foreach (['all' => 'All', 'unread' => 'Unread'] as $k => $l): $on = $only === $k; ?>
-    <a href="notifications/notifications.php<?= $k === 'unread' ? '?show=unread' : '' ?>" <?= $on ? 'aria-current="true"' : '' ?> class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>"><?= e($l) ?><?php if ($k === 'unread'): ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= $unread ?></span><?php endif; ?></a>
+    <a href="notifications/notifications.php<?= $k === 'unread' ? '?show=unread' : '' ?>" <?= $on ? 'aria-current="true"' : '' ?> class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>"><?= e($l) ?><?php if ($k === 'unread'): ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= $unread ?></span><?php endif; ?></a>
   <?php endforeach; ?>
   <?php if ($unread > 0): ?>
-    <form method="post" class="ml-auto"><?= csrf_field() ?><input type="hidden" name="action" value="read_all"><button class="pressable h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Mark all as read</button></form>
+    <form method="post" class="ml-auto"><?= csrf_field() ?><input type="hidden" name="action" value="read_all"><button class="pressable h-10 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Mark all as read</button></form>
   <?php endif; ?>
 </div>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
   <?php if ($rows): ?>
     <ul class="divide-y divide-line">
       <?php foreach ($rows as $r): $isNew = $r['read_at'] === null; ?>

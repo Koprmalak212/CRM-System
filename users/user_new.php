@@ -37,13 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $companies = $pdo->query('SELECT id, name FROM companies ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR);
 page_start('Add user', 'users', 'A person who belongs to a customer. This is not a login for the dashboard: those are under Settings > Team.');
-$field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <a href="users/users.php" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-soft hover:text-ink"><?= icon('left', 'h-4 w-4') ?>All users</a>
 <?php if ($errors): ?>
-  <div role="alert" class="mb-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><p class="font-semibold">This user can not be saved yet:</p><ul class="mt-1 list-disc pl-5"><?php foreach ($errors as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div>
+  <div role="alert" class="mb-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><p class="font-semibold">This user can not be saved yet:</p><ul class="mt-1 list-disc pl-5"><?php foreach ($errors as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div>
 <?php endif; ?>
-<form method="post" class="rise max-w-3xl rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" novalidate><?= csrf_field() ?>
+<form method="post" class="rise max-w-3xl rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" novalidate><?= csrf_field() ?>
   <div class="grid gap-4 sm:grid-cols-2">
     <div><label for="name" class="text-sm font-semibold">Full name</label><input id="name" name="name" maxlength="120" required value="<?= e($v['name']) ?>" class="<?= $field ?> mt-1.5"></div>
     <div><label for="email" class="text-sm font-semibold">Email</label><input id="email" name="email" type="email" maxlength="190" required value="<?= e($v['email']) ?>" class="<?= $field ?> mt-1.5"></div>
@@ -54,6 +54,6 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
     <div><label for="country" class="text-sm font-semibold">Country</label><input id="country" name="country" maxlength="60" value="<?= e($v['country']) ?>" class="<?= $field ?> mt-1.5"></div>
     <div><label for="phone" class="text-sm font-semibold">Phone</label><input id="phone" name="phone" maxlength="40" value="<?= e($v['phone']) ?>" class="<?= $field ?> mt-1.5"></div>
   </div>
-  <div class="mt-6 flex flex-wrap gap-3"><button class="pressable h-12 rounded-xl bg-lime px-6 text-[15px] font-bold text-navy hover:brightness-95">Add user</button><a href="users/users.php" class="inline-flex h-12 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50">Cancel</a></div>
+  <div class="mt-6 flex flex-wrap gap-3"><button class="pressable h-12 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Add user</button><a href="users/users.php" class="inline-flex h-12 items-center rounded-lg border border-line px-5 text-sm font-semibold hover:bg-butter-50">Cancel</a></div>
 </form>
 <?php page_end(); ?>

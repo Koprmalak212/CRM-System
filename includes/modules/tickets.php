@@ -18,7 +18,7 @@ function ticket_not_found(): never
 {
     http_response_code(404);
     page_start('Ticket not found', 'tickets', 'That ticket does not exist. It may have been removed.');
-    echo '<a href="tickets/tickets.php" class="pressable inline-flex h-11 items-center rounded-xl bg-lime px-5 text-sm font-bold text-navy">Back to tickets</a>';
+    echo '<a href="tickets/tickets.php" class="pressable inline-flex h-11 items-center rounded-lg bg-lime px-5 text-sm font-bold text-navy">Back to tickets</a>';
     page_end();
     exit;
 }
@@ -164,7 +164,7 @@ function tickets_open_for(PDO $pdo, string $col, int $id, int $limit = 10): arra
 function tickets_panel(PDO $pdo, string $col, int $id, string $newLink): string
 {
     $rows = tickets_open_for($pdo, $col, $id);
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="tk-h"><div class="flex items-center justify-between gap-3"><h2 id="tk-h" class="text-base font-bold">Open tickets</h2><a href="' . e($newLink) . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New ticket</a></div>';
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="tk-h"><div class="flex items-center justify-between gap-3"><h2 id="tk-h" class="text-base font-bold">Open tickets</h2><a href="' . e($newLink) . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New ticket</a></div>';
     if (!$rows) { return $h . '<p class="mt-3 text-sm text-soft">No open tickets.</p></section>'; }
     $h .= '<ul class="mt-4 divide-y divide-line">';
     foreach ($rows as $r) {

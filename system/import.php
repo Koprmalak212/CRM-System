@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = csv_import($pdo, $type, $rows);
             $problem = $result['error'];
             if (!$problem) {
-                log_activity('warning', 'Data imported', $type . ' · ' . $result['added'] . ' added, ' . count($result['skipped']) . ' skipped, ' . count($result['rejected']) . ' rejected');
+                log_activity('info', 'Data imported', $type . ' · ' . $result['added'] . ' added, ' . count($result['skipped']) . ' skipped, ' . count($result['rejected']) . ' rejected');
             }
         }
     }
@@ -34,14 +34,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 page_start('Import', $type === 'users' ? 'users' : 'companies', 'Add people or companies from a spreadsheet. Existing records are never changed.');
-$field = 'w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-lime file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-navy focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-lime file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-navy focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <a href="<?= $type === 'users' ? 'users/users.php' : 'companies/companies.php' ?>" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-soft hover:text-ink"><?= icon('left', 'h-4 w-4') ?>Back to <?= $type === 'users' ? 'users' : 'companies' ?></a>
 
-<?php if ($problem): ?><div role="alert" class="mb-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($problem) ?></div><?php endif; ?>
+<?php if ($problem): ?><div role="alert" class="mb-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= e($problem) ?></div><?php endif; ?>
 
 <?php if ($result): $nS = count($result['skipped']); $nR = count($result['rejected']); ?>
-  <section class="rise mb-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="res-h" role="status">
+  <section class="rise mb-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="res-h" role="status">
     <h2 id="res-h" class="text-base font-bold">Import finished</h2>
     <p class="mt-2 text-sm"><span class="font-semibold text-lime"><?= $result['added'] ?> added</span> · <?= $nS ?> skipped as duplicate · <span class="<?= $nR ? 'font-semibold text-[#FF9C8C]' : '' ?>"><?= $nR ?> rejected</span></p>
     <?php foreach (['rejected' => 'Rejected rows (fix these and import again)', 'skipped' => 'Skipped rows (already in the system)'] as $k => $title): if (!$result[$k]) continue; ?>
@@ -54,11 +54,15 @@ $field = 'w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm file:m
   </section>
 <?php endif; ?>
 
-<form method="post" enctype="multipart/form-data" class="rise max-w-2xl rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" novalidate><?= csrf_field() ?>
+<form method="post" enctype="multipart/form-data" class="rise max-w-2xl rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" novalidate><?= csrf_field() ?>
   <div><label for="type" class="text-sm font-semibold">What are you importing?</label>
-    <select id="type" name="type" class="mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"><?php foreach (CSV_IMPORT_TYPES as $k => $l): ?><option value="<?= $k ?>" <?= $type === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
+    <select id="type" name="type" class="mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"><?php foreach (CSV_IMPORT_TYPES as $k => $l): ?><option value="<?= $k ?>" <?= $type === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
   <div class="mt-4"><label for="file" class="text-sm font-semibold">CSV file</label>
-    <input id="file" name="file" type="file" accept=".csv,text/csv" required class="<?= $field ?> mt-1.5"></div>
+    <span class="mt-1.5 flex min-w-0 items-center gap-3">
+      <input id="file" name="file" type="file" accept=".csv,text/csv" required class="peer sr-only" data-file-name="file-name">
+      <label for="file" class="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50 peer-focus-visible:ring-2 peer-focus-visible:ring-lime">Choose a file</label>
+      <span id="file-name" class="min-w-0 truncate text-sm text-soft notranslate" aria-live="polite">No file chosen</span>
+    </span></div>
   <ul class="mt-4 list-disc space-y-1 pl-5 text-sm text-soft">
     <li>Maximum <?= CSV_MAX_BYTES / 1024 ?> KB and <?= CSV_MAX_ROWS ?> rows. The server refuses larger uploads.</li>
     <li>UTF-8, comma or semicolon separated, first line = column names. Export a file first to see the exact columns.</li>
@@ -67,6 +71,6 @@ $field = 'w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm file:m
     <li>A row whose email (or KvK number) already exists is skipped, never overwritten. Rows with a problem are listed with the reason; good rows are still added.</li>
     <li>The file is read and discarded. It is not stored.</li>
   </ul>
-  <button class="pressable mt-6 h-12 rounded-xl bg-lime px-6 text-[15px] font-bold text-navy hover:brightness-95">Import</button>
+  <button class="pressable mt-6 h-12 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Import</button>
 </form>
 <?php page_end(); ?>

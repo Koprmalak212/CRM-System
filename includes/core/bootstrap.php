@@ -98,6 +98,13 @@ function legacy_page(string $link): string
 
 /** The base tag. It goes right after the charset tag of every page, so all links and forms are written relative to the project folder
  *  ("tickets/ticket.php") and work from any folder. */
+/** A file under assets/ with its modification time behind it, so a changed file gets a new address and browsers can keep the old one for a long time (assets/.htaccess). */
+function asset(string $path): string
+{
+    $v = @filemtime(dirname(__DIR__, 2) . '/' . $path);
+    return $path . ($v ? '?v=' . $v : '');
+}
+
 function base_tag(): string
 {
     return '<base href="' . htmlspecialchars(base_path(), ENT_QUOTES) . '">';
@@ -218,13 +225,13 @@ function badge(string $status): string
     ];
     [$tone, $label] = $map[$status] ?? ['info', ucfirst($status)];
     $cls = [
-        'ok' => 'bg-lime text-navy',
-        'wait' => 'bg-butter text-navy',
+        'ok' => 'bg-lime/15 text-lime',
+        'wait' => 'bg-ink/10 text-butter',
         'info' => 'bg-ink/10 text-ink',
-        'warn' => 'bg-[#FFD9A0] text-[#5E3200]',
-        'bad' => 'bg-[#FFD3CC] text-[#7E160A]',
+        'warn' => 'bg-butter-100 text-butter',
+        'bad' => 'bg-coral/15 text-[#FF9C8C]',
     ][$tone];
-    return '<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ' . $cls . '"><span class="h-1.5 w-1.5 rounded-full bg-current' . (in_array($tone, ['bad', 'warn'], true) ? ' dot-pulse' : '') . '"></span>' . e($label) . '</span>';
+    return '<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ' . $cls . '"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>' . e($label) . '</span>';
 }
 
 function initials(string $name): string
@@ -255,17 +262,44 @@ function th_sort(string $label, string $col, string $cur, string $dir, array $ba
     return '<th scope="col" aria-sort="' . $aria . '" class="px-4 py-3 text-' . $align . ' font-semibold"><a href="' . e($url) . '" class="inline-flex items-center gap-1 rounded hover:text-ink ' . ($active ? 'text-ink' : '') . '">' . e($label) . icon($ic, 'h-3.5 w-3.5 ' . ($active ? '' : 'opacity-50')) . '</a></th>';
 }
 
-function pagination(int $total, int $per, int $page, array $base): string
+const PAGE_SIZES = [15, 25, 50, 100];
+
+/** How many rows a list shows. A choice made with ?per= is remembered per list for the session; without one the list's own default is used. */
+function page_size(int $default): int
+{
+    $key = current_page();
+    $asked = (int) ($_GET['per'] ?? 0);
+    if (in_array($asked, PAGE_SIZES, true)) { $_SESSION['per'][$key] = $asked; }
+    $per = (int) ($_SESSION['per'][$key] ?? 0);
+    return in_array($per, PAGE_SIZES, true) ? $per : $default;
+}
+
+/** Remembers a row that was just deleted, so the Undo button in the confirmation message can put it back (system/undo.php). Kept for one minute. */
+function undo_remember(string $table, array $row, string $back, string $what): void
+{
+    $_SESSION['undo'] = ['table' => $table, 'row' => $row, 'back' => $back, 'what' => $what, 't' => time(), 'offer' => true];
+}
+
+function pagination(int $total, int $per, int $page, array $base, bool $sizes = false): string
 {
     if ($total === 0) return '';
     $pages = max(1, (int) ceil($total / $per));
     $from = ($page - 1) * $per + 1;
     $to = min($total, $page * $per);
-    $btn = 'inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-panel px-3 text-sm font-medium text-ink hover:bg-butter-50';
-    $dis = 'inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-lg border border-dashed border-line px-3 text-sm font-medium text-soft';
+    $btn = 'inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-panel px-3 text-sm font-semibold text-ink hover:bg-butter-50';
+    $dis = 'inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-lg border border-dashed border-line px-3 text-sm font-semibold text-soft';
     $prev = $page > 1 ? '<a class="' . $btn . '" href="' . e(qs($base, ['page' => $page - 1])) . '">' . icon('left', 'h-4 w-4') . 'Previous</a>' : '<span aria-disabled="true" class="' . $dis . '">' . icon('left', 'h-4 w-4') . 'Previous</span>';
     $next = $page < $pages ? '<a class="' . $btn . '" href="' . e(qs($base, ['page' => $page + 1])) . '">Next' . icon('right', 'h-4 w-4') . '</a>' : '<span aria-disabled="true" class="' . $dis . '">Next' . icon('right', 'h-4 w-4') . '</span>';
-    return '<nav class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3" aria-label="Pagination"><p class="text-sm text-soft tabular-nums">Showing ' . $from . '–' . $to . ' of ' . number_format($total) . '</p><div class="flex items-center gap-2">' . $prev . '<span class="px-2 text-sm text-soft tabular-nums">Page ' . $page . ' of ' . $pages . '</span>' . $next . '</div></nav>';
+    $pick = '';
+    if ($sizes && $total > PAGE_SIZES[0]) {   // the choice of rows per page, on the lists that remember it (page_size())
+        $pick = '<span class="flex items-center gap-1 text-sm text-soft"><span class="mr-1">Rows</span>';
+        foreach (PAGE_SIZES as $n) {
+            $pick .= $n === $per ? '<span aria-current="true" class="grid h-8 min-w-8 place-items-center rounded-lg bg-ink/10 px-2 font-semibold text-ink tabular-nums">' . $n . '</span>'
+                : '<a href="' . e(qs($base, ['per' => $n, 'page' => 1])) . '" class="grid h-8 min-w-8 place-items-center rounded-lg px-2 tabular-nums hover:bg-butter-50 hover:text-ink" aria-label="' . $n . ' rows per page">' . $n . '</a>';
+        }
+        $pick .= '</span>';
+    }
+    return '<nav class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3" aria-label="Pagination"><p class="text-sm text-soft tabular-nums">Showing ' . $from . '–' . $to . ' of ' . number_format($total) . '</p>' . $pick . '<div class="flex items-center gap-2">' . $prev . '<span class="px-2 text-sm text-soft tabular-nums">Page ' . $page . ' of ' . $pages . '</span>' . $next . '</div></nav>';
 }
 
 /** Audit trail. Never pass passwords or tokens in $target. Values are length-capped to the column sizes. */
@@ -289,5 +323,5 @@ function avatar_html(?string $path, string $name, string $size = 'h-9 w-9', stri
     if ($path !== null && preg_match('#^assets/avatars/[a-z0-9._-]+\.(gif|png|jpe?g|webp)$#i', $path) && is_file(dirname(__DIR__, 2) . '/' . $path)) {
         return '<img src="' . e($path) . '" alt="" width="64" height="64" class="' . $size . ' shrink-0 rounded-full bg-raised object-cover">';
     }
-    return '<span class="grid ' . $size . ' shrink-0 place-items-center rounded-full bg-lime ' . $text . ' font-bold text-navy" aria-hidden="true">' . e(initials($name)) . '</span>';
+    return '<span class="grid ' . $size . ' shrink-0 place-items-center rounded-full bg-raised ' . $text . ' font-semibold text-ink" aria-hidden="true">' . e(initials($name)) . '</span>';
 }

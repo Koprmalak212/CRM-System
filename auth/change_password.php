@@ -32,12 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         session_regenerate_id(true);
         unset($_SESSION['csrf']);
         $_SESSION['admin']['must_change'] = false;
-        log_activity('warning', 'Changed password', (string) $admin['username']);
+        log_activity('info', 'Changed password', (string) $admin['username']);
         flash('Password updated. You can now use the dashboard.');
         redirect('index.php');
     }
 }
-$field = 'mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[15px] focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'mt-1.5 h-12 w-full rounded-lg border border-line bg-panel px-4 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <!doctype html>
 <html lang="en" class="h-full">
@@ -46,19 +46,19 @@ $field = 'mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[1
 <?= base_tag() ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Choose a new password · Telecomlijn Admin</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link rel="icon" type="image/svg+xml" href="<?= asset('assets/img/favicon.svg') ?>">
+<link rel="stylesheet" href="<?= asset('assets/fonts/fonts.css') ?>">
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
 </style>
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="<?= asset('assets/css/app.css') ?>">
 </head>
 <body class="min-h-full bg-ground font-sans text-ink antialiased">
 <main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
   <img src="assets/img/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="logo-on-dark mb-8 h-10 w-auto self-start"><img src="assets/img/telecomlijn-logo-color.png" alt="" aria-hidden="true" width="274" height="79" class="logo-on-light mb-8 h-10 w-auto self-start">
   <h1 class="text-3xl font-bold tracking-tight">Choose a new password</h1>
-  <p class="mt-2 text-[15px] text-soft"><?= $forced ? 'You are signed in with a temporary password. Replace it to continue.' : 'Pick a password only you know.' ?></p>
-  <?php if ($error): ?><p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
+  <p class="mt-2 text-sm text-soft"><?= $forced ? 'You are signed in with a temporary password. Replace it to continue.' : 'Pick a password only you know.' ?></p>
+  <?php if ($error): ?><p role="alert" class="mt-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
   <form method="post" class="mt-6" novalidate><?= csrf_field() ?>
     <label for="current" class="block text-sm font-semibold">Current password</label>
     <input id="current" name="current" type="password" autocomplete="current-password" required autofocus class="<?= $field ?>">
@@ -67,11 +67,11 @@ $field = 'mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[1
     <p id="newHelp" class="mt-1 text-xs text-soft">At least 12 characters. It can not contain your username.</p>
     <label for="confirm" class="mt-4 block text-sm font-semibold">Confirm new password</label>
     <input id="confirm" name="confirm" type="password" autocomplete="new-password" required class="<?= $field ?>">
-    <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95">Save new password</button>
+    <button class="mt-6 h-12 w-full rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95">Save new password</button>
   </form>
   <form method="post" action="auth/logout.php" class="mt-4"><?= csrf_field() ?><button class="text-sm font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Sign out instead</button></form>
 </main>
-<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-lg border border-line bg-panel hover:bg-ink/10') ?></div>
 <?= theme_toggle_script() ?>
 </body>
 </html>

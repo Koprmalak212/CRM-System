@@ -31,7 +31,7 @@ function tab_handle(PDO $pdo, array $admin): void
     $pdo->prepare('INSERT INTO company_profile (id, name, address1, address2, address3, kvk, btw_number, iban, email, phone, updated_at) VALUES (1,?,?,?,?,?,?,?,?,?,NOW())
         ON DUPLICATE KEY UPDATE name = VALUES(name), address1 = VALUES(address1), address2 = VALUES(address2), address3 = VALUES(address3), kvk = VALUES(kvk), btw_number = VALUES(btw_number), iban = VALUES(iban), email = VALUES(email), phone = VALUES(phone), updated_at = VALUES(updated_at)')
         ->execute([$f['name'], $f['address1'], $f['address2'], $f['address3'], $f['kvk'], $f['btw_number'], $f['iban'], $f['email'], $f['phone']]);
-    log_activity('warning', 'Company details saved', ($f['btw_number'] !== '' ? 'BTW set' : 'BTW empty') . ' · ' . ($f['iban'] !== '' ? 'IBAN set' : 'IBAN empty'));
+    log_activity('info', 'Company details saved', ($f['btw_number'] !== '' ? 'BTW set' : 'BTW empty') . ' · ' . ($f['iban'] !== '' ? 'IBAN set' : 'IBAN empty'));
     flash('Company details saved. They appear on the next invoice and PDF.');
 }
 
@@ -39,13 +39,13 @@ function tab_render(PDO $pdo, array $admin): void
 {
     $r = $pdo->query('SELECT * FROM company_profile WHERE id = 1')->fetch() ?: array_fill_keys(['name', 'address1', 'address2', 'address3', 'kvk', 'btw_number', 'iban', 'email', 'phone'], '');
     $co = require dirname(__DIR__) . '/modules/company.php';
-    $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $in = fn(string $k, string $label, string $ph = '', string $hint = '', bool $wide = false) => '<div' . ($wide ? ' class="sm:col-span-2"' : '') . '><label for="' . $k . '" class="text-sm font-semibold">' . e($label) . '</label><input id="' . $k . '" name="' . $k . '" value="' . e($r[$k]) . '" placeholder="' . e($ph) . '" class="' . $field . '">' . ($hint !== '' ? '<p class="mt-1 text-xs text-soft">' . e($hint) . '</p>' : '') . '</div>';
     ?>
-<section class="rise max-w-3xl rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="co-h">
+<section class="rise max-w-3xl rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="co-h">
   <h2 id="co-h" class="text-lg font-bold tracking-tight">Company details on invoices</h2>
   <p class="mt-1 text-sm text-soft">Printed on every invoice and PDF. <strong class="text-ink">BTW number and IBAN are empty on purpose</strong>: fill them in yourself. While a field is empty it is left off the PDF, so nothing made-up is ever shown. Empty fields below use the default shown as a hint.</p>
-  <?php if (!empty($co['btw_is_placeholder'])): ?><p role="status" class="mt-4 rounded-xl bg-butter-100 px-4 py-3 text-sm"><strong class="text-butter">Still to fill in:</strong> <?= $co['btw'] === '' ? 'BTW number' : '' ?><?= $co['btw'] === '' && $co['iban'] === '' ? ' and ' : '' ?><?= $co['iban'] === '' ? 'IBAN' : '' ?>.</p><?php endif; ?>
+  <?php if (!empty($co['btw_is_placeholder'])): ?><p role="status" class="mt-4 rounded-lg bg-butter-100 px-4 py-3 text-sm"><strong class="text-butter">Still to fill in:</strong> <?= $co['btw'] === '' ? 'BTW number' : '' ?><?= $co['btw'] === '' && $co['iban'] === '' ? ' and ' : '' ?><?= $co['iban'] === '' ? 'IBAN' : '' ?>.</p><?php endif; ?>
   <form method="post" class="mt-5 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="company">
     <?= $in('name', 'Company name', 'Telecomlijn Zakelijk', '', true) ?>
     <?= $in('address1', 'Address line 1', 'Seinhuiswachter 12') ?>
@@ -56,7 +56,7 @@ function tab_render(PDO $pdo, array $admin): void
     <?= $in('iban', 'IBAN', 'NL91 ABNA 0417 1643 00', 'Left empty: not printed. Checked for typing mistakes.') ?>
     <?= $in('email', 'Email', 'office@telecomlijn.nl') ?>
     <?= $in('phone', 'Phone', '010 200 2000') ?>
-    <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button></div>
+    <div class="sm:col-span-2"><button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button></div>
   </form>
 </section>
 <?php

@@ -52,28 +52,28 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
 <nav class="rise mb-4 text-sm" aria-label="Breadcrumb"><a href="companies/companies.php" class="inline-flex items-center gap-1 font-semibold underline decoration-lime decoration-2 underline-offset-4">&larr; All companies</a></nav>
 
 <div class="rise mb-5 flex flex-wrap gap-3">
-  <a href="companies/company_edit.php?id=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Edit company</a>
-  <a href="users/user_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Add user</a>
+  <a href="companies/company_edit.php?id=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Edit company</a>
+  <a href="users/user_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Add user</a>
 <?php if (module_enabled('quotes')): ?>
-  <a href="quotes/quote_edit.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">New quote</a>
+  <a href="quotes/quote_edit.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">New quote</a>
 <?php endif; ?>
 <?php if (module_enabled('invoices')): ?>
-  <a href="invoices/invoice_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a>
+  <a href="invoices/invoice_new.php?company=<?= $id ?>" class="pressable inline-flex h-11 items-center gap-2 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New invoice</a>
 <?php endif; ?>
 </div>
 
 <div class="grid gap-5 lg:grid-cols-3">
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel lg:col-span-2" aria-labelledby="det">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel lg:col-span-2" aria-labelledby="det">
     <h2 id="det" class="text-base font-bold">Details</h2>
     <dl class="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
       <?php foreach ($fields as $label => $html): ?>
-        <div class="min-w-0"><dt class="text-xs font-semibold uppercase tracking-wide text-soft"><?= e($label) ?></dt><dd class="mt-1 text-sm font-medium"><?= $html ?></dd></div>
+        <div class="min-w-0"><dt class="text-xs font-semibold uppercase tracking-wide text-soft"><?= e($label) ?></dt><dd class="mt-1 text-sm font-semibold"><?= $html ?></dd></div>
       <?php endforeach; ?>
     </dl>
     <?php if ($c['notes'] !== ''): ?><div class="mt-5 border-t border-line pt-4"><p class="text-xs font-semibold uppercase tracking-wide text-soft">Notes</p><p class="mt-1 whitespace-pre-line text-sm"><?= e($c['notes']) ?></p></div><?php endif; ?>
   </section>
 
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="us">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="us">
     <h2 id="us" class="text-base font-bold">Users</h2>
     <?php if ($users): ?>
       <ul class="mt-4 divide-y divide-line">
@@ -94,7 +94,7 @@ page_start($c['name'], 'companies', ($c['city'] !== '' ? $c['city'] . ' · ' : '
   <?php if (module_enabled('links')): ?><?= shortlinks_panel($pdo, $id) ?><?php endif; ?>
 
   <?php if (module_enabled('invoices')): ?>
-  <section class="rise rounded-2xl border border-line bg-panel shadow-panel lg:col-span-3" aria-labelledby="iv">
+  <section class="rise rounded-xl border border-line bg-panel shadow-panel lg:col-span-3" aria-labelledby="iv">
     <div class="flex flex-wrap items-center justify-between gap-3 p-5 pb-3"><h2 id="iv" class="text-base font-bold">Invoices</h2>
       <span class="text-xs text-soft notranslate"><?= (int) $tot['n'] ?> in total · <?= e(money((int) $tot['due'])) ?> outstanding</span></div>
     <div class="overflow-x-auto">

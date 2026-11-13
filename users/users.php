@@ -30,7 +30,7 @@ $sortKey = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'last
 $sort = $sortKey;
 $dir = ($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 15;
+$per = page_size(15);
 
 $where = [];
 $args = [];
@@ -53,19 +53,19 @@ $base = ['q' => $q, 'role' => $role, 'status' => $status, 'company' => $companyQ
 $counts = $pdo->query('SELECT status, COUNT(*) n FROM users GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
 
 page_start('Users', 'users', 'Every account on the platform. Search, filter and suspend from here.');
-$field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Status filter">
   <?php foreach (['' => 'All', 'active' => 'Active', 'pending' => 'Pending', 'suspended' => 'Suspended'] as $k => $label): $on = $status === $k; ?>
     <a href="<?= e(qs(['q' => $q, 'role' => $role, 'company' => $companyQs], ['status' => $k])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
-       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>">
-      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
+       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>">
+      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
     </a>
   <?php endforeach; ?>
 </nav>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
-  <form method="get" class="flex flex-wrap items-center gap-3 border-b border-line p-4">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
+  <form method="get" data-auto class="flex flex-wrap items-center gap-3 border-b border-line p-4">
     <input type="hidden" name="status" value="<?= e($status) ?>">
     <label class="sr-only" for="q">Search</label>
     <input id="q" name="q" type="search" value="<?= e($q) ?>" placeholder="Name, email or company" class="<?= $field ?> w-full sm:w-72">
@@ -79,9 +79,9 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
       <option value="">All companies</option>
       <?php foreach ($companyList as $cid => $cname): ?><option value="<?= (int) $cid ?>" <?= $company === (int) $cid ? 'selected' : '' ?>><?= e($cname) ?></option><?php endforeach; ?>
     </select>
-    <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($q !== '' || $role !== '' || $status !== '' || $company > 0): ?><a href="users/users.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
-    <span class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('users') ?><a href="users/user_new.php" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>Add user</a></span>
+    <span class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('users') ?><a href="users/user_new.php" class="pressable inline-flex h-11 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>Add user</a></span>
   </form>
 
   <div class="overflow-x-auto">
@@ -127,11 +127,11 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
           </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-          <tr><td colspan="7" class="px-4 py-14 text-center"><p class="text-base font-semibold">No users match these filters</p><p class="mt-1 text-soft">Try a different name or clear the filters.</p><a href="users/users.php" class="mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">Show all users</a></td></tr>
+          <tr><td colspan="7" class="px-4 py-14 text-center"><?php if ($q !== '' || $role !== '' || $status !== '' || $company > 0): ?><p class="text-base font-semibold">No users match these filters</p><p class="mt-1 text-soft">Try a different name or clear the filters.</p><a href="users/users.php" class="mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">Show all users</a><?php else: ?><p class="text-base font-semibold">No users yet</p><p class="mt-1 text-soft">Add the first one, or import a CSV file.</p><?php endif; ?></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $base) ?>
+  <?= pagination($total, $per, $page, $base, true) ?>
 </div>
 <?php page_end(); ?>

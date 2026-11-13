@@ -37,28 +37,28 @@ $base = ['status' => $status];
 
 page_start('Reports', 'reports', 'Generated and scheduled reports. Ready reports download as CSV.');
 ?>
-<div class="rise mb-6 rounded-2xl border border-line bg-panel p-4 shadow-panel sm:p-5">
+<div class="rise mb-6 rounded-xl border border-line bg-panel p-4 shadow-panel sm:p-5">
   <form method="post" class="flex flex-wrap items-end gap-3"><?= csrf_field() ?>
     <div>
       <label for="type" class="block text-sm font-semibold">Generate a report</label>
-      <select id="type" name="type" class="mt-1.5 h-11 min-w-56 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+      <select id="type" name="type" class="mt-1.5 h-11 min-w-56 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
         <?php foreach ($types as $t): ?><option><?= e($t) ?></option><?php endforeach; ?>
       </select>
     </div>
-    <button class="inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Generate</button>
+    <button class="inline-flex h-11 items-center gap-2 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Generate</button>
   </form>
 </div>
 
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Status filter" style="animation-delay:.05s">
   <?php foreach (['' => 'All', 'ready' => 'Ready', 'running' => 'Running', 'scheduled' => 'Scheduled', 'failed' => 'Failed'] as $k => $label): $on = $status === $k; ?>
     <a href="<?= e(qs([], ['status' => $k])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
-       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>">
-      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
+       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>">
+      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
     </a>
   <?php endforeach; ?>
 </nav>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.08s">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.08s">
   <div class="overflow-x-auto">
     <table class="w-full min-w-[720px] text-left text-sm">
       <thead class="bg-butter-50 text-xs text-soft"><tr>
@@ -83,7 +83,7 @@ page_start('Reports', 'reports', 'Generated and scheduled reports. Ready reports
             </td>
           </tr>
         <?php endforeach; ?>
-        <?php if (!$rows): ?><tr><td colspan="7" class="px-4 py-14 text-center"><p class="text-base font-semibold">No reports with this status</p><a href="system/reports.php" class="mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">Show all reports</a></td></tr><?php endif; ?>
+        <?php if (!$rows): ?><tr><td colspan="7" class="px-4 py-14 text-center"><p class="text-base font-semibold">No reports with this status</p><a href="system/reports.php" class="mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">Show all reports</a></td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

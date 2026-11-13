@@ -62,35 +62,35 @@ $rows = $pdo->query('SELECT r.*, c.name AS co_name, (SELECT COUNT(*) FROM invoic
 $companies = $pdo->query('SELECT id, name FROM companies ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR);
 $dueNow = (int) $pdo->query("SELECT COUNT(*) FROM recurring_invoices WHERE active = 1 AND next_date <= CURDATE()")->fetchColumn();
 page_start('Recurring invoices', 'invoices', 'Invoices that are created by themselves every month, quarter or year.');
-$field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <a href="invoices/invoices.php" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-soft hover:text-ink"><?= icon('left', 'h-4 w-4') ?>All invoices</a>
 
 <?php if ($errors): ?>
-  <div role="alert" class="mb-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><p class="font-semibold">This schedule can not be saved yet:</p><ul class="mt-1 list-disc pl-5"><?php foreach ($errors as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div>
+  <div role="alert" class="mb-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><p class="font-semibold">This schedule can not be saved yet:</p><ul class="mt-1 list-disc pl-5"><?php foreach ($errors as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div>
 <?php endif; ?>
 
 <?php if (module_enabled('contracts')): ?>
-  <p role="note" class="rise mb-6 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-soft">Services that belong to a contract do not need a schedule here: a <a href="contracts/contracts.php" class="font-semibold text-ink underline decoration-lime decoration-2 underline-offset-4">contract</a> creates its own invoices, one line per service.</p>
+  <p role="note" class="rise mb-6 rounded-lg border border-line bg-panel px-4 py-3 text-sm text-soft">Services that belong to a contract do not need a schedule here: a <a href="contracts/contracts.php" class="font-semibold text-ink underline decoration-lime decoration-2 underline-offset-4">contract</a> creates its own invoices, one line per service.</p>
 <?php endif; ?>
 
-<section class="rise mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="run-h">
+<section class="rise mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="run-h">
   <div><h2 id="run-h" class="text-base font-bold">Run schedules</h2>
     <p class="text-sm text-soft"><?= $dueNow > 0 ? '<strong class="text-ink">' . $dueNow . '</strong> schedule' . ($dueNow === 1 ? ' is' : 's are') . ' due now.' : 'Nothing is due right now.' ?> Due schedules are also run automatically when the site is opened. On a real server a scheduled task can run <code class="notranslate">php bin/run_recurring.php</code> every day.</p></div>
-  <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="run"><button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Run now</button></form>
+  <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="run"><button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Run now</button></form>
 </section>
 
 <?php if ($deleteId && ($del = array_values(array_filter($rows, fn($r) => (int) $r['id'] === $deleteId))[0] ?? null)): ?>
-  <section class="rise mb-6 rounded-2xl border border-line bg-panel p-5 shadow-panel" role="alert" aria-labelledby="del-h">
+  <section class="rise mb-6 rounded-xl border border-line bg-panel p-5 shadow-panel" role="alert" aria-labelledby="del-h">
     <h2 id="del-h" class="text-base font-bold">Delete this schedule?</h2>
     <p class="mt-1 text-sm text-soft"><?= e($del['description']) ?> for <?= e($del['co_name']) ?>. The <?= (int) $del['made'] ?> invoice<?= (int) $del['made'] === 1 ? '' : 's' ?> already created stay.</p>
     <form method="post" class="mt-4 flex flex-wrap gap-3"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $del['id'] ?>">
-      <button class="pressable h-11 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, delete the schedule</button>
-      <a href="invoices/recurring.php" class="inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50">Keep it</a></form>
+      <button class="pressable h-11 rounded-lg bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, delete the schedule</button>
+      <a href="invoices/recurring.php" class="inline-flex h-11 items-center rounded-lg border border-line px-5 text-sm font-semibold hover:bg-butter-50">Keep it</a></form>
   </section>
 <?php endif; ?>
 
-<section class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="list-h">
+<section class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="list-h">
   <div class="p-5 pb-3"><h2 id="list-h" class="text-base font-bold">Schedules</h2></div>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[980px] text-left text-sm">
@@ -115,7 +115,7 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
   </div>
 </section>
 
-<section class="rise mt-6 max-w-3xl rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="add-h">
+<section class="rise mt-6 max-w-3xl rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="add-h">
   <h2 id="add-h" class="text-lg font-bold tracking-tight">Add a schedule</h2>
   <form method="post" class="mt-4 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="action" value="add">
     <div class="sm:col-span-2"><label for="company_id" class="text-sm font-semibold">Company</label>
@@ -126,7 +126,7 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
     <div><label for="frequency" class="text-sm font-semibold">Repeats</label><select id="frequency" name="frequency" class="<?= $field ?> mt-1.5"><?php foreach (RECUR_FREQ as $k => $l): ?><option value="<?= $k ?>" <?= $old['frequency'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
     <div><label for="next_date" class="text-sm font-semibold">First invoice on</label><input id="next_date" name="next_date" type="date" value="<?= e($old['next_date']) ?>" class="<?= $field ?> mt-1.5"></div>
     <div><label for="terms" class="text-sm font-semibold">Payment terms</label><select id="terms" name="terms" class="<?= $field ?> mt-1.5"><?php foreach (['0' => 'Due on receipt', '7' => '7 days', '14' => '14 days', '30' => '30 days', '60' => '60 days'] as $v => $l): ?><option value="<?= $v ?>" <?= $old['terms'] === (string) $v ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
-    <div class="sm:col-span-2"><button class="pressable h-12 rounded-xl bg-lime px-6 text-[15px] font-bold text-navy hover:brightness-95">Add schedule</button></div>
+    <div class="sm:col-span-2"><button class="pressable h-12 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Add schedule</button></div>
   </form>
 </section>
 <?php page_end(); ?>

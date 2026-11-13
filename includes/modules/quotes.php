@@ -43,7 +43,7 @@ function quote_not_found(): never
 {
     http_response_code(404);
     page_start('Quote not found', 'quotes', 'That quote does not exist. It may have been removed.');
-    echo '<a href="quotes/quotes.php" class="pressable inline-flex h-11 items-center rounded-xl bg-lime px-5 text-sm font-bold text-navy">Back to quotes</a>';
+    echo '<a href="quotes/quotes.php" class="pressable inline-flex h-11 items-center rounded-lg bg-lime px-5 text-sm font-bold text-navy">Back to quotes</a>';
     page_end();
     exit;
 }
@@ -225,7 +225,7 @@ function quotes_panel(PDO $pdo, int $companyId): string
     $s = $pdo->prepare('SELECT * FROM (' . quote_base_sql() . ') t WHERE company_id = ? ORDER BY issue_date DESC, id DESC LIMIT 6');
     $s->execute([$companyId]);
     $rows = $s->fetchAll();
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="qt-h"><div class="flex items-center justify-between gap-3"><h2 id="qt-h" class="text-base font-bold">Quotes</h2><a href="quotes/quote_edit.php?company=' . $companyId . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New quote</a></div>';
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="qt-h"><div class="flex items-center justify-between gap-3"><h2 id="qt-h" class="text-base font-bold">Quotes</h2><a href="quotes/quote_edit.php?company=' . $companyId . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New quote</a></div>';
     if (!$rows) { return $h . '<p class="mt-3 text-sm text-soft">No quotes yet.</p></section>'; }
     $h .= '<ul class="mt-4 divide-y divide-line">';
     foreach ($rows as $r) {

@@ -5,112 +5,23 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-  /* 1. Staging: panels arrive in reading order; each batch cascades, children follow through */
-  $$('.rise').forEach(r => {
-    $$(':scope > ul > li, :scope > dl > div, :scope .stat-grid > a, :scope > div > ul > li', r).slice(0, 14).forEach((c, i) => { c.classList.add('stg'); c.style.setProperty('--si', i); });
-  });
-  const rises = $$('.rise');
-  if (reduce || !('IntersectionObserver' in window)) {
-    rises.forEach(e => e.classList.add('in'));
-  } else {
-    const io = new IntersectionObserver(entries => {
-      let n = 0;
-      entries.filter(en => en.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top).forEach(en => {
-        if (!en.target.style.getPropertyValue('--d')) en.target.style.setProperty('--d', (n * 70) + 'ms');
-        n++;
-        en.target.classList.add('in'); io.unobserve(en.target);
-      });
-    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.04 });
-    rises.forEach(e => io.observe(e));
-  }
-  $$('.sheen').forEach(e => { if (reduce) return; const o = new IntersectionObserver(es => { if (es[0].isIntersecting) { e.classList.add('in'); o.disconnect(); } }, { threshold: .3 }); o.observe(e); });
-
-  /* 2. Follow-through: numbers overshoot their target, then settle (data-count, or data-money for euro amounts) */
-  const easeOutBack = t => { const c1 = 1.4, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+  /* 2. Numbers marked data-count are formatted with thousands separators (no count-up) */
   $$('[data-count], [data-money]').forEach(el => {
     el.classList.add('notranslate');
-    const money = el.hasAttribute('data-money');
-    const to = parseFloat(money ? el.dataset.money : el.dataset.count);
-    const dec = money ? 2 : parseInt(el.dataset.decimals || '0', 10);
-    const suffix = el.dataset.suffix || '';
-    const prefix = money ? (el.dataset.prefix || '€ ') : '';
-    const delay = parseInt(el.dataset.delay || '0', 10);
-    const fmt = v => prefix + Math.max(0, v).toLocaleString(money ? 'nl-NL' : 'en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + suffix;
-    if (reduce || isNaN(to)) { if (!isNaN(to) && !money) el.textContent = fmt(to); return; }
-    const final = el.textContent;
-    el.textContent = fmt(0);
-    const run = () => {
-      const t0 = performance.now(), dur = 1000;
-      const step = now => {
-        const t = Math.max(0, Math.min(1, (now - t0) / dur));
-        el.textContent = fmt(to * easeOutBack(t));
-        if (t < 1) requestAnimationFrame(step); else el.textContent = money ? final : fmt(to);
-      };
-      requestAnimationFrame(step);
-    };
-    const start = () => setTimeout(run, delay);
-    if ('IntersectionObserver' in window) {
-      const o = new IntersectionObserver(es => { if (es[0].isIntersecting) { o.disconnect(); start(); } }, { threshold: 0.2 });
-      o.observe(el);
-    } else start();
+    if (el.hasAttribute('data-money')) return;
+    const to = parseFloat(el.dataset.count), dec = parseInt(el.dataset.decimals || '0', 10);
+    if (!isNaN(to)) el.textContent = Math.max(0, to).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + (el.dataset.suffix || '');
   });
 
-  /* 3. Sidebar pill: squash and stretch while it travels, settles with a spring; remembers its origin across pages */
-  const nav = $('#sidebar nav');
-  const ind = $('#navInd');
-  if (nav && ind) {
-    const items = $$('.nav-item', nav);
-    const active = items.find(i => i.getAttribute('aria-current') === 'page') || null;
-    const yOf = el => el.offsetTop;
-    let cur = 0, anim = null;
-    const place = y => { ind.style.translate = '0 ' + y + 'px'; cur = y; };
-    const glide = (to, instant) => {
-      if (anim) { try { const m = getComputedStyle(ind).translate.split(' '); cur = parseFloat(m[1]) || cur; } catch (e) { /* keep cur */ } anim.cancel(); anim = null; }
-      if (instant || reduce || !ind.animate || Math.abs(to - cur) < 1) { place(to); return; }
-      const from = cur, d = Math.abs(to - from), stretch = Math.min(.34, .08 + d / 600), dir = to > from ? 1 : -1;
-      place(to);
-      anim = ind.animate([
-        { translate: '0 ' + from + 'px', transform: 'scale(1,1)', transformOrigin: dir > 0 ? '50% 100%' : '50% 0%' },
-        { translate: '0 ' + (from + (to - from) * .55) + 'px', transform: 'scale(' + (1 - stretch * .35) + ',' + (1 + stretch) + ')', offset: .4 },
-        { translate: '0 ' + to + 'px', transform: 'scale(1,1)' }
-      ], { duration: 560, easing: 'cubic-bezier(.34,1.25,.5,1)' });
-      anim.onfinish = anim.oncancel = () => { anim = null; };
-    };
-    const home = () => { if (active) { ind.classList.add('on'); glide(yOf(active)); } else ind.classList.remove('on'); };
-    let from = null;
-    try { from = sessionStorage.getItem('navY'); } catch (e) { /* storage may be blocked */ }
-    if (active) {
-      ind.classList.add('on');
-      if (from !== null && !reduce) { place(parseFloat(from)); requestAnimationFrame(() => glide(yOf(active))); }
-      else place(yOf(active));
-    }
-    items.forEach(i => {
-      const go = () => { if (!ind.classList.contains('on')) place(yOf(i)); ind.classList.add('on'); glide(yOf(i)); };
-      i.addEventListener('mouseenter', go);
-      i.addEventListener('focus', go);
-      i.addEventListener('click', () => { try { sessionStorage.setItem('navY', String(yOf(i))); } catch (e) { /* ignore */ } });
-    });
-    nav.addEventListener('mouseleave', home);
-    nav.addEventListener('focusout', e => { if (!nav.contains(e.relatedTarget)) home(); });
-    addEventListener('pagehide', () => { try { if (active) sessionStorage.setItem('navY', String(yOf(active))); } catch (e) { /* ignore */ } });
-  }
+  /* 3. Sidebar marker: sits behind the current page */
+  const ind = $('#navInd'), cur = $('#sidebar .nav-item[aria-current="page"]');
+  if (ind && cur) { ind.style.translate = '0 ' + cur.offsetTop + 'px'; ind.classList.add('on'); }
 
   /* 3b. Header gains depth once the page scrolls */
   const hdr = $('header.sticky');
   if (hdr) { const f = () => hdr.classList.toggle('scrolled', scrollY > 6); f(); addEventListener('scroll', f, { passive: true }); }
 
-  /* 3d. Disclosures open with a spring instead of snapping */
-  if (!reduce) $$('details').forEach(d => {
-    const sum = d.querySelector(':scope > summary'); if (!sum) return;
-    sum.addEventListener('click', () => {
-      if (d.open) return;
-      requestAnimationFrame(() => {
-        Array.from(d.children).filter(c => c !== sum).forEach((c, i) => c.animate([{ opacity: 0, transform: 'translateY(-10px) scale(.99)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: i * 50, easing: 'cubic-bezier(.34,1.3,.64,1)', fill: 'backwards' }));
-      });
-    });
-  });
-
-  /* 4. Tooltip that trails the cursor with a little lag */
+  /* 4. Chart tooltip: follows the cursor */
   $$('.bar[title], .col[title]').forEach(el => { el.dataset.tip = el.getAttribute('title'); el.removeAttribute('title'); });
   const tip = document.createElement('div');
   tip.className = 'tip notranslate';
@@ -119,8 +30,8 @@
   document.body.appendChild(tip);
   let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0, shown = false;
   const loop = () => {
-    cx += (tx - cx) * (reduce ? 1 : 0.2);
-    cy += (ty - cy) * (reduce ? 1 : 0.2);
+    cx = tx;
+    cy = ty;
     tip.style.transform = 'translate(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px)';
     raf = (shown || Math.abs(tx - cx) > 0.4 || Math.abs(ty - cy) > 0.4) ? requestAnimationFrame(loop) : 0;
   };
@@ -138,33 +49,55 @@
     if (t && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('[data-tip]'))) { shown = false; tip.classList.remove('on'); }
   });
 
-  /* 5. Table rows arrive as a list (capped so long tables never feel slow) */
-  if (!reduce) $$('tbody tr').slice(0, 16).forEach((tr, i) => { tr.style.setProperty('--i', i); tr.classList.add('row-in'); });
+  /* 5. A pressed submit button shows a spinner while the server works */
+  document.addEventListener('submit', e => { if (e.target instanceof HTMLFormElement && e.submitter) setTimeout(() => e.submitter.classList.add('is-busy'), 0); });
 
-  /* 6. Anticipation before an action fires: rows pull back, then leave, then the form submits */
-  document.addEventListener('submit', e => {
-    const form = e.target;
-    if (!(form instanceof HTMLFormElement) || form.dataset.sent) return;
-    const row = form.matches('[data-exit]') ? form.closest('tr') : null;
-    if (row && !reduce) {
-      e.preventDefault();
-      form.dataset.sent = '1';
-      row.classList.add('row-exit');
-      let done = false;
-      const go = () => { if (!done) { done = true; form.submit(); } };
-      row.addEventListener('animationend', go, { once: true });
-      setTimeout(go, 520);
-      return;
-    }
-    if (e.submitter) setTimeout(() => e.submitter.classList.add('is-busy'), 0);
+  /* 6. Forms marked data-dirty show their Save button once a field changed */
+  $$('form[data-dirty]').forEach(f => f.addEventListener('change', () => f.classList.add('dirty')));
+
+  /* 6b. File pickers: our own button, with the chosen file name beside it (the browser's own control shows its text in the browser's language) */
+  $$('input[type=file][data-file-name]').forEach(i => i.addEventListener('change', () => {
+    const out = document.getElementById(i.dataset.fileName);
+    if (out) out.textContent = i.files && i.files.length ? i.files[0].name : 'No file chosen';
+  }));
+
+  /* 6c. Filter forms apply themselves: at once for a dropdown or a date, a moment after typing stops in a search box.
+         The page reloads, so the search box gets its focus and caret back afterwards. */
+  $$('form[data-auto]').forEach(f => {
+    let t = 0;
+    const go = () => { if (f.requestSubmit) f.requestSubmit(); else f.submit(); };
+    f.addEventListener('change', e => { if (e.target.matches('select, input[type=date]')) go(); });
+    f.addEventListener('input', e => {
+      if (!e.target.matches('input[type=search]')) return;
+      clearTimeout(t);
+      t = setTimeout(() => { try { sessionStorage.setItem('autoFocus', location.pathname + '|' + e.target.id); } catch (x) { /* storage may be blocked */ } go(); }, 600);
+    });
+  });
+  try {
+    const k = sessionStorage.getItem('autoFocus'); sessionStorage.removeItem('autoFocus');
+    const [p, id] = (k || '|').split('|'), el = p === location.pathname && id ? document.getElementById(id) : null;
+    if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (x) { /* not a text field */ } }
+  } catch (x) { /* storage may be blocked */ }
+
+  /* 6d. A table row opens its record: a click anywhere on the row follows the link in its first cell (Ctrl or Cmd click: new tab) */
+  $$('tbody tr').forEach(tr => {
+    const cell = tr.querySelector('td, th'), a = cell && !cell.hasAttribute('colspan') ? cell.querySelector('a[href]') : null;
+    if (!a) return;
+    tr.classList.add('row-link');
+    tr.addEventListener('click', e => {
+      if (e.target.closest('a, button, input, select, textarea, label, form, summary') || String(getSelection())) return;
+      if (e.ctrlKey || e.metaKey) window.open(a.href, '_blank', 'noopener'); else location.href = a.href;
+    });
   });
 
   /* 7. Toast: stays long enough to read, then leaves quickly */
   $$('.toast').forEach(t => {
     if (!reduce && getComputedStyle(t).position !== 'static') { const bar = document.createElement('span'); bar.className = 'toast-bar'; bar.setAttribute('aria-hidden', 'true'); t.appendChild(bar); }
-    const hide = () => { t.classList.add('toast-out'); setTimeout(() => t.remove(), 280); };
-    setTimeout(hide, 4800);
-    t.addEventListener('click', hide);
+    const hide = () => { t.classList.add('toast-out'); setTimeout(() => t.remove(), 160); };
+    const ms = parseInt(t.dataset.ms || '4800', 10);   // a message with an Undo button stays longer
+    const bar = t.querySelector('.toast-bar'); if (bar) bar.style.animationDuration = ms + 'ms';
+    setTimeout(hide, ms);
+    t.addEventListener('click', e => { if (!e.target.closest('form')) hide(); });
   });
 })();
 
@@ -173,23 +106,17 @@
   'use strict';
   const sb = document.getElementById('sidebar');
   const edge = document.getElementById('sbEdge');
-  const tab = document.getElementById('sbTab');
   const pin = document.getElementById('sbPin');
   if (!sb || !edge || !pin) return;
   const desktop = matchMedia('(min-width: 1024px)');
   const root = document.documentElement;
-  const items = Array.from(sb.querySelectorAll('.nav-item'));
-  items.forEach((it, i) => it.style.setProperty('--i', i));
-  const foot = sb.querySelector(':scope > div:last-of-type');
-  if (foot) foot.style.setProperty('--i', items.length);
 
   const isPinned = () => root.dataset.sb === 'pinned';
-  let openT = 0, closeT = 0, popT = 0;
-  const pop = () => { sb.classList.add('popping'); clearTimeout(popT); popT = setTimeout(() => sb.classList.remove('popping'), 900); };
+  let openT = 0, closeT = 0;
   const open = () => {
     if (!desktop.matches || isPinned()) return;
     clearTimeout(closeT);
-    if (!sb.classList.contains('open')) { sb.classList.add('open'); root.classList.add('sb-open'); pop(); seen(); }
+    if (!sb.classList.contains('open')) { sb.classList.add('open'); root.classList.add('sb-open'); seen(); }
   };
   const close = () => { clearTimeout(openT); sb.classList.remove('open'); root.classList.remove('sb-open'); };
   const seen = () => { root.dataset.sbseen = '1'; try { localStorage.setItem('sbSeen', '1'); } catch (e) { /* ignore */ } };
@@ -203,12 +130,8 @@
   };
   sync();
 
-  edge.addEventListener('mouseenter', () => { clearTimeout(openT); openT = setTimeout(open, 70); });
+  edge.addEventListener('mouseenter', () => { clearTimeout(openT); openT = setTimeout(open, 120); });
   edge.addEventListener('mouseleave', () => clearTimeout(openT));
-  if (tab) {
-    tab.addEventListener('mouseenter', () => { clearTimeout(openT); openT = setTimeout(open, 70); });
-    tab.addEventListener('click', open);
-  }
   sb.addEventListener('mouseenter', () => clearTimeout(closeT));
   sb.addEventListener('mouseleave', () => {
     if (isPinned()) return;
@@ -220,7 +143,7 @@
     if (on) root.dataset.sb = 'pinned'; else delete root.dataset.sb;
     try { localStorage.setItem('sbPinned', on ? '1' : '0'); } catch (e) { /* storage may be blocked */ }
     sync();
-    if (on) { sb.classList.remove('open'); root.classList.remove('sb-open'); pop(); } else { sb.classList.add('open'); root.classList.add('sb-open'); }
+    if (on) { sb.classList.remove('open'); root.classList.remove('sb-open'); } else { sb.classList.add('open'); root.classList.add('sb-open'); }
     seen();
     pin.blur();
   };

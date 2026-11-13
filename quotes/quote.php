@@ -44,8 +44,8 @@ $exists = function (string $table, mixed $rid) use ($pdo): bool {   // the invoi
     $s = $pdo->prepare("SELECT COUNT(*) FROM `$table` WHERE id = ?"); $s->execute([(int) $rid]);
     return (int) $s->fetchColumn() === 1;
 };
-$field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
-$btn = 'pressable inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line text-sm font-semibold hover:bg-lime hover:text-navy';
+$field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$btn = 'pressable inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-line text-sm font-semibold hover:bg-lime hover:text-navy';
 $post = fn(string $action, string $label, string $cls) => '<form method="post">' . csrf_field() . '<input type="hidden" name="id" value="' . $id . '"><input type="hidden" name="action" value="' . $action . '"><button class="' . $cls . '">' . $label . '</button></form>';
 
 page_start($q['number'], 'quotes', $q['customer'] . ($q['title'] !== '' ? ' · ' . $q['title'] : ''));
@@ -53,7 +53,7 @@ page_start($q['number'], 'quotes', $q['customer'] . ($q['title'] !== '' ? ' · '
 <a href="quotes/quotes.php" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-soft hover:text-ink"><?= icon('left', 'h-4 w-4') ?>All quotes</a>
 
 <div class="grid items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
-  <section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="doc-h">
+  <section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="doc-h">
     <div class="flex flex-wrap items-start justify-between gap-4 border-b border-line p-5 sm:p-6">
       <div>
         <h2 id="doc-h" class="sr-only">Quote <?= e($q['number']) ?></h2>
@@ -64,7 +64,7 @@ page_start($q['number'], 'quotes', $q['customer'] . ($q['title'] !== '' ? ' · '
       </div>
       <div class="text-right">
         <?= badge($q['state']) ?>
-        <p class="mt-2"><a href="quotes/quote_pdf.php?id=<?= $id ?>" class="pressable inline-flex h-10 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('download', 'h-4 w-4') ?>Download PDF</a></p>
+        <p class="mt-2"><a href="quotes/quote_pdf.php?id=<?= $id ?>" class="pressable inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('download', 'h-4 w-4') ?>Download PDF</a></p>
         <p class="mt-2 text-sm font-semibold <?= $q['state'] === 'expired' ? 'text-[#FF9C8C]' : 'text-soft' ?>"><?= e(quote_state_text($q)) ?></p>
       </div>
     </div>
@@ -98,17 +98,17 @@ page_start($q['number'], 'quotes', $q['customer'] . ($q['title'] !== '' ? ' · '
   </section>
 
   <div class="space-y-6">
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="out-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="out-h">
       <h2 id="out-h" class="text-lg font-bold tracking-tight">Outcome</h2>
       <div class="mt-4 space-y-3">
         <?php if ($q['state'] === 'expired'): ?><p class="text-sm text-soft">This quote has expired and counts as lost. Edit it and set a new "valid until" date to offer it again.</p><?php endif; ?>
         <?php if ($q['status'] === 'draft' && $q['state'] !== 'expired'): ?><?= $post('sent', icon('send', 'h-4 w-4') . 'Mark as sent', $btn) ?><?php endif; ?>
         <?php if ($open): ?>
-          <?= $post('accepted', icon('check', 'h-4 w-4') . 'Accepted by the customer', 'pressable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95') ?>
-          <details><summary class="pressable inline-flex h-11 w-full cursor-pointer list-none items-center justify-center rounded-xl border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Declined by the customer</summary>
-            <form method="post" class="mt-3 space-y-3 rounded-xl border border-line bg-deep p-4"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="declined">
+          <?= $post('accepted', icon('check', 'h-4 w-4') . 'Accepted by the customer', 'pressable inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95') ?>
+          <details><summary class="pressable inline-flex h-11 w-full cursor-pointer list-none items-center justify-center rounded-lg border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Declined by the customer</summary>
+            <form method="post" class="mt-3 space-y-3 rounded-lg border border-line bg-deep p-4"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="declined">
               <div><label for="reason" class="text-sm font-semibold">Why was it lost? <span class="font-normal text-soft">(optional)</span></label><input id="reason" name="reason" maxlength="200" placeholder="e.g. price, chose another supplier" class="<?= $field ?> mt-1.5"></div>
-              <button class="pressable h-10 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Mark as declined</button></form></details>
+              <button class="pressable h-10 rounded-lg bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Mark as declined</button></form></details>
         <?php endif; ?>
         <?php if (in_array($q['status'], ['accepted', 'declined'], true)): ?>
           <p class="text-sm text-soft"><?= e(quote_state_text($q)) ?>.</p>
@@ -119,7 +119,7 @@ page_start($q['number'], 'quotes', $q['customer'] . ($q['title'] !== '' ? ' · '
     </section>
 
     <?php if (($canInvoice || $canContract) && $q['status'] !== 'declined'): ?>
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="next-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="next-h">
       <h2 id="next-h" class="text-lg font-bold tracking-tight">Turn it into</h2>
       <p class="mt-1 text-sm text-soft">Either step also marks the quote as accepted.</p>
       <div class="mt-4 space-y-3">
@@ -142,9 +142,9 @@ page_start($q['number'], 'quotes', $q['customer'] . ($q['title'] !== '' ? ' · '
     <?php endif; ?>
 
     <?php if (!$converted): ?>
-    <details class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6"><summary class="cursor-pointer text-sm font-semibold text-soft hover:text-ink">Delete this quote</summary>
+    <details class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6"><summary class="cursor-pointer text-sm font-semibold text-soft hover:text-ink">Delete this quote</summary>
       <p class="mt-3 text-sm text-soft">This removes the quote and its lines for good.</p>
-      <div class="mt-3"><?= $post('delete', 'Yes, delete the quote', 'pressable h-10 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95') ?></div></details>
+      <div class="mt-3"><?= $post('delete', 'Yes, delete the quote', 'pressable h-10 rounded-lg bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95') ?></div></details>
     <?php endif; ?>
   </div>
 </div>

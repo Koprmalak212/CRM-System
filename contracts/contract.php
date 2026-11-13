@@ -53,30 +53,30 @@ page_start($c['title'], 'contracts', $c['number'] . ' · ' . $c['company_name'])
 <a href="contracts/contracts.php" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-soft hover:text-ink"><?= icon('left', 'h-4 w-4') ?>All contracts</a>
 
 <?php if ($due): ?>
-  <div role="status" class="rise mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-butter/30 bg-butter-100 px-5 py-4 text-sm">
+  <div role="status" class="rise mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-butter/30 bg-butter-100 px-5 py-4 text-sm">
     <p><strong class="font-semibold text-butter"><?= (int) $c['auto_renew'] === 1 ? 'This contract renews' : 'This contract ends' ?> on <?= e(date('j F Y', strtotime($c['end_date']))) ?>.</strong> <?= (int) $c['auto_renew'] === 1 ? 'It goes on for another ' . (int) $c['renew_months'] . ' months unless it is ended first.' : 'Agree a renewal with the customer, or it stops that day.' ?></p>
-    <?php if ((int) $c['auto_renew'] !== 1): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="renew"><button class="pressable h-10 rounded-xl bg-lime px-4 text-sm font-bold text-navy hover:brightness-95">Renew for <?= (int) $c['renew_months'] ?> months</button></form><?php endif; ?>
+    <?php if ((int) $c['auto_renew'] !== 1): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="renew"><button class="pressable h-10 rounded-lg bg-lime px-4 text-sm font-bold text-navy hover:brightness-95">Renew for <?= (int) $c['renew_months'] ?> months</button></form><?php endif; ?>
   </div>
 <?php endif; ?>
 
 <?php if ($askDelete): ?>
-  <section class="rise mb-5 rounded-2xl border border-line bg-panel p-5 shadow-panel" role="alert" aria-labelledby="del-h">
+  <section class="rise mb-5 rounded-xl border border-line bg-panel p-5 shadow-panel" role="alert" aria-labelledby="del-h">
     <h2 id="del-h" class="text-base font-bold">Delete this contract?</h2>
     <p class="mt-1 text-sm text-soft"><?= e($c['title']) ?> for <?= e($c['company_name']) ?>. The <?= count($invoices) ?> invoice<?= count($invoices) === 1 ? '' : 's' ?> it made stay.</p>
     <form method="post" class="mt-4 flex flex-wrap gap-3"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="delete">
-      <button class="pressable h-11 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, delete the contract</button>
-      <a href="contracts/contract.php?id=<?= $id ?>" class="inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50">Keep it</a></form>
+      <button class="pressable h-11 rounded-lg bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, delete the contract</button>
+      <a href="contracts/contract.php?id=<?= $id ?>" class="inline-flex h-11 items-center rounded-lg border border-line px-5 text-sm font-semibold hover:bg-butter-50">Keep it</a></form>
   </section>
 <?php endif; ?>
 
 <div class="grid items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
   <div class="space-y-6">
-    <section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="svc-h">
+    <section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="svc-h">
       <div class="flex flex-wrap items-start justify-between gap-4 border-b border-line p-5 sm:p-6">
         <div><h2 id="svc-h" class="text-lg font-bold tracking-tight">Services</h2>
           <p class="text-sm text-soft">For <a href="companies/company.php?id=<?= (int) $c['company_id'] ?>" class="font-semibold text-ink underline decoration-lime decoration-2 underline-offset-4"><?= e($c['company_name']) ?></a></p></div>
         <div class="text-right"><?= $due ? badge('due_renewal') : badge($c['status']) ?>
-          <p class="mt-2 text-[26px] font-bold leading-none tracking-tight tabular-nums notranslate"><?= e(money((int) $c['monthly_cents'])) ?></p><p class="mt-1 text-sm text-soft">a month, excl. BTW</p></div>
+          <p class="mt-2 text-2xl font-bold leading-none tracking-tight tabular-nums notranslate"><?= e(money((int) $c['monthly_cents'])) ?></p><p class="mt-1 text-sm text-soft">a month, excl. BTW</p></div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[560px] text-left text-sm">
@@ -95,7 +95,7 @@ page_start($c['title'], 'contracts', $c['number'] . ' · ' . $c['company_name'])
     </section>
 
     <?php if (module_enabled('invoices')): ?>
-    <section class="rise rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s" aria-labelledby="inv-h">
+    <section class="rise rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s" aria-labelledby="inv-h">
       <div class="p-5 pb-3 sm:px-6"><h2 id="inv-h" class="text-lg font-bold tracking-tight">Invoices from this contract</h2></div>
       <?php if (!$invoices): ?><p class="px-5 pb-5 text-sm text-soft sm:px-6"><?= $c['billing'] === 'none' ? 'This contract is not invoiced from here.' : 'None yet. They appear here as they are created.' ?></p>
       <?php else: ?>
@@ -111,7 +111,7 @@ page_start($c['title'], 'contracts', $c['number'] . ' · ' . $c['company_name'])
   </div>
 
   <div class="space-y-6">
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="term-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="term-h">
       <h2 id="term-h" class="text-lg font-bold tracking-tight">Term and invoicing</h2>
       <dl class="mt-4 space-y-3 text-sm">
         <div class="flex justify-between gap-4"><dt class="text-soft">Started</dt><dd class="font-semibold"><?= e(date('j M Y', strtotime($c['start_date']))) ?></dd></div>
@@ -130,20 +130,20 @@ page_start($c['title'], 'contracts', $c['number'] . ' · ' . $c['company_name'])
       </dl>
     </section>
 
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="act-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="act-h">
       <h2 id="act-h" class="text-lg font-bold tracking-tight">Actions</h2>
       <div class="mt-4 space-y-3">
         <?php if ($c['status'] === 'draft'): ?>
           <p class="text-sm text-soft">A draft is not invoiced and raises no alerts. Check the dates and the lines, then make it active.</p>
-          <form method="post"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="activate"><button class="pressable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95"><?= icon('check', 'h-4 w-4') ?>Make active</button></form>
+          <form method="post"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="activate"><button class="pressable inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95"><?= icon('check', 'h-4 w-4') ?>Make active</button></form>
         <?php endif; ?>
-        <a href="contracts/contract_edit.php?id=<?= $id ?>" class="pressable inline-flex h-11 w-full items-center justify-center rounded-xl border border-line text-sm font-semibold hover:bg-lime hover:text-navy"><?= $c['status'] === 'ended' ? 'Edit and reopen' : 'Edit contract' ?></a>
+        <a href="contracts/contract_edit.php?id=<?= $id ?>" class="pressable inline-flex h-11 w-full items-center justify-center rounded-lg border border-line text-sm font-semibold hover:bg-lime hover:text-navy"><?= $c['status'] === 'ended' ? 'Edit and reopen' : 'Edit contract' ?></a>
         <?php if ($c['status'] !== 'ended'): ?>
-          <details><summary class="pressable inline-flex h-11 w-full cursor-pointer list-none items-center justify-center rounded-xl border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">End contract</summary>
-            <div class="mt-3 rounded-xl border border-line bg-deep p-4"><p class="text-sm">The contract stops today: no more invoices, no renewal. Invoices it already made are kept.</p>
-              <form method="post" class="mt-3"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="end"><button class="pressable h-10 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, end it today</button></form></div></details>
+          <details><summary class="pressable inline-flex h-11 w-full cursor-pointer list-none items-center justify-center rounded-lg border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">End contract</summary>
+            <div class="mt-3 rounded-lg border border-line bg-deep p-4"><p class="text-sm">The contract stops today: no more invoices, no renewal. Invoices it already made are kept.</p>
+              <form method="post" class="mt-3"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="end"><button class="pressable h-10 rounded-lg bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Yes, end it today</button></form></div></details>
         <?php endif; ?>
-        <?php if ($c['status'] !== 'active'): ?><a href="contracts/contract.php?id=<?= $id ?>&amp;delete=1" class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Delete</a><?php endif; ?>
+        <?php if ($c['status'] !== 'active'): ?><a href="contracts/contract.php?id=<?= $id ?>&amp;delete=1" class="inline-flex h-11 w-full items-center justify-center rounded-lg border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Delete</a><?php endif; ?>
       </div>
     </section>
   </div>

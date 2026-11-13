@@ -52,7 +52,7 @@ function company_not_found(): never
 {
     http_response_code(404);
     page_start('Company not found', 'companies', 'That company does not exist. It may have been removed.');
-    echo '<a href="companies/companies.php" class="pressable inline-flex h-11 items-center rounded-xl bg-lime px-5 text-sm font-bold text-navy">Back to companies</a>';
+    echo '<a href="companies/companies.php" class="pressable inline-flex h-11 items-center rounded-lg bg-lime px-5 text-sm font-bold text-navy">Back to companies</a>';
     page_end();
     exit;
 }

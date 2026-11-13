@@ -121,26 +121,26 @@ $data = $validEmail ? collect_subject($pdo, $email) : null;
 $found = $data && ($data['user'] || $data['activity_logs'] || $data['invoices'] || $data['emailed_tickets'] || $data['emailed_ticket_replies'] || $data['quotes']);
 
 page_start('Privacy requests', 'settings', 'Handle a request under the GDPR (AVG): see what is held about a person, export it, or anonymise their account.');
-$field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
-<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="find-h">
+<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="find-h">
   <h2 id="find-h" class="text-lg font-bold tracking-tight">Find a person</h2>
   <form method="get" class="mt-4 flex flex-wrap items-end gap-3" novalidate>
     <div class="min-w-64 flex-1"><label for="email" class="mb-1 block text-sm font-semibold">Email address of the person making the request</label>
       <input id="email" name="email" type="email" value="<?= e($email) ?>" required class="<?= $field ?> w-full"></div>
-    <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Look up</button>
+    <button class="pressable h-11 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Look up</button>
   </form>
   <?php if ($email !== '' && !$validEmail): ?><p role="alert" class="mt-3 text-sm font-semibold text-[#FF9C8C]">That is not a valid email address.</p><?php endif; ?>
   <p class="mt-3 text-sm text-soft">Confirm the requester's identity first (the policy allows asking for ID). You must respond within 4 weeks.</p>
 </section>
 
 <?php if ($validEmail && !$found): ?>
-  <section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" role="status">
+  <section class="rise mt-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" role="status">
     <h2 class="text-lg font-bold tracking-tight">Nothing found</h2>
     <p class="mt-1 text-sm text-soft">No account, log entries or invoices are held for <?= e($email) ?>. Tell the requester so, within the 4-week deadline.</p>
   </section>
 <?php elseif ($found): ?>
-  <section class="rise mt-6 rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s" aria-labelledby="held-h">
+  <section class="rise mt-6 rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s" aria-labelledby="held-h">
     <div class="border-b border-line p-5 sm:p-6"><h2 id="held-h" class="text-lg font-bold tracking-tight">What is held about <?= e($email) ?></h2></div>
     <dl class="divide-y divide-line text-sm">
       <div class="grid gap-1 p-5 sm:grid-cols-[220px_1fr] sm:p-6"><dt class="font-semibold">User account</dt><dd class="text-soft"><?= $data['user'] ? e($data['user']['name'] . ' · ' . $data['user']['role'] . ' · ' . $data['user']['status'] . ' · ' . $data['user']['country']) : 'None' ?></dd></div>
@@ -158,27 +158,27 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     </dl>
     <div class="flex flex-wrap gap-3 border-t border-line p-5 sm:p-6">
       <form method="post"><?= csrf_field() ?><input type="hidden" name="email" value="<?= e($email) ?>"><input type="hidden" name="action" value="export">
-        <button class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('download', 'h-4 w-4') ?>Download export (JSON)</button></form>
+        <button class="pressable inline-flex h-11 items-center gap-2 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('download', 'h-4 w-4') ?>Download export (JSON)</button></form>
     </div>
   </section>
 
   <?php if (!$data['user'] && ($data['emailed_tickets'] || $data['emailed_ticket_replies'])): ?>
-  <section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="erasem-h">
+  <section class="rise mt-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="erasem-h">
     <h2 id="erasem-h" class="text-lg font-bold tracking-tight">Remove this address from emailed tickets</h2>
     <p class="mt-1 text-sm text-soft">This person has no user account, but wrote to the support address. The address is removed from the tickets, the replies and the list of messages read. The tickets themselves stay as records of the company.</p>
     <form method="post" class="mt-4 space-y-3"><?= csrf_field() ?><input type="hidden" name="email" value="<?= e($email) ?>"><input type="hidden" name="action" value="erase_mail">
       <label for="confirm_mail" class="flex cursor-pointer items-center gap-2 text-sm"><input id="confirm_mail" type="checkbox" name="confirm" value="yes" class="h-4 w-4 accent-lime"><span>I have confirmed who is asking. Remove the address.</span></label>
-      <button class="pressable h-11 rounded-xl bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Remove the address</button></form>
+      <button class="pressable h-11 rounded-lg bg-[#FFD3CC] px-5 text-sm font-bold text-[#7E160A] hover:brightness-95">Remove the address</button></form>
   </section>
   <?php endif; ?>
 
   <?php if ($data['user']): ?>
-  <section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="erase-h">
+  <section class="rise mt-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.1s" aria-labelledby="erase-h">
     <h2 id="erase-h" class="text-lg font-bold tracking-tight">Right to erasure</h2>
     <p class="mt-1 max-w-2xl text-sm text-soft">Anonymising removes the name, email and country, deletes open sessions and their IP addresses, and replaces the person's name in the activity log. It can not be undone. Invoices are not erased because the law requires keeping them for 7 years.</p>
     <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="email" value="<?= e($email) ?>"><input type="hidden" name="action" value="erase">
       <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="confirm" value="yes" class="mt-0.5 h-5 w-5 rounded border-line accent-lime"><span>I have checked the requester's identity and want to anonymise <?= e($data['user']['name']) ?> permanently.</span></label>
-      <button class="pressable mt-4 inline-flex h-11 items-center gap-2 rounded-xl border border-[#FFD3CC]/40 px-5 text-sm font-bold text-[#FFD3CC] hover:bg-[#FFD3CC] hover:text-[#7E160A]">Anonymise this user</button>
+      <button class="pressable mt-4 inline-flex h-11 items-center gap-2 rounded-lg border border-[#FFD3CC]/40 px-5 text-sm font-bold text-[#FFD3CC] hover:bg-[#FFD3CC] hover:text-[#7E160A]">Anonymise this user</button>
     </form>
   </section>
   <?php endif; ?>

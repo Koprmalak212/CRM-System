@@ -83,16 +83,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?= base_tag() ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sign in · Telecomlijn Admin</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link rel="icon" type="image/svg+xml" href="<?= asset('assets/img/favicon.svg') ?>">
+<link rel="stylesheet" href="<?= asset('assets/fonts/fonts.css') ?>">
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
   @keyframes hop { 0% { transform: translateX(-10px); opacity: .6; } 55% { transform: translateX(3px); opacity: 1; } 100% { transform: none; } }
   .hop { animation: hop .45s cubic-bezier(.34,1.56,.64,1); }
 </style>
 <script nonce="<?= csp_nonce() ?>">document.documentElement.classList.add('js');setTimeout(function(){if(!window.__motion)document.documentElement.classList.add('reveal-all')},3000);</script>
-<link rel="stylesheet" href="assets/css/motion.css">
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="<?= asset('assets/css/motion.css') ?>">
+<link rel="stylesheet" href="<?= asset('assets/css/app.css') ?>">
 </head>
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <?= lang_widget('absolute right-4 top-4 z-10 sm:right-8 sm:top-6') ?>
@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
     <div class="flex gap-1.5" aria-hidden="true">
       <?php foreach ([1,1,1,1,1,0,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1] as $k => $s): ?>
-        <span style="--i:<?= $k ?>" class="wave h-7 w-2 rounded-sm <?= $s === 1 ? 'bg-lime' : ($s === 2 ? 'bg-butter' : 'bg-coral') ?>"></span>
+        <span style="--i:<?= $k ?>" class="h-7 w-2 rounded-sm <?= $s === 1 ? 'bg-lime' : ($s === 2 ? 'bg-butter' : 'bg-coral') ?>"></span>
       <?php endforeach; ?>
     </div>
   </section>
@@ -115,24 +115,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?= csrf_field() ?>
       <img src="assets/img/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="logo-on-dark mb-8 h-10 w-auto lg:hidden"><img src="assets/img/telecomlijn-logo-color.png" alt="" aria-hidden="true" width="274" height="79" class="logo-on-light mb-8 h-10 w-auto lg:hidden">
       <h2 class="text-3xl font-bold tracking-tight">Sign in</h2>
-      <p class="mt-2 text-[15px] text-soft">Use your admin account to continue.</p>
+      <p class="mt-2 text-sm text-soft">Use your admin account to continue.</p>
 
       <?php if ($notice !== ''): ?>
-        <p role="status" class="mt-6 rounded-xl bg-lime px-4 py-3 text-sm font-semibold text-navy"><?= e($notice) ?></p>
+        <p role="status" class="mt-6 rounded-lg bg-lime px-4 py-3 text-sm font-semibold text-navy"><?= e($notice) ?></p>
       <?php endif; ?>
       <?php if ($error): ?>
-        <p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p>
+        <p role="alert" class="mt-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= e($error) ?></p>
       <?php endif; ?>
 
       <label for="username" class="mt-6 block text-sm font-semibold">Username</label>
       <input id="username" name="username" type="text" autocomplete="username" required autofocus value="<?= e($_POST['username'] ?? '') ?>"
-             class="mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[15px] focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+             class="mt-1.5 h-12 w-full rounded-lg border border-line bg-panel px-4 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
 
       <label for="password" class="mt-4 block text-sm font-semibold">Password</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required
-             class="mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-[15px] focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+             class="mt-1.5 h-12 w-full rounded-lg border border-line bg-panel px-4 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
 
-      <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy shadow-[0_6px_18px_-8px_rgba(199,243,107,.6)] transition hover:brightness-95 active:translate-y-px">Sign in</button>
+      <button class="mt-6 h-12 w-full rounded-lg bg-lime text-sm font-bold text-navy transition hover:brightness-95 active:translate-y-px">Sign in</button>
 
       <p class="mt-4 text-center text-sm"><a href="auth/forgot.php" class="font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Forgot password?</a></p>
     </form>
@@ -142,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </footer>
   </section>
 </div>
-<script src="assets/js/motion.js" defer></script>
+<script src="<?= asset('assets/js/motion.js') ?>" defer></script>
 <script nonce="<?= csp_nonce() ?>">
 (function () {
   var u = document.getElementById('username'), p = document.getElementById('password');
@@ -161,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   });
 })();
 </script>
-<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-lg border border-line bg-panel hover:bg-ink/10') ?></div>
 <?= theme_toggle_script() ?>
 </body>
 </html>

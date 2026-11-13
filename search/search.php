@@ -64,25 +64,25 @@ $helpRefs = array_merge($inv ? ['an invoice number such as INV-2026-1001'] : [],
 $helpText = 'Type a name, an email address, a company, a KvK number' . ($helpRefs ? ', ' . implode(' or ', $helpRefs) : '') . '.';
 
 page_start('Search', 'search', $q === '' ? 'Search ' . $namesText . ' in one go.' : ($total === 0 ? 'Nothing found.' : number_format($total) . ' result' . ($total === 1 ? '' : 's') . ' for “' . $q . '”.'));
-$field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <form method="get" role="search" class="rise mb-6 flex flex-wrap gap-3">
   <label class="sr-only" for="sq">Search everything</label>
   <input id="sq" name="q" type="search" value="<?= e($q) ?>" maxlength="100" placeholder="<?= e($hint) ?>" class="<?= $field ?> w-full sm:w-[28rem]">
-  <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Search</button>
+  <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Search</button>
 </form>
 
 <?php if ($q === ''): ?>
   <p class="rise text-sm text-soft"><?= $helpText ?></p>
 <?php elseif ($total === 0): ?>
-  <div class="rise rounded-2xl border border-line bg-panel px-4 py-14 text-center shadow-panel"><p class="text-base font-semibold">No results for “<?= e($q) ?>”</p><p class="mt-1 text-soft">Check the spelling, or try fewer words.</p></div>
+  <div class="rise rounded-xl border border-line bg-panel px-4 py-14 text-center shadow-panel"><p class="text-base font-semibold">No results for “<?= e($q) ?>”</p><p class="mt-1 text-soft">Check the spelling, or try fewer words.</p></div>
 <?php else: ?>
   <nav class="rise mb-5 flex flex-wrap gap-2" aria-label="Jump to a result group">
     <?php foreach ($groups as $key => [$label, $n]): ?><a href="<?= self_url() ?>#res-<?= $key ?>" class="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50"><?= e($label) ?><span class="tabular-nums text-soft"><?= $n ?></span></a><?php endforeach; ?>
   </nav>
   <div class="space-y-5">
     <?php foreach ($groups as $key => [$label, $n, $rows, $all]): if ($n === 0) continue; ?>
-      <section id="res-<?= $key ?>" class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="h-<?= $key ?>">
+      <section id="res-<?= $key ?>" class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="h-<?= $key ?>">
         <div class="flex items-center justify-between gap-3 px-5 pt-5"><h2 id="h-<?= $key ?>" class="text-base font-bold"><?= e($label) ?> <span class="font-normal text-soft tabular-nums">(<?= $n ?>)</span></h2>
           <?php if ($n > count($rows)): ?><a href="<?= e($all) ?>" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">View all <?= $n ?></a><?php endif; ?></div>
         <ul class="mt-2 divide-y divide-line">

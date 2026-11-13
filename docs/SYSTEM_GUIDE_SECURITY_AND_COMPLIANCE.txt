@@ -332,7 +332,7 @@ become stacked cards below 640 px) and respects "reduced motion" settings.
   addresses) goes to Google and may be processed outside the EU.
 
 3.20 LOOK AND FEEL (theme, motion, cards)
-  What: Light and dark theme, phone layout, spring motion that stops with
+  What: Light and dark theme, phone layout, restrained motion that stops with
   "reduced motion", pop-out sidebar. Two hidden easter eggs in the search bar.
   Security and accessibility: text colours were measured against the WCAG
   contrast rules in both themes; semantic headings, labels, focus styles and

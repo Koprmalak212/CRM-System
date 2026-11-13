@@ -18,7 +18,7 @@ function tab_handle(PDO $pdo, array $admin): void
     $poll = (string) ($_POST['pollIntervalSeconds'] ?? '');
     [$ok, $errors] = kuma_save($pdo, $url, (string) ($_POST['apiKey'] ?? ''), $poll, (int) $admin['id']);
     if ($ok) {
-        log_activity('warning', 'Kuma settings saved', 'url and interval');   // never the key
+        log_activity('info', 'Kuma settings saved', 'url and interval');   // never the key
         flash('Kuma settings saved.');
         return;
     }
@@ -36,11 +36,11 @@ function tab_render(PDO $pdo, array $admin): void
     $url = $form['url'] ?? $s['url'];
     $poll = $form['poll'] ?? (string) $s['poll'];
     $mask = $s['has_key'] ? '••••••••' . ($s['last4'] ?? '') : '';
-    $field = 'mt-1.5 h-11 w-full rounded-xl border bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'mt-1.5 h-11 w-full rounded-lg border bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $err = static fn(string $k) => isset($errors[$k]) ? '<p id="err-' . e($k) . '" class="mt-1.5 text-sm font-semibold text-[#FF9C8C]">' . e($errors[$k]) . '</p>' : '';
     $border = static fn(string $k) => isset($errors[$k]) ? 'border-[#FF9C8C]' : 'border-line';
     ?>
-<section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="kuma-h">
+<section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="kuma-h">
   <div class="border-b border-line p-5 sm:p-6">
     <h2 id="kuma-h" class="text-lg font-bold tracking-tight">Uptime Kuma connection</h2>
     <p class="mt-1 max-w-2xl text-sm text-soft">The Uptime page reads your Kuma monitors from <code class="rounded bg-white/10 px-1.5 py-0.5 text-ink notranslate">/metrics</code>. In Kuma, create an API key under <strong class="text-ink">Settings &rarr; API Keys</strong> and paste it here. The key is encrypted on the server and is never shown again.</p>
@@ -72,15 +72,15 @@ function tab_render(PDO $pdo, array $admin): void
     <div id="testResult" role="status" aria-live="polite" class="max-w-xl text-sm font-semibold" hidden></div>
 
     <div class="flex flex-wrap items-center gap-3">
-      <button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button>
-      <button type="button" id="kumaTest" class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-white/5">Test connection</button>
+      <button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button>
+      <button type="button" id="kumaTest" class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-white/5">Test connection</button>
     </div>
   </form>
 
   <?php if ($s['has_key']): ?>
   <div class="border-t border-line p-5 sm:p-6">
     <form method="post" class="flex flex-wrap items-center gap-4"><?= csrf_field() ?><input type="hidden" name="tab" value="kuma"><input type="hidden" name="action" value="remove">
-      <button class="pressable h-10 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Remove key</button>
+      <button class="pressable h-10 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Remove key</button>
       <p class="text-sm text-soft">Deletes the saved key. The Uptime page stops until a new key is saved.</p>
     </form>
   </div>
@@ -103,11 +103,11 @@ function tab_render(PDO $pdo, array $admin): void
       .then(function (r) { return r.json(); })
       .then(function (j) {
         out.textContent = j.message || 'The test did not return a result.';
-        out.className = 'max-w-xl rounded-xl px-4 py-3 text-sm font-semibold ' + (j.ok ? 'bg-lime text-navy' : 'bg-[#FFD3CC] text-[#7E160A]');
+        out.className = 'max-w-xl rounded-lg px-4 py-3 text-sm font-semibold ' + (j.ok ? 'bg-lime text-navy' : 'bg-[#FFD3CC] text-[#7E160A]');
       })
       .catch(function () {
         out.textContent = 'The test could not be completed. Reload the page and try again.';
-        out.className = 'max-w-xl rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]';
+        out.className = 'max-w-xl rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]';
       })
       .finally(function () { btn.disabled = false; btn.textContent = 'Test connection'; });
   });

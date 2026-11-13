@@ -55,7 +55,7 @@ $admin = is_admin();
 <div id="uptime" data-admin="<?= $admin ? '1' : '0' ?>" data-warn="<?= KUMA_CERT_WARN_DAYS ?>">
   <div id="banner" role="status" aria-live="polite" class="mb-4" hidden></div>
 
-  <section id="state" class="rise rounded-2xl border border-line bg-panel p-8 text-center shadow-panel sm:p-12" aria-live="polite">
+  <section id="state" class="rise rounded-xl border border-line bg-panel p-8 text-center shadow-panel sm:p-12" aria-live="polite">
     <p class="text-base font-semibold">Loading monitors…</p>
   </section>
 
@@ -66,7 +66,7 @@ $admin = is_admin();
         <div class="border-b border-line p-4">
           <h2 id="list-h" class="mb-3 flex items-center justify-between text-base font-bold">Monitors <a href="#" id="homeLink" class="k-link text-xs font-semibold">Dashboard</a></h2>
           <label for="search" class="sr-only">Search monitors</label>
-          <input id="search" type="search" placeholder="Search…" autocomplete="off" class="h-11 w-full rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-lime">
+          <input id="search" type="search" placeholder="Search…" autocomplete="off" class="h-11 w-full rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-lime">
           <div id="filters" class="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter by status"></div>
         </div>
         <div id="items" class="flex-1 overflow-y-auto"></div>
@@ -103,7 +103,7 @@ $admin = is_admin();
   function banner(kind, msg, link) {
     var b = $('banner'); b.hidden = !msg; b.textContent = '';
     if (!msg) return;
-    b.className = 'mb-4 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold ' + (kind === 'error' ? 'bg-[#FFD3CC] text-[#7E160A]' : 'bg-butter text-navy');
+    b.className = 'mb-4 flex flex-wrap items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold ' + (kind === 'error' ? 'bg-[#FFD3CC] text-[#7E160A]' : 'bg-butter text-navy');
     add(b, h('span', null, msg));
     if (link && isAdmin) { var a = h('a', 'underline underline-offset-4', 'Open Kuma settings'); a.href = 'settings/settings.php?tab=kuma'; b.appendChild(a); }
   }
@@ -112,7 +112,7 @@ $admin = is_admin();
     add(s, h('p', 'text-base font-semibold', title));
     if (text) add(s, h('p', 'mx-auto mt-2 max-w-md text-sm text-soft', text));
     if (withButton) {
-      if (isAdmin) { var a = h('a', 'pressable mt-6 inline-flex h-11 items-center rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95', 'Set up Kuma API Key'); a.href = 'settings/settings.php?tab=kuma'; s.appendChild(a); }
+      if (isAdmin) { var a = h('a', 'pressable mt-6 inline-flex h-11 items-center rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95', 'Set up Kuma API Key'); a.href = 'settings/settings.php?tab=kuma'; s.appendChild(a); }
       else add(s, h('p', 'mt-4 text-sm text-soft', 'Ask an admin to connect Kuma in Settings.'));
     }
   }

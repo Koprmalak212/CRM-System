@@ -133,7 +133,7 @@ function tab_handle(PDO $pdo, array $admin): void
             catch (RuntimeException $e) { flash('The encryption key is not configured on the server (app_key in includes/config.local.php), so no key was created.', 'bad'); return; }
             // key_hash is what incoming calls are checked against; key_enc lets an admin show the key again later.
             $pdo->prepare('INSERT INTO api_keys (name, key_prefix, key_hash, key_enc, scope, created_by) VALUES (?, ?, ?, ?, \'health:read\', ?)')->execute([$name, $prefix, $hash, $enc, $admin['id']]);
-            log_activity('warning', 'API key created', $name);
+            log_activity('info', 'API key created', $name);
             flash('API key created. It is saved: use Show key any time to see it again.');
             return;
 
@@ -153,7 +153,7 @@ function tab_render(PDO $pdo, array $admin): void
 {
     $level = integrations_level();
     $manage = $level === 'manage';
-    $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $btn = 'pressable inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-semibold hover:bg-white/5';
 
     $eps = $pdo->query('SELECT * FROM monitored_endpoints ORDER BY name')->fetchAll();
@@ -181,10 +181,10 @@ function tab_render(PDO $pdo, array $admin): void
     $apiUrl = $scheme . '://' . $host . rtrim(base_path(), '/') . '/api/health.php';
     ?>
 <?php if (!$manage): ?>
-  <p role="note" class="rise mb-6 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-soft">You have <strong class="text-ink">view only</strong> access. You can see the results and run checks. Ask an admin for "Can manage" to add endpoints or create API keys.</p>
+  <p role="note" class="rise mb-6 rounded-lg border border-line bg-panel px-4 py-3 text-sm text-soft">You have <strong class="text-ink">view only</strong> access. You can see the results and run checks. Ask an admin for "Can manage" to add endpoints or create API keys.</p>
 <?php endif; ?>
 
-<section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="ep-h">
+<section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="ep-h">
   <div class="flex flex-wrap items-start justify-between gap-3 border-b border-line p-5 sm:p-6">
     <div>
       <h2 id="ep-h" class="text-lg font-bold tracking-tight">Monitored endpoints</h2>
@@ -209,7 +209,7 @@ function tab_render(PDO $pdo, array $admin): void
       <tbody class="divide-y divide-line">
       <?php foreach ($eps as $ep): $id = (int) $ep['id']; $u = $uptime[$id] ?? null; $bars = array_reverse(array_slice($ribbon[$id] ?? [], 0, 24)); ?>
         <tr class="hover:bg-butter-50 <?= $ep['enabled'] ? '' : 'bg-ink/5' ?>">
-          <td class="px-4 py-3"><p class="font-semibold"><?= e($ep['name']) ?><?= $ep['enabled'] ? '' : ' <span class="text-xs font-medium text-soft">(paused)</span>' ?></p><p class="max-w-xs truncate text-soft notranslate" title="<?= e($ep['url']) ?>"><?= e($ep['method']) ?> · <?= e($ep['url']) ?></p></td>
+          <td class="px-4 py-3"><p class="font-semibold"><?= e($ep['name']) ?><?= $ep['enabled'] ? '' : ' <span class="text-xs font-semibold text-soft">(paused)</span>' ?></p><p class="max-w-xs truncate text-soft notranslate" title="<?= e($ep['url']) ?>"><?= e($ep['method']) ?> · <?= e($ep['url']) ?></p></td>
           <td class="px-4 py-3"><?= badge($ep['last_state']) ?><?php if ($ep['last_error'] !== ''): ?><p class="mt-1 max-w-[14rem] text-xs text-[#FF9C8C]"><?= e($ep['last_error']) ?></p><?php endif; ?></td>
           <td class="px-4 py-3 text-right tabular-nums notranslate"><?= $ep['last_latency_ms'] !== null ? e((string) $ep['last_latency_ms']) . ' ms' : '—' ?><?= $ep['last_status_code'] ? '<p class="text-xs text-soft">HTTP ' . (int) $ep['last_status_code'] . '</p>' : '' ?></td>
           <td class="px-4 py-3">
@@ -241,10 +241,10 @@ function tab_render(PDO $pdo, array $admin): void
 </section>
 
 <?php if ($showForm): ?>
-<section id="endpoint-form" class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="form-h">
+<section id="endpoint-form" class="rise mt-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="form-h">
   <h2 id="form-h" class="text-lg font-bold tracking-tight"><?= $isEdit ? 'Edit endpoint' : 'Add an endpoint' ?></h2>
   <?php if (!empty($form['errors'])): ?>
-    <div role="alert" class="mt-4 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><p class="font-semibold">It can not be saved yet:</p><ul class="mt-1 list-disc pl-5"><?php foreach ($form['errors'] as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div>
+    <div role="alert" class="mt-4 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><p class="font-semibold">It can not be saved yet:</p><ul class="mt-1 list-disc pl-5"><?php foreach ($form['errors'] as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div>
   <?php endif; ?>
   <form method="post" class="mt-4 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="integrations"><input type="hidden" name="action" value="<?= $isEdit ? 'edit' : 'add' ?>"><input type="hidden" name="id" value="<?= $formId ?>">
     <div><label for="f-name" class="text-sm font-semibold">Name</label><input id="f-name" name="name" maxlength="80" value="<?= e($v['name']) ?>" required class="<?= $field ?>"></div>
@@ -255,7 +255,7 @@ function tab_render(PDO $pdo, array $admin): void
     <div><label for="f-slow" class="text-sm font-semibold">Mark as slow above (ms)</label><input id="f-slow" name="slow_ms" inputmode="numeric" value="<?= e((string) $v['slow_ms']) ?>" class="<?= $field ?> tabular-nums"></div>
     <div><label for="f-int" class="text-sm font-semibold">Check every (minutes)</label><input id="f-int" name="interval_min" inputmode="numeric" value="<?= e((string) $v['interval_min']) ?>" class="<?= $field ?> tabular-nums"><p class="mt-1 text-xs text-soft">Used by the scheduled job.</p></div>
     <div class="flex items-end pb-1"><label class="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" name="enabled" value="1" <?= !empty($v['enabled']) ? 'checked' : '' ?> class="h-5 w-5 rounded border-line accent-lime">Active (include in scheduled checks)</label></div>
-    <fieldset class="rounded-xl border border-line p-4 sm:col-span-2"><legend class="px-2 text-sm font-semibold">Secret header (optional)</legend>
+    <fieldset class="rounded-lg border border-line p-4 sm:col-span-2"><legend class="px-2 text-sm font-semibold">Secret header (optional)</legend>
       <p class="text-xs text-soft">For endpoints that need a token, for example <span class="notranslate">Authorization</span>. The value is encrypted in the database and is never shown again.</p>
       <div class="mt-3 grid gap-4 sm:grid-cols-2">
         <div><label for="f-hn" class="text-sm font-semibold">Header name</label><input id="f-hn" name="auth_header" maxlength="60" value="<?= e($v['auth_header']) ?>" placeholder="Authorization" class="<?= $field ?> notranslate"></div>
@@ -264,19 +264,19 @@ function tab_render(PDO $pdo, array $admin): void
       <?php if ($secretSet): ?><label class="mt-3 flex items-center gap-3 text-sm"><input type="checkbox" name="remove_secret" value="1" class="h-5 w-5 rounded border-line accent-lime">Remove the stored secret</label><?php endif; ?>
     </fieldset>
     <div class="flex flex-wrap gap-3 sm:col-span-2">
-      <button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95"><?= $isEdit ? 'Save changes' : 'Add endpoint' ?></button>
-      <a href="settings/settings.php?tab=integrations" class="pressable inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold hover:bg-white/5">Cancel</a>
+      <button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95"><?= $isEdit ? 'Save changes' : 'Add endpoint' ?></button>
+      <a href="settings/settings.php?tab=integrations" class="pressable inline-flex h-11 items-center rounded-lg border border-line px-5 text-sm font-semibold hover:bg-white/5">Cancel</a>
     </div>
   </form>
 </section>
 <?php endif; ?>
 
-<section class="rise mt-6 rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s" aria-labelledby="key-h">
+<section class="rise mt-6 rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s" aria-labelledby="key-h">
   <div class="border-b border-line p-5 sm:p-6">
     <h2 id="key-h" class="text-lg font-bold tracking-tight">Health API for other tools</h2>
     <p class="mt-1 max-w-2xl text-sm text-soft">A read-only JSON feed of the health status. Tools such as a status page or uptime monitor call it with an API key. Keys are saved (encrypted), so you never have to create a new one just to see it again: press Show key. Incoming calls are checked against a separate hash.</p>
     <p class="mt-3 text-sm"><span class="text-soft">Address:</span> <code class="notranslate break-all rounded bg-white/10 px-1.5 py-0.5 text-ink"><?= e($apiUrl) ?></code></p>
-    <pre class="notranslate mt-2 overflow-x-auto rounded-xl bg-deep p-3 text-xs text-soft"><code>curl -H "Authorization: Bearer YOUR_KEY" <?= e($apiUrl) ?></code></pre>
+    <pre class="notranslate mt-2 overflow-x-auto rounded-lg bg-deep p-3 text-xs text-soft"><code>curl -H "Authorization: Bearer YOUR_KEY" <?= e($apiUrl) ?></code></pre>
   </div>
 
 
@@ -284,7 +284,7 @@ function tab_render(PDO $pdo, array $admin): void
   <?php if ($manage): ?>
   <form method="post" class="flex flex-wrap items-end gap-3 border-b border-line p-5 sm:p-6"><?= csrf_field() ?><input type="hidden" name="tab" value="integrations"><input type="hidden" name="action" value="key_create">
     <div class="min-w-64 flex-1"><label for="k-name" class="text-sm font-semibold">Key name</label><input id="k-name" name="key_name" maxlength="80" placeholder="For example: Status page" class="<?= $field ?>"></div>
-    <button class="pressable inline-flex h-11 items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Create key</button>
+    <button class="pressable inline-flex h-11 items-center gap-2 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>Create key</button>
   </form>
   <?php endif; ?>
 
@@ -307,7 +307,7 @@ function tab_render(PDO $pdo, array $admin): void
         </td>
         <td class="px-4 py-3 text-soft"><?= e(ago($k['created_at'])) ?></td>
         <td class="px-4 py-3 text-soft"><?= $k['last_used_at'] ? e(ago($k['last_used_at'])) : 'Never' ?></td>
-        <td class="px-4 py-3"><?= $rev ? '<span class="inline-flex rounded-full bg-[#FFD3CC] px-2.5 py-0.5 text-xs font-semibold text-[#7E160A]">Revoked</span>' : badge('active') ?></td>
+        <td class="px-4 py-3"><?= $rev ? '<span class="inline-flex rounded-full bg-coral/15 px-2.5 py-0.5 text-xs font-semibold text-[#FF9C8C]">Revoked</span>' : badge('active') ?></td>
         <?php if ($manage): ?><td class="px-4 py-3 text-right"><?php if (!$rev): ?>
           <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="integrations"><input type="hidden" name="action" value="key_revoke"><input type="hidden" name="id" value="<?= (int) $k['id'] ?>"><button class="<?= $btn ?> hover:bg-[#FFD3CC] hover:text-[#7E160A]">Revoke</button></form>
         <?php endif; ?></td><?php endif; ?>

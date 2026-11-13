@@ -33,7 +33,7 @@ function tab_handle(PDO $pdo, array $admin): void
         foreach ($new as $p => [$a, $b]) { $up->execute([$p, $a, $b]); }
         $on = !empty($_POST['sla_enabled']);
         $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('sla_enabled', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([$on ? '1' : '0']);
-        log_activity('warning', 'SLA targets saved', $on ? 'on' : 'off');
+        log_activity('info', 'SLA targets saved', $on ? 'on' : 'off');
         flash('SLA targets saved. They apply to tickets opened from now on, and to a ticket whose priority changes.');
         return;
     }
@@ -62,7 +62,7 @@ function tab_handle(PDO $pdo, array $admin): void
         $pdo->prepare('INSERT INTO inbox_settings (id, enabled, host, port, encryption, username, password_enc, folder, address, auto_reply, updated_at) VALUES (1,?,?,?,?,?,?,?,?,?,NOW())
             ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), host = VALUES(host), port = VALUES(port), encryption = VALUES(encryption), username = VALUES(username), password_enc = VALUES(password_enc), folder = VALUES(folder), address = VALUES(address), auto_reply = VALUES(auto_reply), updated_at = VALUES(updated_at)')
             ->execute([$enabled, $host, $port, $enc, $user, $pw, $folder, $address, !empty($_POST['auto_reply']) ? 1 : 0]);
-        log_activity('warning', 'Inbox settings saved', $host !== '' ? $host . ':' . $port . ($enabled ? ' (on)' : ' (off)') : '(no mail server)');   // never the password
+        log_activity('info', 'Inbox settings saved', $host !== '' ? $host . ':' . $port . ($enabled ? ' (on)' : ' (off)') : '(no mail server)');   // never the password
         flash($enabled ? 'Saved. Use "Test the connection" to check it, or "Read the mailbox now".' : 'Saved. Email to ticket is off.');
         return;
     }
@@ -99,13 +99,13 @@ function tab_render(PDO $pdo, array $admin): void
     $c = inbox_settings($pdo);
     $hasPw = !empty($c['password_enc']);
     $h = fn(int $min): string => rtrim(rtrim(number_format($min / 60, 2, ',', ''), '0'), ',');
-    $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
-    $cell = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm tabular-nums focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $cell = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm tabular-nums focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $log = $pdo->query('SELECT e.*, t.reference FROM ticket_emails e LEFT JOIN tickets t ON t.id = e.ticket_id ORDER BY e.id DESC LIMIT 15')->fetchAll();
     $states = ['never' => 'Not read yet', 'ok' => 'Read without problems', 'unauthorized' => 'The user name or password was refused', 'unreachable' => 'The mail server could not be reached', 'invalid' => 'The mail server gave an unexpected answer', 'busy' => 'Busy'];
     ?>
 <div class="grid items-start gap-6 lg:grid-cols-2">
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="sla-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="sla-h">
     <h2 id="sla-h" class="text-lg font-bold tracking-tight">SLA targets</h2>
     <p class="mt-1 text-sm text-soft">How long a first response and the solution may take, per priority, in hours. The clock runs 24 hours a day and stands still while a ticket is waiting for the customer. A contract can set shorter targets for one company.</p>
     <form method="post" class="mt-5" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="sla_save">
@@ -121,14 +121,14 @@ function tab_render(PDO $pdo, array $admin): void
           </tbody>
         </table>
       </div>
-      <label for="sla_enabled" class="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-line px-4 py-3 hover:bg-butter-50">
+      <label for="sla_enabled" class="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-line px-4 py-3 hover:bg-butter-50">
         <input id="sla_enabled" type="checkbox" name="sla_enabled" value="1" <?= $on ? 'checked' : '' ?> class="mt-1 h-4 w-4 shrink-0 accent-lime">
         <span><span class="block text-sm font-semibold">Track the SLA</span><span class="block text-sm text-soft">New tickets get their two targets. A ticket that is about to miss one raises a notification; one that misses its solution target is escalated.</span></span></label>
-      <button class="pressable mt-5 h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save targets</button>
+      <button class="pressable mt-5 h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save targets</button>
     </form>
   </section>
 
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="in-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="in-h">
     <h2 id="in-h" class="text-lg font-bold tracking-tight">Email to ticket</h2>
     <p class="mt-1 text-sm text-soft">A mailbox, for example support@, is read over IMAP. Every unread message becomes a ticket, and a reply with the reference in its subject is added to that ticket. The password is stored encrypted.</p>
     <form method="post" class="mt-5 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="inbox_save">
@@ -139,18 +139,18 @@ function tab_render(PDO $pdo, array $admin): void
       <div><label for="in_pass" class="text-sm font-semibold">Password</label><input id="in_pass" name="password" type="password" autocomplete="new-password" maxlength="512" placeholder="<?= $hasPw ? '••••••••  (saved, leave empty to keep)' : '' ?>" class="<?= $field ?>"></div>
       <div><label for="in_folder" class="text-sm font-semibold">Folder</label><input id="in_folder" name="folder" maxlength="80" value="<?= e($c['folder']) ?>" class="<?= $field ?> notranslate"></div>
       <div><label for="in_addr" class="text-sm font-semibold">Support address</label><input id="in_addr" name="address" type="email" maxlength="190" value="<?= e($c['address']) ?>" placeholder="support@example.com" class="<?= $field ?> notranslate"><p class="mt-1 text-xs text-soft">Customers reply to this address. Mail from it is never turned into a ticket.</p></div>
-      <label for="in_auto" class="flex cursor-pointer items-start gap-3 rounded-xl border border-line px-4 py-3 hover:bg-butter-50 sm:col-span-2">
+      <label for="in_auto" class="flex cursor-pointer items-start gap-3 rounded-lg border border-line px-4 py-3 hover:bg-butter-50 sm:col-span-2">
         <input id="in_auto" type="checkbox" name="auto_reply" value="1" <?= (int) $c['auto_reply'] ? 'checked' : '' ?> class="mt-1 h-4 w-4 shrink-0 accent-lime">
         <span><span class="block text-sm font-semibold">Confirm a new ticket to the sender</span><span class="block text-sm text-soft">One short email with the reference, so their replies find the ticket.</span></span></label>
-      <label for="in_on" class="flex cursor-pointer items-start gap-3 rounded-xl border border-line px-4 py-3 hover:bg-butter-50 sm:col-span-2">
+      <label for="in_on" class="flex cursor-pointer items-start gap-3 rounded-lg border border-line px-4 py-3 hover:bg-butter-50 sm:col-span-2">
         <input id="in_on" type="checkbox" name="enabled" value="1" <?= (int) $c['enabled'] ? 'checked' : '' ?> class="mt-1 h-4 w-4 shrink-0 accent-lime">
         <span><span class="block text-sm font-semibold">Read this mailbox</span><span class="block text-sm text-soft">Schedule <code class="notranslate">php bin/poll_inbox.php</code> every few minutes, or use the button below.</span></span></label>
-      <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save mailbox</button></div>
+      <div class="sm:col-span-2"><button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save mailbox</button></div>
     </form>
     <div class="mt-4 flex flex-wrap gap-3 border-t border-line pt-4">
-      <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="inbox_test"><button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Test the connection</button></form>
-      <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="inbox_run"><button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Read the mailbox now</button></form>
-      <?php if ($hasPw): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="inbox_clear_password"><button class="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Remove the saved password</button></form><?php endif; ?>
+      <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="inbox_test"><button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Test the connection</button></form>
+      <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="inbox_run"><button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Read the mailbox now</button></form>
+      <?php if ($hasPw): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="tickets"><input type="hidden" name="action" value="inbox_clear_password"><button class="h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Remove the saved password</button></form><?php endif; ?>
     </div>
     <dl class="mt-4 divide-y divide-line border-t border-line text-sm">
       <div class="flex justify-between gap-4 py-3"><dt class="text-soft">Last read</dt><dd class="text-right font-semibold"><?= $c['last_run_at'] ? e(ago((string) $c['last_run_at'])) : 'Never' ?></dd></div>
@@ -159,7 +159,7 @@ function tab_render(PDO $pdo, array $admin): void
   </section>
 </div>
 
-<section class="rise mt-6 rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="log-h">
+<section class="rise mt-6 rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="log-h">
   <div class="border-b border-line p-5 sm:p-6"><h2 id="log-h" class="text-lg font-bold tracking-tight">Last messages read</h2><p class="mt-1 text-sm text-soft">What happened to the 15 most recent emails. Only the sender, the subject and the outcome are kept here.</p></div>
   <?php if ($log): ?>
     <ul class="divide-y divide-line">

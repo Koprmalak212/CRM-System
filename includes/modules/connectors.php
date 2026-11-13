@@ -132,7 +132,7 @@ function connector_save(PDO $pdo, string $p, array $in, string $by): array
         updated_by = VALUES(updated_by), updated_at = NOW()')
         ->execute([$p, $v['enabled'], $v['base_url'], $v['account_ref'], $enc, $last4, $v['verify_tls'], $v['keep_text'], 'never', mb_substr($by, 0, 60), $keepState ? 1 : 0]);
     // the secret itself never goes in the log
-    log_activity('warning', $d['name'] . ' connector saved', ($v['enabled'] ? 'on' : 'off') . ' · ' . ($enc ? 'secret set' : 'no secret') . ($v['secret'] !== '' ? ' · secret replaced' : ''));
+    log_activity('info', $d['name'] . ' connector saved', ($v['enabled'] ? 'on' : 'off') . ' · ' . ($enc ? 'secret set' : 'no secret') . ($v['secret'] !== '' ? ' · secret replaced' : ''));
     return [true, $d['name'] . ' saved' . ($v['enabled'] ? ' and turned on.' : '. It is off.')];
 }
 

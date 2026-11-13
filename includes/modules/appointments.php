@@ -91,7 +91,7 @@ function appointments_panel(PDO $pdo, int $companyId, string $title, string $new
     $s = $pdo->prepare("SELECT a.*, u.name AS user_name FROM appointments a LEFT JOIN users u ON u.id = a.user_id WHERE a.company_id = ? AND a.ends_at >= NOW() AND a.status <> 'cancelled' ORDER BY a.starts_at LIMIT " . (int) $limit);
     $s->execute([$companyId]);
     $rows = $s->fetchAll();
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="ap-h"><div class="flex items-center justify-between gap-3"><h2 id="ap-h" class="text-base font-bold">' . e($title) . '</h2><a href="' . e($newLink) . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New appointment</a></div>';
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="ap-h"><div class="flex items-center justify-between gap-3"><h2 id="ap-h" class="text-base font-bold">' . e($title) . '</h2><a href="' . e($newLink) . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">New appointment</a></div>';
     if (!$rows) { return $h . '<p class="mt-3 text-sm text-soft">No upcoming appointments.</p><p class="mt-2 text-sm"><a class="font-semibold underline decoration-lime decoration-2 underline-offset-4" href="calendar/calendar.php?company=' . $companyId . '">Open the calendar</a></p></section>'; }
     $h .= '<ul class="mt-4 divide-y divide-line">';
     foreach ($rows as $r) {

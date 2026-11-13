@@ -51,7 +51,7 @@ page_start('Settings', 'settings', $lede);
 <nav class="rise mb-6 flex flex-wrap gap-2" aria-label="Settings sections">
   <?php foreach ($tabs as $key => $label): $on = $key === $tab; ?>
     <a href="settings/settings.php?tab=<?= e($key) ?>" <?= $on ? 'aria-current="page"' : '' ?>
-       class="inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>"><?= e($label) ?></a>
+       class="inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>"><?= e($label) ?></a>
   <?php endforeach; ?>
 </nav>
 <?php

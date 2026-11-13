@@ -25,8 +25,8 @@ function service_badge(string $provider, ?string $name = null): string
         }
     }
     $mark = $logo !== ''
-        ? '<span class="inline-grid h-7 shrink-0 place-items-center rounded-md bg-navy px-1.5"><img src="' . e($logo) . '" alt="" width="64" height="20" class="h-5 w-auto max-w-[6rem] object-contain"></span>'   // on a dark chip: many logos have white parts that would vanish on the light theme
-        : '<span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-md bg-ink/10 px-1 text-[10px] font-bold leading-none" aria-hidden="true">' . e(mb_strtoupper(mb_substr(preg_replace('/[^A-Za-z0-9]/', '', $name) ?: $name, 0, 3))) . '</span>';
+        ? '<span class="inline-grid h-7 shrink-0 place-items-center rounded-lg bg-navy px-1.5"><img src="' . e($logo) . '" alt="" width="64" height="20" class="h-5 w-auto max-w-[6rem] object-contain"></span>'   // on a dark chip: many logos have white parts that would vanish on the light theme
+        : '<span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-lg bg-ink/10 px-1 text-xs font-bold leading-none" aria-hidden="true">' . e(mb_strtoupper(mb_substr(preg_replace('/[^A-Za-z0-9]/', '', $name) ?: $name, 0, 3))) . '</span>';
     return '<span class="inline-flex items-center gap-2 whitespace-nowrap">' . $mark . '<span' . ($logo !== '' ? ' class="sr-only"' : '') . '>' . e($name) . '</span></span>';   // next to a logo the name is for screen readers only: the logo says it
 }
 const COMM_KINDS = ['call' => 'Calls', 'sms' => 'Messages'];
@@ -158,7 +158,7 @@ function comm_panel(PDO $pdo, string $column, int $id, string $title): string
     $t->execute([$id]);
     $total = (int) $t->fetchColumn();
     $all = 'calls/calls.php?' . ($column === 'user_id' ? 'person=' : 'company=') . $id;
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="comm-' . $column . '-h"><div class="flex items-center justify-between gap-3">'
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="comm-' . $column . '-h"><div class="flex items-center justify-between gap-3">'
         . '<h2 id="comm-' . $column . '-h" class="text-lg font-bold tracking-tight">' . e($title) . '</h2>'
         . ($total > 0 ? '<a href="' . e($all) . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">All ' . $total . '</a>' : '') . '</div>';
     if (!$rows) { return $h . '<p class="mt-3 text-sm text-soft">No calls or messages matched yet. They appear here when a phone system or Twilio is connected and the number is on file.</p></section>'; }
@@ -182,7 +182,7 @@ function shortlinks_panel(PDO $pdo, int $companyId): string
     $t = $pdo->prepare('SELECT COUNT(*) FROM short_links WHERE company_id = ?');
     $t->execute([$companyId]);
     $total = (int) $t->fetchColumn();
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="sl-h"><div class="flex items-center justify-between gap-3"><h2 id="sl-h" class="text-lg font-bold tracking-tight">Short links</h2>'
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="sl-h"><div class="flex items-center justify-between gap-3"><h2 id="sl-h" class="text-lg font-bold tracking-tight">Short links</h2>'
         . '<a href="links/links.php' . ($total > 0 ? '?company=' . $companyId : '') . '" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">' . ($total > 0 ? 'All ' . $total : 'Make one') . '</a></div>';
     if (!$rows) { return $h . '<p class="mt-3 text-sm text-soft">No short links for this company yet.</p></section>'; }
     $h .= '<ul class="mt-3 divide-y divide-line text-sm">';

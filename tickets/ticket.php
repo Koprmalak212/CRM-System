@@ -40,7 +40,7 @@ $comments->execute([$id]);
 $comments = $comments->fetchAll();
 $assignees = ticket_assignees($pdo);
 $replyTo = ticket_reply_address($pdo, $t);
-$field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 
 page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['created_at']));
 ?>
@@ -48,18 +48,18 @@ page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['c
 
 <div class="grid items-start gap-5 lg:grid-cols-3">
   <div class="space-y-5 lg:col-span-2">
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="desc-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="desc-h">
       <div class="flex flex-wrap items-center gap-2"><?= badge($t['status']) ?><?= badge($t['priority']) ?></div>
       <h2 id="desc-h" class="mt-3 text-base font-bold">Description</h2>
       <p class="mt-2 whitespace-pre-line text-sm"><?= e($t['description']) ?></p>
     </section>
 
-    <section id="thread" class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="th-h">
+    <section id="thread" class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="th-h">
       <h2 id="th-h" class="text-base font-bold">Comments</h2>
       <?php if ($comments): ?>
         <ol class="mt-4 space-y-4">
           <?php foreach ($comments as $c): $sys = $c['author'] === 'system'; ?>
-            <li class="rounded-xl <?= $sys ? 'border border-dashed border-line px-4 py-2.5' : 'bg-raised px-4 py-3' ?>">
+            <li class="rounded-lg <?= $sys ? 'border border-dashed border-line px-4 py-2.5' : 'bg-raised px-4 py-3' ?>">
               <div class="flex flex-wrap items-center gap-x-2 text-xs text-soft"><span class="font-semibold text-ink notranslate"><?= $sys ? 'Update' : e($c['author']) ?></span><?php if (($c['source'] ?? 'web') === 'email'): ?><span class="rounded-full bg-ink/10 px-2 py-0.5 font-semibold text-ink">by email</span><?php endif; ?><span><?= e(ago($c['created_at'])) ?></span></div>
               <p class="mt-1 whitespace-pre-line text-sm <?= $sys ? 'text-soft' : '' ?>"><?= e($c['body']) ?></p>
             </li>
@@ -68,8 +68,8 @@ page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['c
       <?php else: ?><p class="mt-3 text-sm text-soft">No comments yet.</p><?php endif; ?>
       <form method="post" class="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="comment">
         <div><label for="body" class="sr-only">Write a comment</label>
-          <textarea id="body" name="body" rows="3" maxlength="2000" required placeholder="Write a comment" class="w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></textarea></div>
-        <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Add comment</button>
+          <textarea id="body" name="body" rows="3" maxlength="2000" required placeholder="Write a comment" class="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></textarea></div>
+        <button class="pressable h-11 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Add comment</button>
         <?php if ($replyTo !== ''): ?><label for="email_reply" class="flex cursor-pointer items-center gap-2 text-sm sm:col-span-2"><input id="email_reply" type="checkbox" name="email_reply" value="1" <?= $t['requester_email'] !== '' ? 'checked' : '' ?> class="h-4 w-4 accent-lime"><span>Also email this reply to <span class="font-semibold notranslate"><?= e($replyTo) ?></span></span></label><?php endif; ?>
       </form>
     </section>
@@ -77,7 +77,7 @@ page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['c
 
   <div class="space-y-5">
     <?= sla_panel($t) ?>
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="up-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="up-h">
       <h2 id="up-h" class="text-base font-bold">Handling</h2>
       <form method="post" class="mt-4 space-y-4"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="update">
         <div><label for="status" class="text-sm font-semibold">Status</label>
@@ -86,19 +86,19 @@ page_start($t['subject'], 'tickets', $t['reference'] . ' · opened ' . ago($t['c
           <select id="priority" name="priority" class="<?= $field ?> mt-1.5"><?php foreach (TICKET_PRIORITIES as $k => $l): ?><option value="<?= $k ?>" <?= $t['priority'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
         <div><label for="assignee_id" class="text-sm font-semibold">Assignee</label>
           <select id="assignee_id" name="assignee_id" class="<?= $field ?> mt-1.5"><option value="0">Unassigned</option><?php foreach ($assignees as $aid => $an): ?><option value="<?= (int) $aid ?>" <?= (int) $t['assignee_id'] === (int) $aid ? 'selected' : '' ?>><?= e($an) ?></option><?php endforeach; ?></select></div>
-        <button class="pressable h-11 w-full rounded-xl border border-line text-sm font-semibold hover:bg-lime hover:text-navy">Save changes</button>
+        <button class="pressable h-11 w-full rounded-lg border border-line text-sm font-semibold hover:bg-lime hover:text-navy">Save changes</button>
       </form>
     </section>
 
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="in-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="in-h">
       <h2 id="in-h" class="text-base font-bold">Details</h2>
       <dl class="mt-4 space-y-3 text-sm">
-        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Company</dt><dd class="mt-1 font-medium"><?= $t['company_id'] !== null ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="companies/company.php?id=' . (int) $t['company_id'] . '">' . e($t['company_name']) . '</a>' : '<span class="text-soft">None</span>' ?></dd></div>
-        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Contact</dt><dd class="mt-1 font-medium"><?= $t['user_id'] !== null ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="users/user.php?id=' . (int) $t['user_id'] . '">' . e($t['user_name']) . '</a>' : '<span class="text-soft">None</span>' ?></dd></div>
-        <?php if ($t['requester_email'] !== ''): ?><div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Came in by email from</dt><dd class="mt-1 break-all font-medium notranslate"><?= e($t['requester_email']) ?></dd></div><?php endif; ?>
-        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Opened by</dt><dd class="mt-1 font-medium"><?= e($t['created_by'] ?: 'Unknown') ?></dd></div>
-        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Last update</dt><dd class="mt-1 font-medium"><?= e(date('j M Y, H:i', strtotime($t['updated_at']))) ?></dd></div>
-        <?php if ($t['resolved_at'] !== null): ?><div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Resolved</dt><dd class="mt-1 font-medium"><?= e(date('j M Y, H:i', strtotime($t['resolved_at']))) ?></dd></div><?php endif; ?>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Company</dt><dd class="mt-1 font-semibold"><?= $t['company_id'] !== null ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="companies/company.php?id=' . (int) $t['company_id'] . '">' . e($t['company_name']) . '</a>' : '<span class="text-soft">None</span>' ?></dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Contact</dt><dd class="mt-1 font-semibold"><?= $t['user_id'] !== null ? '<a class="underline decoration-lime decoration-2 underline-offset-4" href="users/user.php?id=' . (int) $t['user_id'] . '">' . e($t['user_name']) . '</a>' : '<span class="text-soft">None</span>' ?></dd></div>
+        <?php if ($t['requester_email'] !== ''): ?><div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Came in by email from</dt><dd class="mt-1 break-all font-semibold notranslate"><?= e($t['requester_email']) ?></dd></div><?php endif; ?>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Opened by</dt><dd class="mt-1 font-semibold"><?= e($t['created_by'] ?: 'Unknown') ?></dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Last update</dt><dd class="mt-1 font-semibold"><?= e(date('j M Y, H:i', strtotime($t['updated_at']))) ?></dd></div>
+        <?php if ($t['resolved_at'] !== null): ?><div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Resolved</dt><dd class="mt-1 font-semibold"><?= e(date('j M Y, H:i', strtotime($t['resolved_at']))) ?></dd></div><?php endif; ?>
       </dl>
     </section>
   </div>

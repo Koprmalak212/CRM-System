@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $inv) {
                     ->execute([$inv['username'], $inv['email'], $inv['name'], hash_password($new), $inv['role'], $inv['role'] === 'admin' ? 'manage' : $inv['perm_integrations']]);
                 $adminId = (int) $pdo->lastInsertId();
                 $pdo->commit();
-                log_activity('warning', 'Invitation accepted', (string) $inv['username'], (string) $inv['username']);
+                log_activity('info', 'Invitation accepted', (string) $inv['username'], (string) $inv['username']);
                 $row = $pdo->prepare('SELECT * FROM admins WHERE id = ?'); $row->execute([$adminId]);
                 flash('Welcome, ' . $inv['name'] . '! Your account is ready. You can add a second sign-in step below if you like.');
                 login_complete($pdo, $row->fetch(), 'settings/settings.php?tab=account');
@@ -56,18 +56,18 @@ public_head('Join the team');
 ?>
 <?php if (!$inv): ?>
     <h1 class="text-3xl font-bold tracking-tight">This invitation does not work</h1>
-    <p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= $locked ? 'Too many wrong links from your connection. Wait ' . TOKEN_WINDOW_MINUTES . ' minutes and try again.' : 'The invitation is not valid, has expired or was already used. Ask an admin to send a new one.' ?></p>
+    <p role="alert" class="mt-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= $locked ? 'Too many wrong links from your connection. Wait ' . TOKEN_WINDOW_MINUTES . ' minutes and try again.' : 'The invitation is not valid, has expired or was already used. Ask an admin to send a new one.' ?></p>
     <p class="mt-6 text-sm"><a href="auth/login.php" class="font-semibold underline decoration-lime decoration-2 underline-offset-4">Sign in</a></p>
 <?php else: ?>
     <h1 class="text-3xl font-bold tracking-tight">Join Telecomlijn Admin</h1>
-    <p class="mt-2 text-[15px] text-soft">Hello <?= e($inv['name']) ?>, you were invited as <strong class="text-ink notranslate"><?= e($inv['username']) ?></strong> (<?= $inv['role'] === 'admin' ? 'admin' : 'user' ?>). Choose a password of at least 12 characters.</p>
-    <?php if ($error): ?><p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
+    <p class="mt-2 text-sm text-soft">Hello <?= e($inv['name']) ?>, you were invited as <strong class="text-ink notranslate"><?= e($inv['username']) ?></strong> (<?= $inv['role'] === 'admin' ? 'admin' : 'user' ?>). Choose a password of at least 12 characters.</p>
+    <?php if ($error): ?><p role="alert" class="mt-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
     <form method="post" class="mt-6" novalidate><?= csrf_field() ?><input type="hidden" name="token" value="<?= e($token) ?>">
       <label for="new" class="block text-sm font-semibold">Password</label>
       <input id="new" name="new" type="password" autocomplete="new-password" required minlength="12" autofocus class="<?= PUBLIC_FIELD ?>">
       <label for="confirm" class="mt-4 block text-sm font-semibold">Confirm password</label>
       <input id="confirm" name="confirm" type="password" autocomplete="new-password" required class="<?= PUBLIC_FIELD ?>">
-      <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95">Create my account</button>
+      <button class="mt-6 h-12 w-full rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95">Create my account</button>
     </form>
 <?php endif; ?>
 <?php public_foot();

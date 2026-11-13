@@ -40,21 +40,21 @@ function tests_report_load(?string $file = null): ?array
 function tests_views_nav(string $view, int $logCount, ?array $report): string
 {
     $pill = static fn(string $key, string $label, int $n): string => '<a href="settings/settings.php?tab=tests' . ($key === 'checks' ? '&amp;view=checks' : '') . '" ' . ($view === $key ? 'aria-current="page" ' : '')
-        . 'class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold ' . ($view === $key ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50') . '">' . e($label)
-        . '<span class="tabular-nums ' . ($view === $key ? 'text-navy/70' : 'text-soft') . '">' . number_format($n) . '</span></a>';
+        . 'class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold ' . ($view === $key ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50') . '">' . e($label)
+        . '<span class="tabular-nums ' . ($view === $key ? 'text-ground/70' : 'text-soft') . '">' . number_format($n) . '</span></a>';
     return '<nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Test views">' . $pill('log', 'Documented tests', $logCount) . $pill('checks', 'Automated checks', $report ? $report['passed'] + $report['failed'] : 0) . '</nav>';
 }
 
 /** The automated checks of the last run, by section, with a search and a "failed only" filter. */
 function tests_render_checks(?array $report): void
 {
-    $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     if ($report === null) {
         ?>
-<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="chk-h">
+<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="chk-h">
   <h2 id="chk-h" class="text-lg font-bold tracking-tight">Automated checks</h2>
   <p class="mt-2 max-w-2xl text-sm text-soft">No run has been saved on this computer yet. The checks are run from the command line, and the result of the last run then appears here, every check with what it said:</p>
-  <pre class="mt-3 max-w-2xl overflow-x-auto rounded-xl bg-deep p-4 text-sm notranslate">C:\xampp\php\php.exe tests\run.php</pre>
+  <pre class="mt-3 max-w-2xl overflow-x-auto rounded-lg bg-deep p-4 text-sm notranslate">C:\xampp\php\php.exe tests\run.php</pre>
   <p class="mt-3 max-w-2xl text-sm text-soft">It needs Apache and MariaDB running and takes several minutes. See the install guide, section Tests.</p>
 </section>
 <?php
@@ -73,24 +73,24 @@ function tests_render_checks(?array $report): void
     }
     $filtered = $q !== '' || $onlyFailed;
     ?>
-<section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="chk-h">
+<section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="chk-h">
   <div class="border-b border-line p-5 sm:p-6">
     <h2 id="chk-h" class="text-lg font-bold tracking-tight">Automated checks</h2>
     <p class="mt-1 max-w-2xl text-sm text-soft">Every check of the last run of <code class="notranslate">tests\run.php</code> on this computer, in the order it ran. They test the program from the outside, like a visitor would. Run them again from the command line to refresh this list.</p>
   </div>
   <dl class="grid grid-cols-2 divide-line border-b border-line sm:grid-cols-4 sm:divide-x">
-    <div class="p-5"><dt class="text-sm font-medium text-soft">Checks</dt><dd class="mt-1 text-2xl font-bold tabular-nums"><?= number_format($total) ?></dd><dd class="mt-1 text-xs text-soft">in <?= count($report['sections']) ?> sections</dd></div>
-    <div class="p-5"><dt class="text-sm font-medium text-soft">Passed</dt><dd class="mt-1 text-2xl font-bold tabular-nums text-lime"><?= number_format($report['passed']) ?></dd></div>
-    <div class="p-5"><dt class="text-sm font-medium text-soft">Failed</dt><dd class="mt-1 text-2xl font-bold tabular-nums <?= $report['failed'] > 0 ? 'text-[#FF9C8C]' : '' ?>"><?= number_format($report['failed']) ?></dd></div>
-    <div class="p-5"><dt class="text-sm font-medium text-soft">Last run</dt><dd class="mt-1 text-lg font-bold"><?= $when ? e(ago(date('Y-m-d H:i:s', $when))) : 'unknown' ?></dd><dd class="mt-1 text-xs text-soft"><?= $when ? e(date('j M Y, H:i', $when)) : '' ?><?= $report['seconds'] > 0 ? ' · ' . e(duration($report['seconds'])) : '' ?></dd></div>
+    <div class="p-5"><dt class="text-sm font-semibold text-soft">Checks</dt><dd class="mt-1 text-2xl font-bold tabular-nums"><?= number_format($total) ?></dd><dd class="mt-1 text-xs text-soft">in <?= count($report['sections']) ?> sections</dd></div>
+    <div class="p-5"><dt class="text-sm font-semibold text-soft">Passed</dt><dd class="mt-1 text-2xl font-bold tabular-nums text-lime"><?= number_format($report['passed']) ?></dd></div>
+    <div class="p-5"><dt class="text-sm font-semibold text-soft">Failed</dt><dd class="mt-1 text-2xl font-bold tabular-nums <?= $report['failed'] > 0 ? 'text-[#FF9C8C]' : '' ?>"><?= number_format($report['failed']) ?></dd></div>
+    <div class="p-5"><dt class="text-sm font-semibold text-soft">Last run</dt><dd class="mt-1 text-lg font-bold"><?= $when ? e(ago(date('Y-m-d H:i:s', $when))) : 'unknown' ?></dd><dd class="mt-1 text-xs text-soft"><?= $when ? e(date('j M Y, H:i', $when)) : '' ?><?= $report['seconds'] > 0 ? ' · ' . e(duration($report['seconds'])) : '' ?></dd></div>
   </dl>
   <?php if ($report['aborted'] !== ''): ?><p role="alert" class="border-b border-line bg-coral/10 px-5 py-3 text-sm font-semibold text-[#FF9C8C] sm:px-6">The run stopped early: <?= e($report['aborted']) ?>. The checks after that point did not run.</p><?php endif; ?>
-  <form method="get" class="flex flex-wrap items-end gap-3 border-b border-line p-4">
+  <form method="get" data-auto class="flex flex-wrap items-end gap-3 border-b border-line p-4">
     <input type="hidden" name="tab" value="tests"><input type="hidden" name="view" value="checks">
     <div class="min-w-56 flex-1"><label for="c-q" class="mb-1 block text-xs font-semibold text-soft">Search the checks</label>
       <input id="c-q" name="cq" type="search" value="<?= e($q) ?>" maxlength="100" placeholder="For example invoice, password, tickets" class="<?= $field ?> w-full"></div>
     <label for="c-f" class="flex h-11 cursor-pointer items-center gap-2 text-sm font-semibold"><input id="c-f" type="checkbox" name="cf" value="failed" <?= $onlyFailed ? 'checked' : '' ?> class="h-4 w-4 accent-lime">Only failed</label>
-    <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($filtered): ?><a href="settings/settings.php?tab=tests&amp;view=checks" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </form>
   <?php if (!$shownSections): ?>
@@ -101,7 +101,7 @@ function tests_render_checks(?array $report): void
       <?php foreach ($shownSections as [$title, $rows, $failedN, $all]): ?>
         <details <?= $filtered || $failedN > 0 ? 'open' : '' ?>>
           <summary class="flex cursor-pointer flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm hover:bg-butter-50 sm:px-6"><span class="font-semibold"><?= e($title) ?></span>
-            <span class="flex items-center gap-2 text-xs"><span class="text-soft tabular-nums"><?= number_format($all) ?> check<?= $all === 1 ? '' : 's' ?></span><?= $failedN > 0 ? '<span class="inline-flex rounded-full bg-[#FFD3CC] px-2.5 py-0.5 font-semibold text-[#7E160A]">' . $failedN . ' failed</span>' : '<span class="inline-flex rounded-full bg-lime px-2.5 py-0.5 font-semibold text-navy">all passed</span>' ?></span></summary>
+            <span class="flex items-center gap-2 text-xs"><span class="text-soft tabular-nums"><?= number_format($all) ?> check<?= $all === 1 ? '' : 's' ?></span><?= $failedN > 0 ? '<span class="inline-flex rounded-full bg-coral/15 px-2.5 py-0.5 font-semibold text-[#FF9C8C]">' . $failedN . ' failed</span>' : '<span class="inline-flex rounded-full bg-lime/15 px-2.5 py-0.5 font-semibold text-lime">all passed</span>' ?></span></summary>
           <ul class="divide-y divide-line border-t border-line bg-deep/40">
             <?php foreach ($rows as [$name, $ok, $detail]): ?>
               <li class="flex items-start gap-3 px-5 py-2 text-sm sm:px-6"><span class="mt-0.5 shrink-0 <?= $ok ? 'text-lime' : 'text-[#FF9C8C]' ?>"><?= icon($ok ? 'check' : 'x', 'h-4 w-4') ?><span class="sr-only"><?= $ok ? 'Passed' : 'Failed' ?>:</span></span>

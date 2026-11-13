@@ -29,23 +29,23 @@ $size = (int) $pdo->query("SELECT COALESCE(SUM(size_mb),0) FROM backups WHERE st
 page_start('Backups', 'backups', 'History of every backup run and where it was stored.');
 ?>
 <div class="rise mb-6 grid gap-4 lg:grid-cols-[1fr_auto]">
-  <dl class="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel">
-    <div class="p-4 sm:p-5"><dt class="text-sm font-medium text-soft">Last good backup</dt><dd class="mt-1 text-xl font-bold sm:text-2xl"><?= $ok ? e(ago($ok)) : 'None' ?></dd></div>
-    <div class="p-4 sm:p-5"><dt class="text-sm font-medium text-soft">Failed, 7 days</dt><dd class="mt-1 text-xl font-bold sm:text-2xl <?= $fail7 ? 'text-[#FF9C8C]' : '' ?>"><?= $fail7 ?></dd></div>
-    <div class="p-4 sm:p-5"><dt class="text-sm font-medium text-soft">Stored</dt><dd class="mt-1 text-xl font-bold sm:text-2xl"><?= e(bytes_h($size * 1048576)) ?></dd></div>
+  <dl class="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-xl border border-line bg-panel shadow-panel">
+    <div class="p-4 sm:p-5"><dt class="text-sm font-semibold text-soft">Last good backup</dt><dd class="mt-1 text-xl font-bold sm:text-2xl"><?= $ok ? e(ago($ok)) : 'None' ?></dd></div>
+    <div class="p-4 sm:p-5"><dt class="text-sm font-semibold text-soft">Failed, 7 days</dt><dd class="mt-1 text-xl font-bold sm:text-2xl <?= $fail7 ? 'text-[#FF9C8C]' : '' ?>"><?= $fail7 ?></dd></div>
+    <div class="p-4 sm:p-5"><dt class="text-sm font-semibold text-soft">Stored</dt><dd class="mt-1 text-xl font-bold sm:text-2xl"><?= e(bytes_h($size * 1048576)) ?></dd></div>
   </dl>
-  <form method="post" class="flex flex-wrap items-end gap-3 rounded-2xl bg-butter p-4 text-navy sm:p-5"><?= csrf_field() ?>
+  <form method="post" class="flex flex-wrap items-end gap-3 rounded-xl bg-butter p-4 text-navy sm:p-5"><?= csrf_field() ?>
     <div>
       <label for="btype" class="block text-sm font-semibold">Run a backup now</label>
-      <select id="btype" name="type" class="mt-1.5 h-11 rounded-xl border border-navy/15 bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+      <select id="btype" name="type" class="mt-1.5 h-11 rounded-lg border border-navy/15 bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
         <option value="incremental">Incremental</option><option value="database">Database only</option><option value="full">Full</option>
       </select>
     </div>
-    <button class="inline-flex h-11 items-center gap-2 rounded-xl bg-navy px-5 text-sm font-bold text-white hover:bg-navy-800"><?= icon('database', 'h-4 w-4') ?>Start</button>
+    <button class="inline-flex h-11 items-center gap-2 rounded-lg bg-navy px-5 text-sm font-bold text-white hover:bg-navy-800"><?= icon('database', 'h-4 w-4') ?>Start</button>
   </form>
 </div>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
   <div class="overflow-x-auto">
     <table class="w-full min-w-[760px] text-left text-sm">
       <thead class="bg-butter-50 text-xs text-soft"><tr>

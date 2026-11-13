@@ -131,7 +131,7 @@ function sla_badge(array $t): string
     if (in_array($s['respond']['state'], ['late', 'warn'], true) && $s['resolve']['state'] !== 'late') { $pick = ['respond', $s['respond']]; }
     [$what, $p] = $pick;
     $tone = ['late' => 'bad', 'missed' => 'bad', 'warn' => 'warn', 'paused' => 'info', 'met' => 'ok', 'ok' => 'info'][$p['state']] ?? 'info';
-    $cls = ['ok' => 'bg-lime text-navy', 'info' => 'bg-ink/10 text-ink', 'warn' => 'bg-[#FFD9A0] text-[#5E3200]', 'bad' => 'bg-[#FFD3CC] text-[#7E160A]'][$tone];
+    $cls = ['ok' => 'bg-lime/15 text-lime', 'info' => 'bg-ink/10 text-ink', 'warn' => 'bg-butter-100 text-butter', 'bad' => 'bg-coral/15 text-[#FF9C8C]'][$tone];
     $m = sla_fmt_minutes((int) ceil(abs($p['left']) / 60));
     $short = match ($p['state']) {
         'late' => ($what === 'respond' ? 'No response, ' : 'Overdue ') . $m,
@@ -140,7 +140,7 @@ function sla_badge(array $t): string
         'paused' => 'Paused',
         default => 'In time',
     };
-    return '<span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ' . $cls . '" title="' . e(sla_text($p, $what)) . '"><span class="h-1.5 w-1.5 rounded-full bg-current' . ($tone === 'bad' || $tone === 'warn' ? ' dot-pulse' : '') . '"></span>' . e($short) . '</span>';
+    return '<span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ' . $cls . '" title="' . e(sla_text($p, $what)) . '"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>' . e($short) . '</span>';
 }
 
 /** SQL conditions on the tickets table (alias t) for the list filters. Constants only. */
@@ -212,8 +212,8 @@ function sla_panel(array $t): string
     $s = sla_state($t);
     if ($s['respond']['state'] === 'none' && $s['resolve']['state'] === 'none') { return ''; }
     $tone = fn(string $st) => ['late' => 'text-[#FF9C8C]', 'missed' => 'text-[#FF9C8C]', 'warn' => 'text-butter', 'met' => 'text-lime'][$st] ?? 'text-ink';
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="sla-h"><div class="flex items-center justify-between gap-2"><h2 id="sla-h" class="text-base font-bold">SLA</h2>'
-        . ($t['escalated_at'] !== null ? '<span class="inline-flex items-center rounded-full bg-[#FFD3CC] px-2.5 py-0.5 text-xs font-semibold text-[#7E160A]">Escalated</span>' : '') . '</div><dl class="mt-4 space-y-3 text-sm">';
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="sla-h"><div class="flex items-center justify-between gap-2"><h2 id="sla-h" class="text-base font-bold">SLA</h2>'
+        . ($t['escalated_at'] !== null ? '<span class="inline-flex items-center rounded-full bg-coral/15 px-2.5 py-0.5 text-xs font-semibold text-[#FF9C8C]">Escalated</span>' : '') . '</div><dl class="mt-4 space-y-3 text-sm">';
     foreach (['respond' => 'First response', 'resolve' => 'Solution'] as $what => $label) {
         $due = $t[$what . '_due_at'];
         if ($due === null) { continue; }

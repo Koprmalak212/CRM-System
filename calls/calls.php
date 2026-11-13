@@ -15,7 +15,7 @@ $base['sort'] = $sortKey === 'time' ? '' : $sortKey;   // the default sort is le
 $base['dir'] = ($sortKey === 'time' && $dir === 'desc') ? '' : $dir;
 
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 25;
+$per = page_size(25);
 $cnt = $pdo->prepare("SELECT COUNT(*) FROM comm_log c $where");
 $cnt->execute($args);
 $total = (int) $cnt->fetchColumn();
@@ -40,7 +40,7 @@ $names = $pdo->query("SELECT name FROM (SELECT u.name AS name FROM users u JOIN 
 $connected = (int) $pdo->query("SELECT COUNT(*) FROM connectors WHERE enabled = 1 AND provider IN ('threecx','yeastar','twilio')")->fetchColumn();
 $filtered = $f['kind'] . $f['service'] . $f['direction'] . $f['status'] . $f['company'] . $f['person'] . $f['staff'] . $f['who'] . $f['exact'] . $f['from'] . $f['to'] . $f['q'] !== '';
 
-$field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 $opt = static fn(array $list, string $cur, string $all) => '<option value="">' . e($all) . '</option>' . implode('', array_map(static fn($k, $v) => '<option value="' . e((string) $k) . '"' . ((string) $k === $cur ? ' selected' : '') . '>' . e((string) $v) . '</option>', array_keys($list), $list));
 $coOpts = ['none' => 'Unmatched numbers'] + array_column($companies, 'name', 'id');
 
@@ -50,13 +50,13 @@ if ($whoShown === '' && $f['person'] !== '') { $pn = $pdo->prepare('SELECT name 
 
 page_start('Calls', 'calls', 'Calls and text messages from your phone systems and Twilio, matched to people and companies by phone number.');
 ?>
-<dl class="rise mb-6 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel">
-  <div class="p-4 sm:p-5"><dt class="text-sm font-medium text-soft">Calls, 30 days</dt><dd class="mt-1 text-xl font-bold tabular-nums sm:text-2xl"><?= number_format($calls30) ?></dd></div>
-  <div class="p-4 sm:p-5"><dt class="text-sm font-medium text-soft">Missed incoming</dt><dd class="mt-1 text-xl font-bold tabular-nums sm:text-2xl <?= $missed30 ? 'text-[#FF9C8C]' : '' ?>"><?= number_format($missed30) ?></dd></div>
-  <div class="p-4 sm:p-5"><dt class="text-sm font-medium text-soft">Messages, 30 days</dt><dd class="mt-1 text-xl font-bold tabular-nums sm:text-2xl"><?= number_format($sms30) ?></dd></div>
+<dl class="rise mb-6 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-xl border border-line bg-panel shadow-panel">
+  <div class="p-4 sm:p-5"><dt class="text-sm font-semibold text-soft">Calls, 30 days</dt><dd class="mt-1 text-xl font-bold tabular-nums sm:text-2xl"><?= number_format($calls30) ?></dd></div>
+  <div class="p-4 sm:p-5"><dt class="text-sm font-semibold text-soft">Missed incoming</dt><dd class="mt-1 text-xl font-bold tabular-nums sm:text-2xl <?= $missed30 ? 'text-[#FF9C8C]' : '' ?>"><?= number_format($missed30) ?></dd></div>
+  <div class="p-4 sm:p-5"><dt class="text-sm font-semibold text-soft">Messages, 30 days</dt><dd class="mt-1 text-xl font-bold tabular-nums sm:text-2xl"><?= number_format($sms30) ?></dd></div>
 </dl>
 
-<form method="get" action="calls/calls.php" class="rise relative z-20 mb-4 grid gap-3 rounded-2xl border border-line bg-panel p-4 shadow-panel sm:grid-cols-2 lg:grid-cols-4 sm:p-5" aria-label="Filter calls and messages">
+<form method="get" action="calls/calls.php" data-auto class="rise relative z-20 mb-4 grid gap-3 rounded-xl border border-line bg-panel p-4 shadow-panel sm:grid-cols-2 lg:grid-cols-4 sm:p-5" aria-label="Filter calls and messages">
   <div><label for="f-kind" class="text-sm font-semibold">Type</label><select id="f-kind" name="kind" class="<?= e($field) ?>"><?= $opt(COMM_KINDS, $f['kind'], 'Calls and messages') ?></select></div>
   <div><label for="f-service" class="text-sm font-semibold">Service</label><select id="f-service" name="service" class="<?= e($field) ?>"><?= $opt(COMM_SERVICES, $f['service'], 'All services') ?></select></div>
   <div><label for="f-company" class="text-sm font-semibold">Company</label><select id="f-company" name="company" class="<?= e($field) ?>"><?= $opt($coOpts, $f['company'], 'All companies') ?></select></div>
@@ -64,10 +64,10 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
     <div class="relative mt-1.5">
       <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-soft"><?= icon('search', 'h-4 w-4') ?></span>
       <input id="f-who" name="who" type="text" role="combobox" aria-expanded="false" aria-controls="f-who-list" aria-autocomplete="list" maxlength="120" autocomplete="off" spellcheck="false"
-             placeholder="Search <?= count($names) ?> names" value="<?= e($whoShown) ?>" class="h-11 w-full rounded-xl border border-line bg-panel pl-9 pr-9 text-sm placeholder:text-soft/80 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+             placeholder="Search <?= count($names) ?> names" value="<?= e($whoShown) ?>" class="h-11 w-full rounded-lg border border-line bg-panel pl-9 pr-9 text-sm placeholder:text-soft/80 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
       <button type="button" id="f-who-clear" class="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-soft hover:bg-ink/10 hover:text-ink" aria-label="Clear the name" <?= $whoShown === '' ? 'hidden' : '' ?>><?= icon('x', 'h-4 w-4') ?></button>
     </div>
-    <ul id="f-who-list" role="listbox" aria-label="Names" hidden class="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-panel py-1 shadow-[0_14px_30px_-10px_rgba(0,0,0,.8)]"></ul>
+    <ul id="f-who-list" role="listbox" aria-label="Names" hidden class="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-line bg-panel py-1 shadow-[0_14px_30px_-10px_rgba(0,0,0,.8)]"></ul>
     <script type="application/json" id="f-who-data"><?= json_encode(array_values($names), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
   </div>
   <div><label for="f-direction" class="text-sm font-semibold">Direction</label><select id="f-direction" name="direction" class="<?= e($field) ?>"><?= $opt(COMM_DIRECTIONS, $f['direction'], 'Any direction') ?></select></div>
@@ -76,7 +76,7 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
   <div><label for="f-to" class="text-sm font-semibold">To date</label><input id="f-to" name="to" type="date" value="<?= e($f['to']) ?>" class="<?= e($field) ?>"></div>
   <div class="sm:col-span-2"><label for="f-q" class="text-sm font-semibold">Number or message text</label><input id="f-q" name="q" type="search" maxlength="60" placeholder="+31 6 1234 5678" value="<?= e($f['q']) ?>" class="<?= e($field) ?>"></div>
   <div class="flex items-end gap-3 sm:col-span-2">
-    <button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($filtered): ?><a href="calls/calls.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </div>
 </form>
@@ -129,7 +129,7 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
 </script>
 
 <?php if ($focus !== null && $whoShown !== ''): ?>
-<section class="rise mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-line bg-panel px-5 py-4 shadow-panel" aria-labelledby="focus-h">
+<section class="rise mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-line bg-panel px-5 py-4 shadow-panel" aria-labelledby="focus-h">
   <div class="min-w-0">
     <h2 id="focus-h" class="truncate text-lg font-bold tracking-tight"><?= e($whoShown) ?></h2>
     <p class="mt-0.5 text-sm text-soft"><?php if ((int) $focus['n'] === 0): ?>No calls or messages found for this name.<?php else: ?>
@@ -139,12 +139,12 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
       · <?= e(date('j M Y', strtotime((string) $focus['first_at']))) ?><?= substr((string) $focus['first_at'], 0, 10) !== substr((string) $focus['last_at'], 0, 10) ? ' to ' . e(date('j M Y', strtotime((string) $focus['last_at']))) : '' ?><?php endif; ?></p>
   </div>
   <div class="flex flex-wrap gap-2">
-    <?php if ($f['person'] !== ''): ?><a href="users/user.php?id=<?= (int) $f['person'] ?>" class="pressable inline-flex h-10 items-center rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Open profile</a><?php endif; ?>
-    <a href="calls/calls.php" class="pressable inline-flex h-10 items-center rounded-xl border border-line px-4 text-sm font-semibold hover:bg-butter-50">All calls</a>
+    <?php if ($f['person'] !== ''): ?><a href="users/user.php?id=<?= (int) $f['person'] ?>" class="pressable inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Open profile</a><?php endif; ?>
+    <a href="calls/calls.php" class="pressable inline-flex h-10 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:bg-butter-50">All calls</a>
   </div>
 </section>
 <?php endif; ?>
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
   <?php if (!$rows): ?>
     <div class="p-6 text-sm">
       <p class="font-semibold"><?= $filtered ? 'Nothing matches these filters.' : 'No calls or messages yet.' ?></p>
@@ -182,7 +182,7 @@ page_start('Calls', 'calls', 'Calls and text messages from your phone systems an
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $base) ?>
+  <?= pagination($total, $per, $page, $base, true) ?>
   <?php endif; ?>
 </div>
 <?php page_end(); ?>

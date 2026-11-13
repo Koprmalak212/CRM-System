@@ -43,15 +43,15 @@ public_head('Forgot password');
 ?>
     <h1 class="text-3xl font-bold tracking-tight">Forgot your password?</h1>
 <?php if ($sent): ?>
-    <p role="status" class="mt-6 rounded-xl bg-raised px-4 py-3 text-sm">If an account matches what you entered, an email with a reset link is on its way. The link works for <?= RESET_VALID_MINUTES ?> minutes and only once.</p>
+    <p role="status" class="mt-6 rounded-lg bg-raised px-4 py-3 text-sm">If an account matches what you entered, an email with a reset link is on its way. The link works for <?= RESET_VALID_MINUTES ?> minutes and only once.</p>
     <?php if (mail_is_local()): ?><p class="mt-3 text-sm text-soft">On localhost no mail server is set up: an admin can read the message in Settings &gt; Email &gt; Outbox.</p><?php endif; ?>
     <p class="mt-6 text-sm"><a href="auth/login.php" class="font-semibold underline decoration-lime decoration-2 underline-offset-4">Back to sign in</a></p>
 <?php else: ?>
-    <p class="mt-2 text-[15px] text-soft">Enter your username or email address and we will send you a link to choose a new one.</p>
+    <p class="mt-2 text-sm text-soft">Enter your username or email address and we will send you a link to choose a new one.</p>
     <form method="post" class="mt-6" novalidate><?= csrf_field() ?>
       <label for="who" class="block text-sm font-semibold">Username or email</label>
       <input id="who" name="who" type="text" autocomplete="username" required autofocus maxlength="190" class="<?= PUBLIC_FIELD ?>">
-      <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95">Send the reset link</button>
+      <button class="mt-6 h-12 w-full rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95">Send the reset link</button>
     </form>
     <p class="mt-6 text-center text-sm"><a href="auth/login.php" class="font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Back to sign in</a></p>
 <?php endif; ?>

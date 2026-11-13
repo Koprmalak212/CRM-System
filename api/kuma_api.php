@@ -53,7 +53,7 @@ $str = static fn($v): string => is_scalar($v) ? (string) $v : '';
 if ($action === 'save') {
     [$ok, $errors] = kuma_save($pdo, $str($in['kumaUrl'] ?? ''), $str($in['apiKey'] ?? ''), $str($in['pollIntervalSeconds'] ?? ''), (int) $_SESSION['admin']['id']);
     if (!$ok) { kuma_json(422, ['error' => 'validation', 'errors' => $errors]); }
-    log_activity('warning', 'Kuma settings saved', 'url and interval');   // never the key
+    log_activity('info', 'Kuma settings saved', 'url and interval');   // never the key
     kuma_json(200, ['ok' => true] + kuma_public_view(kuma_settings($pdo)));
 }
 

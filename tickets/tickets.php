@@ -7,6 +7,16 @@ require __DIR__ . '/../includes/core/layout.php';
 require_login();
 $pdo = db();
 
+// A status or assignee changed straight from a row of the list: the same rules and the same thread note as on the ticket page, then back to the list as it was.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_check();
+    $t = ticket_find($pdo, (int) ($_POST['id'] ?? 0)) ?? ticket_not_found();
+    [$changes, $err] = ticket_update($pdo, $t, array_intersect_key($_POST, ['status' => 1, 'assignee_id' => 1]));
+    if ($err) { flash(implode(' ', $err), 'error'); }
+    elseif ($changes) { ticket_comment($pdo, (int) $t['id'], 'Changed ' . implode(', ', $changes) . '.', 'system'); flash($t['reference'] . ' updated.'); }
+    redirect('tickets/tickets.php' . safe_back($_POST['back'] ?? ''));
+}
+
 $q = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
 $status = isset(TICKET_STATUSES[$_GET['status'] ?? '']) ? $_GET['status'] : '';
 $priority = isset(TICKET_PRIORITIES[$_GET['priority'] ?? '']) ? $_GET['priority'] : '';
@@ -18,7 +28,7 @@ $sorts = ['reference' => 't.id', 'subject' => 't.subject', 'company' => 'c.name'
 $sort = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'updated';
 $dir = ($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 15;
+$per = page_size(15);
 
 $where = []; $args = [];
 if ($q !== '') { $like = '%' . addcslashes($q, '\\%_') . '%'; $where[] = '(t.reference LIKE ? OR t.subject LIKE ? OR c.name LIKE ?)'; array_push($args, $like, $like, $like); }
@@ -47,19 +57,23 @@ $slaOn = sla_enabled($pdo);
 $slaCounts = $slaOn ? $pdo->query('SELECT COALESCE(SUM(' . sla_sql('breached') . '), 0) breached, COALESCE(SUM(' . sla_sql('risk') . '), 0) risk FROM tickets t')->fetch() : ['breached' => 0, 'risk' => 0];
 
 page_start('Tickets', 'tickets', 'Support requests from your customers. Filter, assign and follow them up.');
-$field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+// the status and assignee of a row are dropdowns that save on change (assets/js/ux.js); without JavaScript each has its own Save button
+$quick = 'h-8 min-w-0 rounded-lg border border-transparent bg-transparent pl-1.5 text-sm hover:border-line focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$dot = ['open' => 'text-ink', 'in_progress' => 'text-butter', 'waiting' => 'text-butter', 'resolved' => 'text-lime', 'closed' => 'text-soft'];
+$backQ = '?' . http_build_query(array_filter($base + ['page' => $page], fn($v) => $v !== '' && $v !== null));
 ?>
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Status filter">
   <?php foreach (['' => 'All'] + TICKET_STATUSES as $k => $label): $on = $status === $k; ?>
     <a href="<?= e(qs(['q' => $q, 'priority' => $priority, 'assignee' => $assignee, 'company' => $companyQs, 'sla' => $slaF], ['status' => $k])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
-       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>">
-      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
+       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>">
+      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
     </a>
   <?php endforeach; ?>
 </nav>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
-  <form method="get" class="flex flex-wrap items-center gap-3 border-b border-line p-4">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
+  <form method="get" data-auto class="flex flex-wrap items-center gap-3 border-b border-line p-4">
     <input type="hidden" name="status" value="<?= e($status) ?>">
     <label class="sr-only" for="q">Search</label>
     <input id="q" name="q" type="search" value="<?= e($q) ?>" placeholder="Reference, subject or company" class="<?= $field ?> w-full sm:w-64">
@@ -71,9 +85,9 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     <select id="company" name="company" class="<?= $field ?> max-w-[14rem]"><option value="">All companies</option><?php foreach ($companyList as $cid => $cn): ?><option value="<?= (int) $cid ?>" <?= $company === (int) $cid ? 'selected' : '' ?>><?= e($cn) ?></option><?php endforeach; ?></select>
     <?php if ($slaOn): ?><label class="sr-only" for="sla">SLA</label>
     <select id="sla" name="sla" class="<?= $field ?>"><option value="">Any SLA state</option><?php foreach (['breached' => 'Past a target (' . (int) $slaCounts['breached'] . ')', 'risk' => 'About to breach (' . (int) $slaCounts['risk'] . ')', 'escalated' => 'Escalated'] as $k => $l): ?><option value="<?= $k ?>" <?= $slaF === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select><?php endif; ?>
-    <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($q !== '' || $status !== '' || $priority !== '' || $assignee !== '' || $company > 0 || $slaF !== ''): ?><a href="tickets/tickets.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
-    <div class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('tickets') ?><a href="tickets/ticket_new.php" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>New ticket</a></div>
+    <div class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('tickets') ?><a href="tickets/ticket_new.php" class="pressable inline-flex h-11 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>New ticket</a></div>
   </form>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[1080px] text-left text-sm">
@@ -91,19 +105,28 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
           <tr class="hover:bg-butter-50">
             <td class="px-4 py-3"><a href="tickets/ticket.php?id=<?= (int) $t['id'] ?>" class="block max-w-[22rem] truncate font-semibold underline-offset-4 hover:text-lime hover:underline focus-visible:underline"><?= e($t['subject']) ?></a><p class="text-soft notranslate"><?= e($t['reference']) ?></p></td>
             <td class="px-4 py-3"><?= $t['company_id'] !== null ? '<a class="underline-offset-4 hover:underline" href="companies/company.php?id=' . (int) $t['company_id'] . '">' . e($t['company_name']) . '</a>' : '<span class="text-soft">None</span>' ?></td>
-            <td class="px-4 py-3"><?= badge($t['status']) ?></td>
+            <td class="px-4 py-2">
+              <form method="post" action="tickets/tickets.php" data-quick class="flex items-center gap-1.5"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><input type="hidden" name="back" value="<?= e($backQ) ?>">
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-current <?= $dot[$t['status']] ?? 'text-soft' ?>" aria-hidden="true"></span>
+                <select name="status" aria-label="Status of <?= e($t['reference']) ?>" class="<?= $quick ?>"><?php foreach (TICKET_STATUSES as $k => $l): if ($k === $t['status'] || ticket_can_move($t['status'], $k)): ?><option value="<?= $k ?>" <?= $k === $t['status'] ? 'selected' : '' ?>><?= e($l) ?></option><?php endif; endforeach; ?></select>
+                <button class="h-8 rounded-lg border border-line px-2 text-xs font-semibold">Save</button></form>
+            </td>
             <td class="px-4 py-3"><?= badge($t['priority']) ?></td>
             <?php if ($slaOn): ?><td class="px-4 py-3"><?= sla_badge($t) ?><?= $t['escalated_at'] !== null && !in_array($t['status'], ['resolved', 'closed'], true) ? '<p class="mt-1 text-xs font-semibold text-[#FF9C8C]">Escalated</p>' : '' ?></td><?php endif; ?>
-            <td class="px-4 py-3"><?= $t['assignee_id'] !== null ? e($t['assignee_name']) : '<span class="text-soft">Unassigned</span>' ?></td>
+            <td class="px-4 py-2">
+              <form method="post" action="tickets/tickets.php" data-quick class="flex items-center gap-1.5"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><input type="hidden" name="back" value="<?= e($backQ) ?>">
+                <select name="assignee_id" aria-label="Assignee of <?= e($t['reference']) ?>" class="<?= $quick ?> max-w-[11rem] <?= $t['assignee_id'] === null ? 'text-soft' : '' ?>"><option value="0">Unassigned</option><?php if ($t['assignee_id'] !== null && !isset($assignees[(int) $t['assignee_id']])): ?><option value="<?= (int) $t['assignee_id'] ?>" selected><?= e((string) $t['assignee_name']) ?></option><?php endif; foreach ($assignees as $aid => $an): ?><option value="<?= (int) $aid ?>" <?= (int) $t['assignee_id'] === (int) $aid ? 'selected' : '' ?>><?= e($an) ?></option><?php endforeach; ?></select>
+                <button class="h-8 rounded-lg border border-line px-2 text-xs font-semibold">Save</button></form>
+            </td>
             <td class="px-4 py-3 text-soft"><?= e(ago($t['updated_at'])) ?></td>
           </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-          <tr><td colspan="7" class="px-4 py-14 text-center"><p class="text-base font-semibold">No tickets match these filters</p><p class="mt-1 text-soft">Try different filters, or open a new ticket.</p><a href="tickets/tickets.php" class="mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">Show all tickets</a></td></tr>
+          <tr><td colspan="7" class="px-4 py-14 text-center"><?php if ($q !== '' || $status !== '' || $priority !== '' || $assignee !== '' || $company > 0 || $slaF !== ''): ?><p class="text-base font-semibold">No tickets match these filters</p><p class="mt-1 text-soft">Try different filters, or open a new ticket.</p><a href="tickets/tickets.php" class="mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">Show all tickets</a><?php else: ?><p class="text-base font-semibold">No tickets yet</p><p class="mt-1 text-soft">Tickets you open, or that arrive by email, are listed here.</p><a href="tickets/ticket_new.php" class="mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">New ticket</a><?php endif; ?></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $base) ?>
+  <?= pagination($total, $per, $page, $base, true) ?>
 </div>
 <?php page_end(); ?>

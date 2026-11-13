@@ -5,7 +5,8 @@ declare(strict_types=1);
  * Light and dark theme (stage 11).
  *
  * Colours are CSS variables (space-separated RGB triplets, so Tailwind's opacity modifiers like bg-ground/95 keep working).
- * The dark values are exactly the colours the dashboard always had. The light values are chosen so that text meets WCAG AA contrast;
+ * The dark values are the colours the dashboard always had, except the card colour (panel), which is one step lighter so a card reads as a
+ * surface on the page without leaning on its border. The light values are chosen so that text meets WCAG AA contrast;
  * tests/run.php computes the contrast of every pair listed in THEME_PAIRS from these same tables, so the palette and the check can not drift apart.
  *
  * "Islands": the sidebar and the service-health card keep the dark palette in both themes. Anything with the class on-navy
@@ -14,7 +15,7 @@ declare(strict_types=1);
  */
 
 const THEME_DARK = [
-    'ground' => '10 18 38', 'panel' => '17 29 54', 'raised' => '27 44 80', 'deep' => '7 14 31', 'line' => '35 53 89',
+    'ground' => '10 18 38', 'panel' => '21 34 62', 'raised' => '27 44 80', 'deep' => '7 14 31', 'line' => '35 53 89',
     'ink' => '238 242 250', 'soft' => '165 178 207',
     'limetext' => '199 243 107', 'buttertext' => '255 241 168', 'warntext' => '255 156 140', 'focus' => '199 243 107', 'placeholder' => '132 147 180',
     'chartlime' => '199 243 107', 'scroll' => '44 66 114',
@@ -91,7 +92,6 @@ function theme_style(): string
         . 'html .focus\\:ring-lime:focus{--tw-ring-color:rgb(var(--c-focus))}'
         . 'html .focus\\:border-lime:focus{border-color:rgb(var(--c-focus))}'
         . 'html .chart .bg-lime,html .chart-key.bg-lime{background-color:rgb(var(--c-chartlime))}'
-        . 'html[data-theme=light] body::before{background:radial-gradient(closest-side,rgba(140,170,230,.30),transparent)}html[data-theme=light] body::after{background:radial-gradient(closest-side,rgba(170,195,240,.32),transparent)}'   // the slow background lights turn pale blue
         . 'html[data-theme=light] .logo-on-dark{display:none}html:not([data-theme=light]) .logo-on-light{display:none}'
         . 'html[data-theme=light] .theme-sun{display:none}html:not([data-theme=light]) .theme-moon{display:none}'
         . '</style>';
@@ -104,7 +104,7 @@ function theme_boot_script(): string
 }
 
 /** The sun / moon button. It shows the sun in dark mode (click for light) and the moon in light mode. */
-function theme_toggle_button(string $cls = 'grid h-10 w-10 place-items-center rounded-xl hover:bg-ink/10'): string
+function theme_toggle_button(string $cls = 'grid h-10 w-10 place-items-center rounded-lg hover:bg-ink/10'): string
 {
     $svg = fn(string $c, string $p) => '<svg class="' . $c . ' h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
     return '<button type="button" data-theme-toggle class="' . e($cls) . '" aria-label="Switch to light mode" title="Switch to light mode">'

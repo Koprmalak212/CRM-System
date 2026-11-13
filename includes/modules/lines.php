@@ -82,11 +82,11 @@ function qty_text(float|string $q): string
 /** The lines section of a form. $services (key => label) adds a choice per line; $priceLabel is the heading of the price column. */
 function lines_fields(array $old, string $priceLabel, string $example, array $services = []): string
 {
-    $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $cols = $services ? 'sm:grid-cols-[150px_1fr_80px_120px_110px_36px]' : 'sm:grid-cols-[1fr_88px_120px_110px_36px]';
     $headCols = $services ? 'grid-cols-[150px_1fr_80px_120px_110px_36px]' : 'grid-cols-[1fr_88px_120px_110px_36px]';
     $line = function (array $it, bool $tpl) use ($field, $cols, $services, $example): string {
-        $h = '<div class="line grid grid-cols-2 gap-3 rounded-xl ' . $cols . ' sm:items-center">';
+        $h = '<div class="line grid grid-cols-2 gap-3 rounded-lg ' . $cols . ' sm:items-center">';
         if ($services) {
             $h .= '<select name="service[]" aria-label="Service" class="' . $field . ' col-span-2 sm:col-span-1">';
             foreach ($services as $k => $l) { $h .= '<option value="' . e($k) . '"' . ($it['service'] === $k ? ' selected' : '') . '>' . e($l) . '</option>'; }
@@ -99,7 +99,7 @@ function lines_fields(array $old, string $priceLabel, string $example, array $se
             . '<button type="button" class="rm grid h-9 w-9 place-items-center justify-self-end rounded-lg text-soft hover:bg-[#FFD3CC] hover:text-[#7E160A]" aria-label="Remove line">' . icon('x', 'h-4 w-4') . '</button></div>';
     };
     $h = '<div class="flex items-center justify-between gap-3"><h2 id="lines-h" class="text-lg font-bold tracking-tight">Lines</h2>'
-        . '<button type="button" id="addLine" class="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">' . icon('plus', 'h-4 w-4') . 'Add line</button></div>'
+        . '<button type="button" id="addLine" class="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">' . icon('plus', 'h-4 w-4') . 'Add line</button></div>'
         . '<div class="mt-4 hidden ' . $headCols . ' gap-3 px-1 text-xs font-semibold text-soft sm:grid">' . ($services ? '<span>Service</span>' : '') . '<span>Description</span><span>Qty</span><span>' . e($priceLabel) . '</span><span class="text-right">Line total</span><span></span></div>'
         . '<div id="lines" class="mt-2 space-y-3">';
     foreach ($old as $it) { $h .= $line($it + lines_blank(), false); }

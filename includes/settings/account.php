@@ -32,7 +32,7 @@ function tab_handle_2fa(PDO $pdo, array $admin, string $action): void
         $_SESSION['new_recovery'] = recovery_codes_make($pdo, (int) $me['id']);   // shown once, on the next page
         unset($_SESSION['totp_setup']);
         tfa_clear($pdo, (string) $me['username']);
-        log_activity('warning', 'Two-step sign-in turned on', (string) $me['username']);
+        log_activity('info', 'Two-step sign-in turned on', (string) $me['username']);
         flash('Two-step sign-in is on. Save your recovery codes now.');
         return;
     }
@@ -99,7 +99,7 @@ function tab_handle(PDO $pdo, array $admin): void
         bump_session_epoch($pdo, (int) $admin['id']);   // other devices are signed out
         session_regenerate_id(true);
         unset($_SESSION['csrf']);
-        log_activity('warning', 'Changed password', $admin['username']);
+        log_activity('info', 'Changed password', $admin['username']);
         flash('Password updated.');
     }
 }
@@ -108,38 +108,41 @@ function tab_render(PDO $pdo, array $admin): void
 {
     $ver = (string) $pdo->query('SELECT VERSION()')->fetchColumn();
     $tables = $pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()')->fetchColumn();
-    $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $roleText = is_admin() ? 'Admin' : 'User';
     $integ = ['none' => 'No access', 'view' => 'View only', 'manage' => 'Can manage'][integrations_level()];
     ?>
 <div class="grid gap-6 lg:grid-cols-2">
   <?php $pic = $pdo->prepare('SELECT avatar FROM admins WHERE id = ?'); $pic->execute([$admin['id']]); $pic = $pic->fetchColumn(); $pic = is_string($pic) ? $pic : null; ?>
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6 lg:col-span-2" aria-labelledby="pic-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6 lg:col-span-2" aria-labelledby="pic-h">
     <h2 id="pic-h" class="text-lg font-bold tracking-tight">Profile picture</h2>
     <p class="mt-1 text-sm text-soft">Shown next to your name at the top of every page and in the team list. JPG, PNG, WebP and <strong class="text-ink">GIF are supported, animated GIFs included</strong>. Up to <?= (int) (AVATAR_MAX_BYTES / 1048576) ?> MB and <?= AVATAR_MAX_PIXELS ?> by <?= AVATAR_MAX_PIXELS ?> pixels. The picture is shown round, so a square one fits best.</p>
     <div class="mt-5 flex flex-wrap items-center gap-5">
       <?= avatar_html($pic, $admin['name'], 'h-20 w-20', 'text-2xl') ?>
       <form method="post" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="avatar_upload">
-        <label for="avatar" class="sr-only">Choose a picture</label>
-        <input id="avatar" name="avatar" type="file" accept="image/gif,image/png,image/jpeg,image/webp" required class="max-w-full text-sm file:mr-3 file:h-11 file:cursor-pointer file:rounded-xl file:border file:border-line file:bg-panel file:px-4 file:text-sm file:font-semibold hover:file:bg-butter-50">
-        <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Upload picture</button>
+        <span class="inline-flex min-w-0 items-center gap-3">
+          <input id="avatar" name="avatar" type="file" accept="image/gif,image/png,image/jpeg,image/webp" required class="peer sr-only" data-file-name="avatar-name">
+          <label for="avatar" class="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50 peer-focus-visible:ring-2 peer-focus-visible:ring-lime">Choose a picture</label>
+          <span id="avatar-name" class="min-w-0 max-w-[14rem] truncate text-sm text-soft notranslate" aria-live="polite">No file chosen</span>
+        </span>
+        <button class="pressable h-11 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Upload picture</button>
       </form>
       <?php if ($pic !== null): ?>
       <form method="post"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="avatar_remove">
-        <button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50">Remove picture</button>
+        <button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-butter-50">Remove picture</button>
       </form>
       <?php endif; ?>
     </div>
   </section>
 
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="pw-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="pw-h">
     <h2 id="pw-h" class="text-lg font-bold tracking-tight">Change password</h2>
     <p class="mt-1 text-sm text-soft">Signed in as <?= e($admin['email']) ?> · <?= e($roleText) ?><?php if (module_enabled('health')): ?> · Integrations: <?= e($integ) ?><?php endif; ?></p>
     <form method="post" class="mt-5 space-y-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account">
       <div><label for="current" class="text-sm font-semibold">Current password</label><input id="current" name="current" type="password" autocomplete="current-password" required class="<?= $field ?>"></div>
       <div><label for="new" class="text-sm font-semibold">New password</label><input id="new" name="new" type="password" autocomplete="new-password" required minlength="12" class="<?= $field ?>"><p class="mt-1 text-xs text-soft">At least 12 characters. A short sentence works well.</p></div>
       <div><label for="confirm" class="text-sm font-semibold">Confirm new password</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" required class="<?= $field ?>"></div>
-      <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Update password</button>
+      <button class="pressable h-11 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Update password</button>
     </form>
   </section>
 
@@ -152,61 +155,61 @@ function tab_render(PDO $pdo, array $admin): void
     $secret = is_array($setup) ? (string) base64_decode((string) $setup['secret'], true) : '';
   ?>
   <?php if ($newCodes): ?>
-  <section class="rise rounded-2xl border border-butter/30 bg-butter-100 p-5 sm:p-6 lg:col-span-2" role="alert" aria-labelledby="rc-h">
+  <section class="rise rounded-xl border border-butter/30 bg-butter-100 p-5 sm:p-6 lg:col-span-2" role="alert" aria-labelledby="rc-h">
     <h2 id="rc-h" class="text-lg font-bold tracking-tight text-butter">Your recovery codes</h2>
     <p class="mt-1 text-sm">Keep these somewhere safe. Each code works once if you lose your phone. They will not be shown again.</p>
-    <ul class="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-deep p-4 font-mono text-sm notranslate select-all sm:grid-cols-5"><?php foreach ($newCodes as $c): ?><li><?= e($c) ?></li><?php endforeach; ?></ul>
+    <ul class="mt-4 grid grid-cols-2 gap-2 rounded-lg bg-deep p-4 font-mono text-sm notranslate select-all sm:grid-cols-5"><?php foreach ($newCodes as $c): ?><li><?= e($c) ?></li><?php endforeach; ?></ul>
   </section>
   <?php endif; ?>
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6 lg:col-span-2" aria-labelledby="tfa-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6 lg:col-span-2" aria-labelledby="tfa-h">
     <h2 id="tfa-h" class="text-lg font-bold tracking-tight">Two-step sign-in</h2>
     <?php if ($tfaOn): ?>
       <p class="mt-1 text-sm text-soft"><?= badge('active') ?> After your password you also enter a 6-digit code from your authenticator app. Unused recovery codes: <strong class="text-ink"><?= recovery_codes_left($pdo, (int) $admin['id']) ?></strong> of <?= TOTP_RECOVERY_COUNT ?>.</p>
       <form method="post" class="mt-5 grid gap-4 sm:grid-cols-3 sm:items-end"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_disable">
         <div><label for="off_pw" class="text-sm font-semibold">Your password</label><input id="off_pw" name="password" type="password" autocomplete="current-password" required class="<?= $field ?>"></div>
         <div><label for="off_code" class="text-sm font-semibold">Code from the app</label><input id="off_code" name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="40" class="<?= $field ?>"></div>
-        <button class="pressable h-11 rounded-xl border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Turn off two-step</button>
+        <button class="pressable h-11 rounded-lg border border-line text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Turn off two-step</button>
       </form>
     <?php elseif ($secret !== ''): ?>
       <p class="mt-1 text-sm text-soft">In your authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password and others) choose to add an account by entering a key, and type this key. Then enter the 6-digit code the app shows.</p>
       <dl class="mt-4 space-y-3 text-sm">
-        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Secret key</dt><dd class="mt-1 break-all rounded-xl bg-deep p-3 font-mono text-base tracking-wider notranslate select-all"><?= e(totp_secret_text($secret)) ?></dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Secret key</dt><dd class="mt-1 break-all rounded-lg bg-deep p-3 font-mono text-base tracking-wider notranslate select-all"><?= e(totp_secret_text($secret)) ?></dd></div>
         <div><dt class="text-xs font-semibold uppercase tracking-wide text-soft">Or open this link on the phone that has the app</dt><dd class="mt-1 break-all"><a class="underline decoration-lime decoration-2 underline-offset-4 notranslate" href="<?= e(totp_uri($secret, (string) $me['username'])) ?>"><?= e(totp_uri($secret, (string) $me['username'])) ?></a></dd></div>
       </dl>
       <form method="post" class="mt-5 flex flex-wrap items-end gap-3"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_confirm">
         <div><label for="on_code" class="text-sm font-semibold">First code from the app</label><input id="on_code" name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="10" class="<?= $field ?> w-44"></div>
-        <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Confirm and turn on</button>
+        <button class="pressable h-11 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Confirm and turn on</button>
       </form>
       <form method="post" class="mt-3"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_cancel"><button class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Cancel</button></form>
     <?php else: ?>
       <p class="mt-1 text-sm text-soft">Add a second step to your own sign-in: a 6-digit code from an authenticator app. Off for now.</p>
-      <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_start"><button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Set up two-step sign-in</button></form>
+      <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="2fa_start"><button class="pressable h-11 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Set up two-step sign-in</button></form>
     <?php endif; ?>
   </section>
 
   <?php $opt = (int) $pdo->query('SELECT notify_optin FROM admins WHERE id = ' . (int) $admin['id'])->fetchColumn() === 1; ?>
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="op-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="op-h">
     <h2 id="op-h" class="text-lg font-bold tracking-tight">Email me notifications</h2>
     <p class="mt-1 text-sm text-soft">Get the same notification emails (overdue invoices, failed backups, services down, urgent tickets) at your own address, <span class="notranslate"><?= e($admin['email']) ?></span>, in addition to the shared address. Now: <strong class="text-ink"><?= $opt ? 'on' : 'off' ?></strong>.</p>
     <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="optin"><input type="hidden" name="optin" value="<?= $opt ? '0' : '1' ?>">
-      <button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy"><?= $opt ? 'Stop emailing me' : 'Email me too' ?></button></form>
+      <button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy"><?= $opt ? 'Stop emailing me' : 'Email me too' ?></button></form>
   </section>
 
   <?php if (is_admin()): ?>
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.03s" aria-labelledby="nt-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.03s" aria-labelledby="nt-h">
     <h2 id="nt-h" class="text-lg font-bold tracking-tight">Notification email</h2>
     <p class="mt-1 text-sm text-soft">Where overdue invoices, failed backups, services that are down and urgent tickets are emailed is set together with the mail server, under <a class="underline decoration-lime decoration-2 underline-offset-4" href="settings/settings.php?tab=email">Settings &gt; Email</a> (EMAIL_TARGET).</p>
   </section>
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="rq-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="rq-h">
     <h2 id="rq-h" class="text-lg font-bold tracking-tight">Require two-step for admins</h2>
     <?php $req = (string) $pdo->query("SELECT v FROM app_meta WHERE k = 'require_2fa_admins'")->fetchColumn() === '1'; $adminsWithout = (int) $pdo->query("SELECT COUNT(*) FROM admins WHERE role = 'admin' AND is_active = 1 AND totp_enabled = 0")->fetchColumn(); ?>
     <p class="mt-1 text-sm text-soft">When on, an admin without two-step sign-in can only open this Account tab until they have set it up. Now: <strong class="text-ink"><?= $req ? 'required' : 'optional' ?></strong>; <?= $adminsWithout ?> active admin<?= $adminsWithout === 1 ? '' : 's' ?> without it.</p>
     <form method="post" class="mt-4"><?= csrf_field() ?><input type="hidden" name="tab" value="account"><input type="hidden" name="action" value="require2fa"><input type="hidden" name="require" value="<?= $req ? '0' : '1' ?>">
-      <button class="pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy"><?= $req ? 'Make it optional' : 'Require it for admins' ?></button></form>
+      <button class="pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy"><?= $req ? 'Make it optional' : 'Require it for admins' ?></button></form>
   </section>
   <?php endif; ?>
 
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="env-h">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="env-h">
     <h2 id="env-h" class="text-lg font-bold tracking-tight">Environment</h2>
     <dl class="mt-4 divide-y divide-line text-sm">
       <?php foreach ([['Web server', 'Apache'], ['PHP', 'PHP ' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION], ['Database', 'MariaDB ' . explode('.', $ver)[0] . '.' . (explode('.', $ver)[1] ?? '0')], ['Database name', DB_NAME], ['Tables', (string) $tables], ['Data', demo_loaded() ? 'Demo data loaded (remove it on the Overview page)' : 'Live data']] as [$k, $v]): ?>

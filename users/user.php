@@ -20,7 +20,7 @@ $u = $load();
 if (!$u) {
     http_response_code(404);
     page_start('User not found', 'users', 'That user does not exist. They may have been removed.');
-    echo '<a href="users/users.php" class="pressable inline-flex h-11 items-center rounded-xl bg-lime px-5 text-sm font-bold text-navy">Back to users</a>';
+    echo '<a href="users/users.php" class="pressable inline-flex h-11 items-center rounded-lg bg-lime px-5 text-sm font-bold text-navy">Back to users</a>';
     page_end();
     exit;
 }
@@ -87,7 +87,7 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
 ?>
 <nav class="rise mb-4 text-sm" aria-label="Breadcrumb"><a href="users/users.php" class="inline-flex items-center gap-1 font-semibold underline decoration-lime decoration-2 underline-offset-4">&larr; All users</a></nav>
 
-<section class="rise mb-5 flex flex-wrap items-center gap-5 rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-label="Profile">
+<section class="rise mb-5 flex flex-wrap items-center gap-5 rounded-xl border border-line bg-panel p-5 shadow-panel" aria-label="Profile">
   <span class="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-raised text-2xl font-bold text-lime"><?= e(initials($u['name'])) ?></span>
   <div class="min-w-0 flex-1">
     <p class="text-xl font-bold"><?= e($u['name']) ?></p>
@@ -98,25 +98,25 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
     <input type="hidden" name="id" value="<?= $id ?>">
     <?php if ($u['status'] === 'suspended'): ?>
       <input type="hidden" name="to" value="active">
-      <button class="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Reactivate account</button>
+      <button class="h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-lime hover:text-navy">Reactivate account</button>
     <?php else: ?>
       <input type="hidden" name="to" value="suspended">
-      <button class="h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Suspend account</button>
+      <button class="h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Suspend account</button>
     <?php endif; ?>
   </form>
 </section>
 
 <div class="grid gap-5 lg:grid-cols-3">
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel lg:col-span-2" aria-labelledby="det">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel lg:col-span-2" aria-labelledby="det">
     <h2 id="det" class="text-base font-bold">All details</h2>
     <dl class="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
       <?php foreach ($fields as $label => $html): ?>
-        <div class="min-w-0"><dt class="text-xs font-semibold uppercase tracking-wide text-soft"><?= e($label) ?></dt><dd class="mt-1 text-sm font-medium"><?= $html ?></dd></div>
+        <div class="min-w-0"><dt class="text-xs font-semibold uppercase tracking-wide text-soft"><?= e($label) ?></dt><dd class="mt-1 text-sm font-semibold"><?= $html ?></dd></div>
       <?php endforeach; ?>
     </dl>
   </section>
 
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="co">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="co">
     <h2 id="co" class="text-base font-bold">Colleagues at <?= $u['company_id'] !== null ? e($u['company']) : 'their company' ?></h2>
     <?php if ($mates): ?>
       <ul class="mt-4 divide-y divide-line">
@@ -129,12 +129,12 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
     <?php endif; ?>
     <form method="post" class="mt-5 border-t border-line pt-4"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="action" value="company">
       <label for="company_id" class="text-sm font-semibold">Company</label>
-      <div class="mt-1.5 flex gap-2"><select id="company_id" name="company_id" class="h-10 min-w-0 flex-1 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"><option value="0">No company</option><?php foreach ($pdo->query('SELECT id, name FROM companies ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR) as $cid => $cname): ?><option value="<?= (int) $cid ?>" <?= (int) $u['company_id'] === (int) $cid ? 'selected' : '' ?>><?= e($cname) ?></option><?php endforeach; ?></select>
-        <button class="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Save</button></div></form>
+      <div class="mt-1.5 flex gap-2"><select id="company_id" name="company_id" class="h-10 min-w-0 flex-1 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"><option value="0">No company</option><?php foreach ($pdo->query('SELECT id, name FROM companies ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR) as $cid => $cname): ?><option value="<?= (int) $cid ?>" <?= (int) $u['company_id'] === (int) $cid ? 'selected' : '' ?>><?= e($cname) ?></option><?php endforeach; ?></select>
+        <button class="h-10 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Save</button></div></form>
   </section>
 
   <?php if (module_enabled('connections')): ?>
-  <section class="rise rounded-2xl border border-line bg-panel shadow-panel lg:col-span-2" aria-labelledby="cn">
+  <section class="rise rounded-xl border border-line bg-panel shadow-panel lg:col-span-2" aria-labelledby="cn">
     <div class="flex items-center justify-between gap-3 p-5 pb-3"><h2 id="cn" class="text-base font-bold">Recent connections</h2><span class="text-xs text-soft"><?= number_format($connTotal) ?> in total</span></div>
     <div class="overflow-x-auto">
       <table class="w-full min-w-[560px] text-left text-sm">
@@ -150,12 +150,12 @@ page_start($u['name'], 'users', ($u['job_title'] !== '' ? $u['job_title'] . ' ·
   </section>
   <?php endif; ?>
 
-  <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="ac">
+  <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel" aria-labelledby="ac">
     <h2 id="ac" class="text-base font-bold">Recent activity</h2>
     <?php if ($logs): ?>
       <ul class="mt-4 space-y-3">
         <?php foreach ($logs as $l): ?>
-          <li class="text-sm"><div class="flex items-center gap-2"><?= badge($l['level']) ?><span class="text-xs text-soft"><?= e(ago($l['created_at'])) ?></span></div><p class="mt-1 font-medium"><?= e($l['action']) ?><?= $l['target'] !== '' ? ' <span class="text-soft">· ' . e($l['target']) . '</span>' : '' ?></p></li>
+          <li class="text-sm"><div class="flex items-center gap-2"><?= badge($l['level']) ?><span class="text-xs text-soft"><?= e(ago($l['created_at'])) ?></span></div><p class="mt-1 font-semibold"><?= e($l['action']) ?><?= $l['target'] !== '' ? ' <span class="text-soft">· ' . e($l['target']) . '</span>' : '' ?></p></li>
         <?php endforeach; ?>
       </ul>
     <?php else: ?>

@@ -94,9 +94,9 @@ function trend_fmt_hours(float $h): string
  */
 function trend_chart(string $id, string $title, string $sub, array $series, callable $fmt, string $valueHeading, string $summary, string $span = ''): string
 {
-    $h = '<section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6' . ($span !== '' ? ' ' . $span : '') . '" aria-labelledby="' . e($id) . '-h"><h3 id="' . e($id) . '-h" class="text-base font-bold tracking-tight">' . e($title) . '</h3><p class="text-sm text-soft">' . e($sub) . '</p>';
+    $h = '<section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6' . ($span !== '' ? ' ' . $span : '') . '" aria-labelledby="' . e($id) . '-h"><h3 id="' . e($id) . '-h" class="text-base font-bold tracking-tight">' . e($title) . '</h3><p class="text-sm text-soft">' . e($sub) . '</p>';
     if (!trend_has_data($series)) {
-        return $h . '<div class="mt-5 grid h-48 place-items-center rounded-xl border border-dashed border-line px-4 text-center text-sm text-soft" data-empty="1">No data yet. Numbers appear here as soon as there is something to count.</div></section>';
+        return $h . '<p class="mt-4 text-sm text-soft" data-empty="1">No data yet. Numbers appear here as soon as there is something to count.</p></section>';
     }
     $vals = array_map(fn($p) => (float) ($p['value'] ?? 0), $series);
     $max = max(1.0, ...$vals);

@@ -214,7 +214,7 @@ try {
     $pdo->prepare('DELETE FROM admins WHERE username = ?')->execute([$testUser]);
     $team = http('GET', "$base/settings/settings.php?tab=team", ['jar' => $admin]);
     $created = http('POST', "$base/settings/settings.php?tab=team", ['jar' => $admin, 'body' => http_build_query(['csrf' => csrf_from($team['body']), 'tab' => 'team', 'action' => 'add_user', 'username' => $testUser, 'name' => 'Kuma Tester', 'email' => 'kuma.tester@example.test', 'role' => 'user', 'perm' => 'manage'])]);
-    $tmpPw = preg_match('/select-all">([^<]+)</', http('GET', "$base/settings/settings.php?tab=team", ['jar' => $admin])['body'], $m) ? html_entity_decode($m[1]) : '';
+    $tmpPw = preg_match('/Temporary password: ([^\s<]+)/', http('GET', "$base/settings/settings.php?tab=team", ['jar' => $admin])['body'], $m) ? html_entity_decode($m[1]) : '';
     $pdo->prepare('UPDATE admins SET must_change_password = 0 WHERE username = ?')->execute([$testUser]);
     $user = login($base, $testUser, $tmpPw);
     check(str_contains(http('GET', "$base/index.php", ['jar' => $user])['body'], 'Overview'), 'normal test user signed in');
@@ -483,6 +483,7 @@ try {
     require TESTS_DIR . '/parts/stage21_inbound.php';
     require TESTS_DIR . '/parts/stage22_threecx.php';
     require TESTS_DIR . '/parts/stage23_testreport.php';
+    require TESTS_DIR . '/parts/stage24_ux.php';
 
 } catch (Throwable $e) {
     $fail++; $failures[] = 'test run aborted: ' . get_class($e) . ': ' . $e->getMessage();

@@ -5,10 +5,10 @@ require_once __DIR__ . '/../modules/invoices.php';   // valid_date()
 require_once __DIR__ . '/../modules/test_report.php';   // the report of the automated checks and its view
 
 const TEST_RESULTS = [
-    'pass' => ['Passed', 'bg-lime text-navy'],
-    'fixed' => ['Found and fixed', 'bg-butter text-navy'],
-    'open' => ['Open', 'bg-[#FFD3CC] text-[#7E160A]'],
-    'info' => ['Note', 'bg-white/10 text-ink'],
+    'pass' => ['Passed', 'bg-lime/15 text-lime'],
+    'fixed' => ['Found and fixed', 'bg-butter-100 text-butter'],
+    'open' => ['Open', 'bg-coral/15 text-[#FF9C8C]'],
+    'info' => ['Note', 'bg-ink/10 text-ink'],
 ];
 
 /**
@@ -142,32 +142,32 @@ function tab_render(PDO $pdo, array $admin): void
     $rows = $rows->fetchAll();
     $areas = $pdo->query('SELECT DISTINCT area FROM test_log ORDER BY area')->fetchAll(PDO::FETCH_COLUMN);
 
-    $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     ?>
-<section class="rise rounded-2xl border border-line bg-panel shadow-panel" aria-labelledby="tests-h">
+<section class="rise rounded-xl border border-line bg-panel shadow-panel" aria-labelledby="tests-h">
   <div class="flex flex-wrap items-start justify-between gap-3 border-b border-line p-5 sm:p-6">
     <div>
       <h2 id="tests-h" class="text-lg font-bold tracking-tight">Test log</h2>
       <p class="mt-1 max-w-2xl text-sm text-soft">A record of the tests performed on this dashboard, what each one found, and how it was fixed. It is documentation: nothing here changes how the dashboard behaves.</p>
     </div>
-    <a href="<?= e(qs($base, ['export' => 'csv', 'page' => null])) ?>" class="pressable inline-flex h-10 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('download', 'h-4 w-4') ?>Export as CSV</a>
+    <a href="<?= e(qs($base, ['export' => 'csv', 'page' => null])) ?>" class="pressable inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('download', 'h-4 w-4') ?>Export as CSV</a>
   </div>
 
   <nav class="flex flex-wrap gap-2 border-b border-line p-4" aria-label="Filter by result">
     <?php $all = array_sum($counts); foreach (['' => ['All', $all]] + array_map(fn($r, $k) => [$r[0], (int) ($counts[$k] ?? 0)], TEST_RESULTS, array_keys(TEST_RESULTS)) as $k => $v):
         $key = is_int($k) ? array_keys(TEST_RESULTS)[$k] : $k; $on = $result === $key; ?>
       <a href="<?= e(qs($base, ['result' => $key, 'page' => 1])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
-         class="inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line hover:bg-butter-50' ?>"><?= e($v[0]) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= (int) $v[1] ?></span></a>
+         class="inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line hover:bg-butter-50' ?>"><?= e($v[0]) ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= (int) $v[1] ?></span></a>
     <?php endforeach; ?>
   </nav>
 
-  <form method="get" class="flex flex-wrap items-end gap-3 border-b border-line p-4">
+  <form method="get" data-auto class="flex flex-wrap items-end gap-3 border-b border-line p-4">
     <input type="hidden" name="tab" value="tests"><input type="hidden" name="result" value="<?= e($result) ?>">
     <div><label for="t-area" class="mb-1 block text-xs font-semibold text-soft">Area</label>
       <select id="t-area" name="area" class="<?= $field ?>"><option value="">All areas</option><?php foreach ($areas as $a): ?><option <?= $area === $a ? 'selected' : '' ?>><?= e($a) ?></option><?php endforeach; ?></select></div>
     <div class="min-w-56 flex-1"><label for="t-q" class="mb-1 block text-xs font-semibold text-soft">Search</label>
       <input id="t-q" name="q" type="search" value="<?= e($q) ?>" placeholder="Test, finding, fix or reference" class="<?= $field ?> w-full"></div>
-    <button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($result !== '' || $area !== '' || $q !== ''): ?><a href="settings/settings.php?tab=tests" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </form>
 
@@ -192,24 +192,24 @@ function tab_render(PDO $pdo, array $admin): void
           <?php endif; ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$rows): ?><tr><td colspan="6" class="px-4 py-14 text-center"><p class="text-base font-semibold">No entries match</p><p class="mt-1 text-soft">Try another result, area or search term.</p><a href="settings/settings.php?tab=tests" class="pressable mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">Show all entries</a></td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="6" class="px-4 py-14 text-center"><p class="text-base font-semibold">No entries match</p><p class="mt-1 text-soft">Try another result, area or search term.</p><a href="settings/settings.php?tab=tests" class="pressable mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">Show all entries</a></td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>
   <?= pagination($total, $per, $page, $base) ?>
 </section>
 
-<section class="rise mt-6 rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="addtest-h">
+<section class="rise mt-6 rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="addtest-h">
   <details>
-    <summary class="pressable inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?><span id="addtest-h">Add a test result</span></summary>
+    <summary class="pressable inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?><span id="addtest-h">Add a test result</span></summary>
     <form method="post" class="mt-5 grid gap-4 sm:grid-cols-2" novalidate><?= csrf_field() ?><input type="hidden" name="tab" value="tests"><input type="hidden" name="action" value="add">
       <div><label for="n-date" class="text-sm font-semibold">Date of the test</label><input id="n-date" name="tested_on" type="date" max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>" required class="<?= $field ?> mt-1.5 w-full"></div>
       <div><label for="n-area" class="text-sm font-semibold">Area</label><input id="n-area" name="area" list="areas" maxlength="40" required class="<?= $field ?> mt-1.5 w-full"><datalist id="areas"><?php foreach ($areas as $a): ?><option value="<?= e($a) ?>"></option><?php endforeach; ?></datalist></div>
       <div class="sm:col-span-2"><label for="n-test" class="text-sm font-semibold">What was tested</label><input id="n-test" name="test" maxlength="200" required class="<?= $field ?> mt-1.5 w-full"></div>
       <div><label for="n-result" class="text-sm font-semibold">Result</label><select id="n-result" name="result" class="<?= $field ?> mt-1.5 w-full"><?php foreach (TEST_RESULTS as $k => $r): ?><option value="<?= $k ?>"><?= e($r[0]) ?></option><?php endforeach; ?></select></div>
-      <div class="sm:col-span-2"><label for="n-details" class="text-sm font-semibold">What was observed</label><textarea id="n-details" name="details" rows="3" maxlength="2000" required class="mt-1.5 w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></textarea></div>
-      <div class="sm:col-span-2"><label for="n-fix" class="text-sm font-semibold">Fix <span class="font-normal text-soft">(leave empty if nothing was needed)</span></label><textarea id="n-fix" name="fix" rows="2" maxlength="2000" class="mt-1.5 w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></textarea></div>
-      <div class="sm:col-span-2"><button class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Add to the log</button></div>
+      <div class="sm:col-span-2"><label for="n-details" class="text-sm font-semibold">What was observed</label><textarea id="n-details" name="details" rows="3" maxlength="2000" required class="mt-1.5 w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></textarea></div>
+      <div class="sm:col-span-2"><label for="n-fix" class="text-sm font-semibold">Fix <span class="font-normal text-soft">(leave empty if nothing was needed)</span></label><textarea id="n-fix" name="fix" rows="2" maxlength="2000" class="mt-1.5 w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime"></textarea></div>
+      <div class="sm:col-span-2"><button class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Add to the log</button></div>
     </form>
   </details>
 </section>

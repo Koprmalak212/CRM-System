@@ -72,7 +72,7 @@ function csv_buttons(string $type): string
 {
     $m = csv_type_module($type);
     if (!is_admin() || !isset(CSV_TYPES[$type]) || ($m !== null && !module_enabled($m))) { return ''; }
-    $cls = 'pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy';
+    $cls = 'pressable inline-flex h-11 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy';
     $h = '<a href="system/export.php?type=' . e($type) . '" class="' . $cls . '">' . icon('download', 'h-4 w-4') . 'Export CSV</a>';
     if (isset(CSV_IMPORT_TYPES[$type])) { $h .= '<a href="system/import.php?type=' . e($type) . '" class="' . $cls . '">' . icon('plus', 'h-4 w-4') . 'Import CSV</a>'; }
     return $h;

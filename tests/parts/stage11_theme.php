@@ -11,7 +11,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
     same(round(theme_contrast('0 0 0', '255 255 255'), 1), 21.0, 'contrast maths: black on white is 21:1');
     same(round(theme_contrast('255 255 255', '255 255 255'), 1), 1.0, 'and a colour on itself is 1:1');
     same(round(theme_contrast('119 119 119', '255 255 255'), 2), 4.48, 'a known value: #777 on white is 4.48:1 (just under AA)');
-    same(THEME_DARK['ground'] . '|' . THEME_DARK['panel'] . '|' . THEME_DARK['raised'] . '|' . THEME_DARK['line'] . '|' . THEME_DARK['ink'] . '|' . THEME_DARK['soft'], '10 18 38|17 29 54|27 44 80|35 53 89|238 242 250|165 178 207', 'the dark palette is exactly the colours the dashboard always had (#0A1226, #111D36, #1B2C50, #233559, #EEF2FA, #A5B2CF)');
+    same(THEME_DARK['ground'] . '|' . THEME_DARK['panel'] . '|' . THEME_DARK['raised'] . '|' . THEME_DARK['line'] . '|' . THEME_DARK['ink'] . '|' . THEME_DARK['soft'], '10 18 38|21 34 62|27 44 80|35 53 89|238 242 250|165 178 207', 'the dark palette is the colours the dashboard always had, with the card one step lighter (#0A1226, #15223E, #1B2C50, #233559, #EEF2FA, #A5B2CF)');
     same(array_keys(THEME_DARK), array_keys(THEME_LIGHT), 'the light palette defines every colour the dark one does');
     foreach (['dark' => THEME_DARK, 'light' => THEME_LIGHT] as $mode => $pal) {
         $bad = [];

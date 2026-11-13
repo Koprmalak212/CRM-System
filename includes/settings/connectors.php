@@ -51,8 +51,8 @@ function tab_handle(PDO $pdo, array $admin): void
 
 function tab_render(PDO $pdo, array $admin): void
 {
-    $field = 'mt-1.5 h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
-    $btn = 'pressable h-11 rounded-xl border border-line px-5 text-sm font-semibold hover:bg-butter-50';
+    $field = 'mt-1.5 h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $btn = 'pressable h-11 rounded-lg border border-line px-5 text-sm font-semibold hover:bg-butter-50';
     ?>
 <?php if (module_any('calls', 'links')): ?>
 <section class="rise max-w-3xl" aria-labelledby="cn-h">
@@ -66,7 +66,7 @@ function tab_render(PDO $pdo, array $admin): void
     $has = connector_has_secret($c);
     $state = (string) $c['last_state'];
     ?>
-<section id="c-<?= e($p) ?>" class="rise mt-6 max-w-3xl rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="c-<?= e($p) ?>-h">
+<section id="c-<?= e($p) ?>" class="rise mt-6 max-w-3xl rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="c-<?= e($p) ?>-h">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h3 id="c-<?= e($p) ?>-h" class="text-base font-bold"><?= service_badge($p, $d['name']) ?> <span class="ml-1 text-sm font-normal text-soft">gives you <?= e($d['gives']) ?></span></h3>
     <span class="text-sm font-semibold"><?= $c['enabled'] ? 'On' : 'Off' ?></span>
@@ -96,7 +96,7 @@ function tab_render(PDO $pdo, array $admin): void
       <?php endif; ?>
     </div>
     <div class="flex flex-wrap gap-3 sm:col-span-2">
-      <button name="action" value="save" class="pressable h-11 rounded-xl bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button>
+      <button name="action" value="save" class="pressable h-11 rounded-lg bg-lime px-6 text-sm font-bold text-navy hover:brightness-95">Save</button>
       <button name="action" value="test" class="<?= e($btn) ?>">Test connection</button>
       <button name="action" value="sync" class="<?= e($btn) ?>" <?= $c['enabled'] && $has ? '' : 'disabled aria-disabled="true"' ?>>Sync now</button>
       <?php if ($has): ?><button name="action" value="remove" class="<?= e($btn) ?>">Remove credentials</button><?php endif; ?>
@@ -107,7 +107,7 @@ function tab_render(PDO $pdo, array $admin): void
     <?php else: ?>Not synced yet.<?php endif; ?>
   </p>
   <?php $log = connector_log_recent($pdo, $p); ?>
-  <details class="mt-4 rounded-xl border border-line" <?= $log && $log[0]['state'] !== 'ok' ? 'open' : '' ?>>
+  <details class="mt-4 rounded-lg border border-line" <?= $log && $log[0]['state'] !== 'ok' ? 'open' : '' ?>>
     <summary class="cursor-pointer px-4 py-3 text-sm font-semibold">Log <span class="font-normal text-soft">(<?= count($log) ?> recent: every test and sync, with what the service answered)</span></summary>
     <?php if (!$log): ?><p class="border-t border-line px-4 py-4 text-sm text-soft">Nothing has been tested or synced yet. Press Test connection and the result is written here.</p>
     <?php else: ?><ul class="divide-y divide-line border-t border-line">

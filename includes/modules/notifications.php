@@ -144,10 +144,10 @@ function notifications_bell(PDO $pdo): string
     $unread = notifications_unread($pdo);
     $rows = $pdo->query('SELECT * FROM notifications WHERE TRUE' . notifications_hidden_sql() . ' ORDER BY created_at DESC, id DESC LIMIT 6')->fetchAll();
     $label = $unread > 0 ? 'Notifications, ' . $unread . ' unread' : 'Notifications, none unread';
-    $h = '<details id="bell" class="relative"><summary class="bell-btn relative grid h-10 w-10 cursor-pointer list-none place-items-center rounded-xl hover:bg-ink/10" aria-label="' . e($label) . '"'
+    $h = '<details id="bell" class="relative"><summary class="bell-btn relative grid h-10 w-10 cursor-pointer list-none place-items-center rounded-lg hover:bg-ink/10" aria-label="' . e($label) . '"'
         . ($unread > 0 ? ' data-unread="1"' : '') . '><svg class="bell-ic h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
-    if ($unread > 0) { $h .= '<span class="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#C0261B] px-1 text-[11px] font-bold leading-none text-white" aria-hidden="true">' . ($unread > 99 ? '99+' : $unread) . '</span>'; }
-    $h .= '</summary><div class="absolute right-0 top-12 z-50 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-line bg-panel shadow-[0_14px_30px_-10px_rgba(0,0,0,.8)]">'
+    if ($unread > 0) { $h .= '<span class="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#C0261B] px-1 text-xs font-bold leading-none text-white" aria-hidden="true">' . ($unread > 99 ? '99+' : $unread) . '</span>'; }
+    $h .= '</summary><div class="absolute right-0 top-12 z-50 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-line bg-panel shadow-[0_14px_30px_-10px_rgba(0,0,0,.8)]">'
         . '<div class="flex items-center justify-between gap-3 border-b border-line px-4 py-3"><p class="text-sm font-bold">Notifications</p>';
     if ($unread > 0) {
         $h .= '<form method="post" action="notifications/notifications.php">' . csrf_field() . '<input type="hidden" name="action" value="read_all"><input type="hidden" name="back" value="' . e(current_page() !== '' ? current_page() : 'index.php') . '"><button class="text-xs font-semibold underline decoration-lime decoration-2 underline-offset-4">Mark all read</button></form>';

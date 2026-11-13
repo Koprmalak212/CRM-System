@@ -49,6 +49,7 @@ function notes_handle_post(PDO $pdo, string $type, int $id, string $back): never
     if (!note_can_change($note)) { deny_access('note:change'); }
     if ($action === 'note_delete') {
         $pdo->prepare('DELETE FROM notes WHERE id = ?')->execute([$note['id']]);
+        undo_remember('notes', $note, $back . '#timeline', 'Note');
         log_activity('warning', 'Note deleted', $type . ' #' . $id . ' · ' . $note['kind']);
         flash('Note deleted.');
     } else {   // note_edit
@@ -114,13 +115,13 @@ function timeline_items(PDO $pdo, string $type, int $id, int $limit = 50): array
 function notes_panel(PDO $pdo, string $type, int $id, string $action): string
 {
     $items = timeline_items($pdo, $type, $id);
-    $field = 'rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
-    $h = '<section id="timeline" class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel lg:col-span-3" aria-labelledby="tl-h"><h2 id="tl-h" class="text-base font-bold">Notes and timeline</h2>';
+    $field = 'rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $h = '<section id="timeline" class="rise rounded-xl border border-line bg-panel p-5 shadow-panel lg:col-span-3" aria-labelledby="tl-h"><h2 id="tl-h" class="text-base font-bold">Notes and timeline</h2>';
     $h .= '<form method="post" action="' . e($action) . '" class="mt-4 grid gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-start">' . csrf_field() . '<input type="hidden" name="action" value="note"><input type="hidden" name="id" value="' . $id . '">';
     $h .= '<div><label for="note_kind" class="sr-only">Kind</label><select id="note_kind" name="kind" class="h-11 w-full ' . $field . '">';
     foreach (NOTE_KINDS as $k => $l) { $h .= '<option value="' . $k . '">' . e($l) . '</option>'; }
     $h .= '</select></div><div><label for="note_body" class="sr-only">Write a note</label><textarea id="note_body" name="body" rows="2" maxlength="' . NOTE_MAX . '" required placeholder="What happened? Calls, emails and meetings can be logged here too." class="w-full py-2 ' . $field . '"></textarea></div>';
-    $h .= '<button class="pressable h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Add note</button></form>';
+    $h .= '<button class="pressable h-11 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Add note</button></form>';
     if ($items) {
         $h .= '<ol class="mt-5 space-y-4 border-l border-line pl-5">';
         foreach ($items as $it) {
@@ -140,12 +141,12 @@ function notes_panel(PDO $pdo, string $type, int $id, string $action): string
 /** "Edit" for a note: a details element with the edit form, and Delete tucked inside it so it takes two steps. */
 function note_controls(array $n, string $action, int $targetId): string
 {
-    $field = 'rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+    $field = 'rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
     $h = '<details class="mt-1"><summary class="cursor-pointer text-xs font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Edit</summary>';
     $h .= '<form method="post" action="' . e($action) . '" class="mt-2 grid gap-2 sm:grid-cols-[9rem_1fr_auto] sm:items-start">' . csrf_field() . '<input type="hidden" name="action" value="note_edit"><input type="hidden" name="id" value="' . $targetId . '"><input type="hidden" name="note_id" value="' . (int) $n['id'] . '">';
     $h .= '<select name="kind" aria-label="Kind" class="h-10 ' . $field . '">';
     foreach (NOTE_KINDS as $k => $l) { $h .= '<option value="' . $k . '"' . ($n['kind'] === $k ? ' selected' : '') . '>' . e($l) . '</option>'; }
-    $h .= '</select><textarea name="body" rows="2" maxlength="' . NOTE_MAX . '" aria-label="Note text" required class="py-2 ' . $field . '">' . e($n['body']) . '</textarea><button class="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Save</button></form>';
+    $h .= '</select><textarea name="body" rows="2" maxlength="' . NOTE_MAX . '" aria-label="Note text" required class="py-2 ' . $field . '">' . e($n['body']) . '</textarea><button class="h-10 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy">Save</button></form>';
     $h .= '<form method="post" action="' . e($action) . '" class="mt-2">' . csrf_field() . '<input type="hidden" name="action" value="note_delete"><input type="hidden" name="id" value="' . $targetId . '"><input type="hidden" name="note_id" value="' . (int) $n['id'] . '"><button class="h-9 rounded-lg border border-line px-3 text-sm font-semibold hover:bg-[#FFD3CC] hover:text-[#7E160A]">Delete this note</button></form></details>';
     return $h;
 }

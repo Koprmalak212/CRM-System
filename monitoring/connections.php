@@ -23,7 +23,7 @@ $sorts = ['name' => 'u.name', 'ip' => 'c.ip', 'status' => 'c.status', 'started_a
 $sortKey = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'started_at';
 $dir = ($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 15;
+$per = page_size(15);
 
 $w = $status !== '' ? 'WHERE c.status = ?' : '';
 $args = $status !== '' ? [$status] : [];
@@ -42,13 +42,13 @@ page_start('Connections', 'connections', 'Open sessions right now. Flagged ones 
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Status filter">
   <?php foreach (['' => 'All', 'active' => 'Active', 'idle' => 'Idle', 'flagged' => 'Flagged'] as $k => $label): $on = $status === $k; ?>
     <a href="<?= e(qs([], ['status' => $k])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
-       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>">
-      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
+       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>">
+      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= $k === '' ? array_sum($counts) : (int) ($counts[$k] ?? 0) ?></span>
     </a>
   <?php endforeach; ?>
 </nav>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.05s">
   <div class="overflow-x-auto">
     <table class="w-full min-w-[900px] text-left text-sm">
       <thead class="bg-butter-50 text-xs text-soft">
@@ -83,11 +83,11 @@ page_start('Connections', 'connections', 'Open sessions right now. Flagged ones 
           </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-          <tr><td colspan="8" class="px-4 py-14 text-center"><p class="text-base font-semibold">No open sessions here</p><p class="mt-1 text-soft">Nothing matches this filter right now.</p><a href="monitoring/connections.php" class="mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">Show all sessions</a></td></tr>
+          <tr><td colspan="8" class="px-4 py-14 text-center"><p class="text-base font-semibold">No open sessions here</p><p class="mt-1 text-soft">Nothing matches this filter right now.</p><a href="monitoring/connections.php" class="mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">Show all sessions</a></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $base) ?>
+  <?= pagination($total, $per, $page, $base, true) ?>
 </div>
 <?php page_end(); ?>

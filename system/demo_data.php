@@ -23,7 +23,7 @@ $action = (string) ($_POST['action'] ?? '');
 try {
     if ($action === 'seed') {
         $counts = demo_seed($pdo);
-        log_activity('warning', 'Demo data loaded', number_format(array_sum($counts)) . ' rows');
+        log_activity('info', 'Demo data loaded', number_format(array_sum($counts)) . ' rows');
         flash('Demo data loaded: ' . $label($counts) . '. Everything you entered yourself is unchanged.');
     } elseif ($action === 'remove') {
         if (($_POST['confirm'] ?? '') !== 'yes') { flash('Confirm the removal first.', 'bad'); redirect('index.php#demo-data'); }

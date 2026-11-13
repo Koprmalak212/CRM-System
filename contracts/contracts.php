@@ -14,7 +14,7 @@ $sorts = ['number' => 'number', 'company' => 'company_name', 'monthly' => 'month
 $sortKey = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'end';
 $dir = ($_GET['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 15;
+$per = page_size(15);
 
 $where = []; $args = [];
 if ($q !== '') { $like = '%' . addcslashes($q, '\\%_') . '%'; $where[] = '(number LIKE ? OR title LIKE ? OR company_name LIKE ?)'; array_push($args, $like, $like, $like); }
@@ -43,10 +43,10 @@ $baseQ = ['state' => $state, 'q' => $q, 'company' => $companyQs, 'sort' => $sort
 $billing = module_enabled('invoices');
 
 page_start('Contracts', 'contracts', 'Which services every company has, what it pays a month, and when the contract ends or renews.');
-$field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <div class="rise mb-6 flex flex-wrap items-center justify-between gap-3">
-  <dl class="grid flex-1 grid-cols-2 divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-panel lg:grid-cols-4 lg:divide-x" style="min-width:min(100%,640px)">
+  <dl class="grid flex-1 grid-cols-2 divide-line overflow-hidden rounded-xl border border-line bg-panel shadow-panel lg:grid-cols-4 lg:divide-x" style="min-width:min(100%,640px)">
     <?php
     $cards = [
         ['Per month', money((int) $st['mrr']), 'All active contracts, excl. BTW', 'text-lime'],
@@ -56,36 +56,36 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
     ];
     foreach ($cards as $i => [$label, $value, $note, $tone]): ?>
       <div class="p-5 <?= $i > 1 ? 'border-t border-line lg:border-t-0' : '' ?> <?= $i % 2 === 1 ? 'border-l border-line lg:border-l-0' : '' ?>">
-        <dt class="text-sm font-medium text-soft"><?= e($label) ?></dt>
-        <dd class="mt-1 text-[26px] font-bold leading-none tracking-tight tabular-nums notranslate <?= $tone ?>"><?= e($value) ?></dd>
+        <dt class="text-sm font-semibold text-soft"><?= e($label) ?></dt>
+        <dd class="mt-1 text-2xl font-bold leading-none tracking-tight tabular-nums notranslate <?= $tone ?>"><?= e($value) ?></dd>
         <dd class="mt-2 text-sm text-soft"><?= e($note) ?></dd>
       </div>
     <?php endforeach; ?>
   </dl>
-  <a href="contracts/contract_edit.php" class="pressable inline-flex h-12 items-center gap-2 rounded-xl bg-lime px-5 text-[15px] font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New contract</a>
+  <a href="contracts/contract_edit.php" class="pressable inline-flex h-12 items-center gap-2 rounded-lg bg-lime px-5 text-sm font-bold text-navy hover:brightness-95"><?= icon('plus', 'h-4 w-4') ?>New contract</a>
 </div>
 
 <?php if (!$billing): ?>
-  <p role="note" class="rise mb-4 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-soft">The Invoices module is turned off, so contracts are tracked here but no invoices are made from them.</p>
+  <p role="note" class="rise mb-4 rounded-lg border border-line bg-panel px-4 py-3 text-sm text-soft">The Invoices module is turned off, so contracts are tracked here but no invoices are made from them.</p>
 <?php endif; ?>
 
 <nav class="rise mb-4 flex flex-wrap gap-2" aria-label="Contract status" style="animation-delay:.05s">
   <?php foreach ($filters as $k => $label): $on = $state === $k; ?>
     <a href="<?= e(qs($baseQ, ['state' => $k, 'page' => 1])) ?>" <?= $on ? 'aria-current="true"' : '' ?>
-       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-lime text-navy' : 'border border-line bg-panel hover:bg-butter-50' ?>">
-      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-navy/70' : 'text-soft' ?>"><?= (int) $counts[$k === '' ? 'total' : $k] ?></span>
+       class="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold <?= $on ? 'bg-ink text-ground' : 'border border-line bg-panel hover:bg-butter-50' ?>">
+      <?= e($label) ?><span class="tabular-nums <?= $on ? 'text-ground/70' : 'text-soft' ?>"><?= (int) $counts[$k === '' ? 'total' : $k] ?></span>
     </a>
   <?php endforeach; ?>
 </nav>
 
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel" style="animation-delay:.08s">
-  <form method="get" class="flex flex-wrap items-center gap-3 border-b border-line p-4">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel" style="animation-delay:.08s">
+  <form method="get" data-auto class="flex flex-wrap items-center gap-3 border-b border-line p-4">
     <input type="hidden" name="state" value="<?= e($state) ?>">
     <label class="sr-only" for="q">Search</label>
     <input id="q" name="q" type="search" value="<?= e($q) ?>" placeholder="Number, name or company" class="<?= $field ?> w-full sm:w-64">
     <label class="sr-only" for="company">Company</label>
     <select id="company" name="company" class="<?= $field ?> max-w-[14rem]"><option value="">All companies</option><?php foreach ($companyList as $cid => $cn): ?><option value="<?= (int) $cid ?>" <?= $company === (int) $cid ? 'selected' : '' ?>><?= e($cn) ?></option><?php endforeach; ?></select>
-    <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Apply</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Apply</button>
     <?php if ($q !== '' || $state !== '' || $company > 0): ?><a href="contracts/contracts.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear filters</a><?php endif; ?>
   </form>
   <div class="overflow-x-auto">
@@ -113,11 +113,11 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
           </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-          <tr><td colspan="7" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= (int) $counts['total'] === 0 && $q === '' && $company === 0 ? 'No contracts yet' : 'No contracts match' ?></p><p class="mt-1 text-soft">A contract lists the services of one company and what they cost a month.</p><a href="contracts/contract_edit.php" class="pressable mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy">New contract</a></td></tr>
+          <tr><td colspan="7" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= (int) $counts['total'] === 0 && $q === '' && $company === 0 ? 'No contracts yet' : 'No contracts match' ?></p><p class="mt-1 text-soft">A contract lists the services of one company and what they cost a month.</p><a href="contracts/contract_edit.php" class="pressable mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50">New contract</a></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $baseQ) ?>
+  <?= pagination($total, $per, $page, $baseQ, true) ?>
 </div>
 <?php page_end(); ?>

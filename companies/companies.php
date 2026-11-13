@@ -13,7 +13,7 @@ if ($invoicesOn) { $sorts['invoices'] = 'invoice_count'; }
 $sort = array_key_exists($_GET['sort'] ?? '', $sorts) ? $_GET['sort'] : 'name';
 $dir = ($_GET['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 $page = min(100000, max(1, (int) ($_GET['page'] ?? 1)));
-$per = 15;
+$per = page_size(15);
 
 $where = '';
 $args = [];
@@ -34,15 +34,15 @@ $rows = $rows->fetchAll();
 $base = ['q' => $q, 'sort' => $sort, 'dir' => $dir];
 
 page_start('Companies', 'companies', 'The businesses you serve: their details, people and invoices in one place.');
-$field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
-<div class="rise overflow-hidden rounded-2xl border border-line bg-panel shadow-panel">
-  <form method="get" class="flex flex-wrap items-center gap-3 border-b border-line p-4">
+<div class="rise overflow-hidden rounded-xl border border-line bg-panel shadow-panel">
+  <form method="get" data-auto class="flex flex-wrap items-center gap-3 border-b border-line p-4">
     <label class="sr-only" for="q">Search companies</label>
     <input id="q" name="q" type="search" value="<?= e($q) ?>" placeholder="Name, city, KvK or email" class="<?= $field ?> w-full sm:w-72">
-    <button class="h-11 rounded-xl bg-lime px-5 text-sm font-bold text-navy hover:brightness-95">Search</button>
+    <button class="h-11 rounded-lg border border-line bg-panel px-5 text-sm font-semibold hover:bg-butter-50">Search</button>
     <?php if ($q !== ''): ?><a href="companies/companies.php" class="text-sm font-semibold underline decoration-lime decoration-2 underline-offset-4">Clear search</a><?php endif; ?>
-    <div class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('companies') ?><a href="companies/company_edit.php" class="pressable inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>Add company</a></div>
+    <div class="ml-auto flex flex-wrap gap-2"><?= csv_buttons('companies') ?><a href="companies/company_edit.php" class="pressable inline-flex h-11 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-lime hover:text-navy"><?= icon('plus', 'h-4 w-4') ?>Add company</a></div>
   </form>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[820px] text-left text-sm">
@@ -68,11 +68,11 @@ $field = 'h-11 rounded-xl border border-line bg-panel px-3 text-sm focus:border-
           </tr>
         <?php endforeach; ?>
         <?php if (!$rows): ?>
-          <tr><td colspan="<?= $invoicesOn ? 5 : 4 ?>" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= $q !== '' ? 'No companies match this search' : 'No companies yet' ?></p><p class="mt-1 text-soft"><?= $q !== '' ? 'Try a different name or clear the search.' : 'Add the first one, or load demo data from the Overview.' ?></p><a href="<?= $q !== '' ? 'companies/companies.php' : 'companies/company_edit.php' ?>" class="mt-4 inline-flex h-10 items-center rounded-xl bg-lime px-4 text-sm font-bold text-navy"><?= $q !== '' ? 'Show all companies' : 'Add a company' ?></a></td></tr>
+          <tr><td colspan="<?= $invoicesOn ? 5 : 4 ?>" class="px-4 py-14 text-center"><p class="text-base font-semibold"><?= $q !== '' ? 'No companies match this search' : 'No companies yet' ?></p><p class="mt-1 text-soft"><?= $q !== '' ? 'Try a different name or clear the search.' : 'Add the first one, or load demo data from the Overview.' ?></p><a href="<?= $q !== '' ? 'companies/companies.php' : 'companies/company_edit.php' ?>" class="mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-panel px-4 text-sm font-semibold hover:bg-butter-50"><?= $q !== '' ? 'Show all companies' : 'Add a company' ?></a></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
-  <?= pagination($total, $per, $page, $base) ?>
+  <?= pagination($total, $per, $page, $base, true) ?>
 </div>
 <?php page_end(); ?>

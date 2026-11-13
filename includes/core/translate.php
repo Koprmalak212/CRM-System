@@ -47,15 +47,15 @@ function lang_widget(string $wrapClass = ''): string
     <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-soft">
       <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
     </span>
-    <select id="langSelect" class="h-10 w-28 appearance-none rounded-xl border border-line bg-panel pl-8 pr-7 text-sm font-medium focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime sm:w-48 sm:pl-9 sm:pr-8"><?= $opts ?></select>
+    <select id="langSelect" class="h-10 w-28 appearance-none rounded-lg border border-line bg-panel pl-8 pr-7 text-sm font-semibold focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime sm:w-48 sm:pl-9 sm:pr-8"><?= $opts ?></select>
     <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-soft"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
     <div id="trConsent" hidden role="dialog" aria-modal="false" aria-labelledby="trConsentTitle" aria-describedby="trConsentText"
-         class="absolute right-0 top-12 z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-line bg-panel p-5 text-left shadow-[0_18px_40px_-12px_rgba(0,0,0,.8)]">
+         class="absolute right-0 top-12 z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-panel p-5 text-left shadow-[0_18px_40px_-12px_rgba(0,0,0,.8)]">
       <h2 id="trConsentTitle" class="text-base font-bold">Allow Google to translate this page?</h2>
       <p id="trConsentText" class="mt-2 text-sm leading-relaxed text-soft">Translation is done by Google. To translate, the text of each page is sent to Google, including any names, email addresses and IP addresses shown on it. Google may process it outside the EU. Nothing is sent until you allow it, and you can withdraw at any time from the footer.</p>
       <div class="mt-4 flex gap-2">
-        <button type="button" id="trAllow" class="h-10 flex-1 rounded-xl bg-lime px-4 text-sm font-bold text-navy hover:brightness-95">Allow translation</button>
-        <button type="button" id="trCancel" class="h-10 rounded-xl border border-line px-4 text-sm font-semibold hover:bg-white/5">Cancel</button>
+        <button type="button" id="trAllow" class="h-10 flex-1 rounded-lg bg-lime px-4 text-sm font-bold text-navy hover:brightness-95">Allow translation</button>
+        <button type="button" id="trCancel" class="h-10 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-white/5">Cancel</button>
       </div>
     </div>
   </div>

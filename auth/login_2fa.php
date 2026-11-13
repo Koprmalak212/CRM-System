@@ -44,12 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?= base_tag() ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Two-step sign-in · Telecomlijn Admin</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230BF002'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link rel="icon" type="image/svg+xml" href="<?= asset('assets/img/favicon.svg') ?>">
+<link rel="stylesheet" href="<?= asset('assets/fonts/fonts.css') ?>">
 <?= theme_head() ?>
 <style nonce="<?= csp_nonce() ?>">
 </style>
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="<?= asset('assets/css/app.css') ?>">
 </head>
 <body class="h-full bg-ground font-sans text-ink antialiased">
 <main class="grid min-h-full place-items-center p-6">
@@ -57,16 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?= csrf_field() ?>
     <img src="assets/img/telecomlijn-logo-white.png" alt="Telecomlijn" width="520" height="151" class="logo-on-dark mb-8 h-10 w-auto"><img src="assets/img/telecomlijn-logo-color.png" alt="" aria-hidden="true" width="274" height="79" class="logo-on-light mb-8 h-10 w-auto">
     <h1 class="text-3xl font-bold tracking-tight">Two-step sign-in</h1>
-    <p class="mt-2 text-[15px] text-soft">Open your authenticator app and enter the 6-digit code for Telecomlijn Admin. Lost your phone? Enter one of your recovery codes instead.</p>
-    <?php if ($error): ?><p role="alert" class="mt-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
+    <p class="mt-2 text-sm text-soft">Open your authenticator app and enter the 6-digit code for Telecomlijn Admin. Lost your phone? Enter one of your recovery codes instead.</p>
+    <?php if ($error): ?><p role="alert" class="mt-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]"><?= e($error) ?></p><?php endif; ?>
     <label for="code" class="mt-6 block text-sm font-semibold">Code</label>
     <input id="code" name="code" type="text" inputmode="text" autocomplete="one-time-code" autofocus required maxlength="40" spellcheck="false"
-           class="mt-1.5 h-12 w-full rounded-xl border border-line bg-panel px-4 text-center text-xl tracking-widest focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
-    <button class="mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95">Verify and sign in</button>
+           class="mt-1.5 h-12 w-full rounded-lg border border-line bg-panel px-4 text-center text-xl tracking-widest focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime">
+    <button class="mt-6 h-12 w-full rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95">Verify and sign in</button>
     <p class="mt-5 text-center text-sm"><a href="auth/login.php" class="font-semibold text-soft underline decoration-lime decoration-2 underline-offset-4 hover:text-ink">Back to the password step</a></p>
   </form>
 </main>
-<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-xl border border-line bg-panel hover:bg-ink/10') ?></div>
+<div class="fixed bottom-4 right-4 z-20"><?= theme_toggle_button('grid h-10 w-10 place-items-center rounded-lg border border-line bg-panel hover:bg-ink/10') ?></div>
 <?= theme_toggle_script() ?>
 </body>
 </html>

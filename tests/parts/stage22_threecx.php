@@ -138,7 +138,7 @@ try {
     check(!str_contains(json_encode($e), 'SECRET-22') && !str_contains(json_encode($e), 'apisecret'), 'the log never holds the secret');
     $page = http('GET', "$base/settings/settings.php?tab=connectors", ['jar' => $admin])['body'];
     check(str_contains($page, 'POST 127.0.0.1:3198/api/connect/token') && str_contains($page, 'invalid_client'), 'the Connectors tab shows the log under the connector');
-    check(preg_match('/<details class="mt-4 rounded-xl border border-line" open>/', $page) === 1, 'and opens it by itself when the last result was a failure');
+    check(preg_match('/<details class="mt-4 rounded-lg border border-line" open>/', $page) === 1, 'and opens it by itself when the last result was a failure');
     $post($admin, 'settings/settings.php?tab=connectors', ['secret' => 'apisecret'] + $form22, 'settings/settings.php?tab=connectors');
     $e = $pdo->query("SELECT * FROM connector_log WHERE provider = 'threecx' ORDER BY id DESC LIMIT 1")->fetch();
     check($e['state'] === 'ok' && str_contains((string) $e['detail'], 'xapi/v1/CallHistoryView') && str_contains((string) $e['detail'], 'HTTP 200'), 'a good test is logged too, down to the call-history request');

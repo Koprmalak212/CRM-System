@@ -41,12 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $companies = $pdo->query('SELECT * FROM companies ORDER BY name')->fetchAll();
 page_start($quote ? 'Edit quote' : 'New quote', 'quotes', $quote ? $quote['number'] . ' · ' . $quote['customer'] : 'Add the customer and what you offer. The quote starts as a draft.');
-$field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
+$field = 'h-11 w-full rounded-lg border border-line bg-panel px-3 text-sm focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime';
 ?>
 <a href="<?= $quote ? 'quotes/quote.php?id=' . $id : 'quotes/quotes.php' ?>" class="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-soft hover:text-ink"><?= icon('left', 'h-4 w-4') ?><?= $quote ? 'Back to the quote' : 'All quotes' ?></a>
 
 <?php if ($errors): ?>
-  <div role="alert" class="mb-6 rounded-xl bg-[#FFD3CC] px-4 py-3 text-sm font-medium text-[#7E160A]">
+  <div role="alert" class="mb-6 rounded-lg bg-[#FFD3CC] px-4 py-3 text-sm font-semibold text-[#7E160A]">
     <p class="font-semibold">This quote can not be saved yet:</p>
     <ul class="mt-1 list-disc pl-5"><?php foreach ($errors as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul>
   </div>
@@ -54,7 +54,7 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
 
 <form method="post" id="quoteForm" class="grid items-start gap-6 xl:grid-cols-[1.7fr_1fr]" novalidate><?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
   <div class="space-y-6">
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="cust-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" aria-labelledby="cust-h">
       <h2 id="cust-h" class="text-lg font-bold tracking-tight">Customer</h2>
       <div class="mt-4 grid gap-4 sm:grid-cols-2">
         <div class="sm:col-span-2"><label for="company_id" class="text-sm font-semibold">Company <span class="font-normal text-soft">(optional: fills in the fields below)</span></label>
@@ -75,14 +75,14 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
       </div>
     </section>
 
-    <section class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="lines-h">
+    <section class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6" style="animation-delay:.05s" aria-labelledby="lines-h">
       <?= lines_fields($lines, 'Unit price (€)', 'e.g. VoIP seat, 3CX (per user per month)') ?>
       <div class="mt-5"><label for="notes" class="text-sm font-semibold">Note on the quote <span class="font-normal text-soft">(required when BTW is 0%: state the reason)</span></label>
         <input id="notes" name="notes" maxlength="500" value="<?= e($old['notes']) ?>" class="<?= $field ?> mt-1.5"></div>
     </section>
   </div>
 
-  <aside class="rise rounded-2xl border border-line bg-panel p-5 shadow-panel sm:p-6 xl:sticky xl:top-24" style="animation-delay:.1s" aria-labelledby="sum-h">
+  <aside class="rise rounded-xl border border-line bg-panel p-5 shadow-panel sm:p-6 xl:sticky xl:top-24" style="animation-delay:.1s" aria-labelledby="sum-h">
     <h2 id="sum-h" class="text-lg font-bold tracking-tight">Summary</h2>
     <div class="mt-4"><label for="vat" class="text-sm font-semibold">BTW rate</label>
       <select id="vat" name="vat" class="<?= $field ?> mt-1.5"><?php foreach (['21' => '21% (standard)', '9' => '9% (reduced)', '0' => '0% (exempt)'] as $v => $l): ?><option value="<?= $v ?>" <?= $old['vat'] === (string) $v ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
@@ -91,7 +91,7 @@ $field = 'h-11 w-full rounded-xl border border-line bg-panel px-3 text-sm focus:
       <div class="flex justify-between"><dt class="text-soft">BTW <span id="vatPct">21</span>%</dt><dd id="vatOut" class="font-semibold tabular-nums">€ 0,00</dd></div>
       <div class="flex justify-between border-t border-line pt-3 text-base"><dt class="font-bold">Total</dt><dd id="totOut" class="text-xl font-bold tabular-nums text-lime">€ 0,00</dd></div>
     </dl>
-    <button class="pressable mt-6 h-12 w-full rounded-xl bg-lime text-[15px] font-bold text-navy hover:brightness-95"><?= $quote ? 'Save quote' : 'Create quote' ?></button>
+    <button class="pressable mt-6 h-12 w-full rounded-lg bg-lime text-sm font-bold text-navy hover:brightness-95"><?= $quote ? 'Save quote' : 'Create quote' ?></button>
     <p class="mt-3 text-center text-xs text-soft">Download the PDF from the quote page and mark it as sent.</p>
   </aside>
 </form>
